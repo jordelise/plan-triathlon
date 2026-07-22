@@ -3,6 +3,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Plan Triathlon M — 11 octobre</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap');
@@ -25,7 +26,56 @@ body{
   font-family:'IBM Plex Sans', sans-serif;
   -webkit-font-smoothing:antialiased;
 }
-.wrap{max-width:980px;margin:0 auto;padding:28px 20px 60px;}
+.wrap{max-width:980px;margin:0 auto;padding:20px 14px 100px;}
+@media(min-width:640px){.wrap{padding:28px 20px 100px;}}
+body{font-size:16px;}
+
+/* ---------- APP NAV ---------- */
+.mainnav-radio{display:none;}
+.mainpanel{display:none;}
+#m1:checked ~ .wrap #mp-home,
+#m2:checked ~ .wrap #mp-plan,
+#m3:checked ~ .wrap #mp-zones{display:block;}
+
+.bottom-nav{
+  position:fixed;
+  left:0;right:0;bottom:0;
+  display:flex;
+  background:var(--ink);
+  border-top:1px solid rgba(241,236,223,0.15);
+  padding:6px 6px calc(6px + env(safe-area-inset-bottom));
+  z-index:50;
+}
+@media(min-width:640px){
+  .bottom-nav{max-width:980px;left:50%;transform:translateX(-50%);border-radius:16px 16px 0 0;}
+}
+.nav-item{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:2px;
+  padding:8px 4px;
+  color:var(--paper);
+  opacity:.55;
+  font-family:'Oswald',sans-serif;
+  font-size:11px;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  cursor:pointer;
+  border-radius:10px;
+  transition:opacity .15s ease, background .15s ease;
+  -webkit-tap-highlight-color:transparent;
+}
+.nav-icon{font-size:20px;line-height:1;}
+.nav-label{line-height:1;}
+#m1:checked ~ .bottom-nav label[for="m1"],
+#m2:checked ~ .bottom-nav label[for="m2"],
+#m3:checked ~ .bottom-nav label[for="m3"]{
+  opacity:1;
+  background:rgba(241,236,223,0.12);
+  color:var(--coral);
+}
 
 /* ---------- HERO / BIB ---------- */
 .bib{
@@ -87,12 +137,14 @@ body{
 .splits{
   margin-top:26px;
   display:grid;
-  grid-template-columns:repeat(4,1fr);
+  grid-template-columns:1fr;
   gap:1px;
   background:rgba(241,236,223,0.16);
   border-radius:12px;
   overflow:hidden;
 }
+@media(min-width:560px){.splits{grid-template-columns:repeat(2,1fr);}}
+@media(min-width:860px){.splits{grid-template-columns:repeat(4,1fr);}}
 .split{
   background:var(--ink);
   padding:16px 14px;
@@ -465,7 +517,14 @@ details[open] .chevron{transform:rotate(180deg);}
 </style>
 </head>
 <body>
+
+<input type="radio" name="mainnav" id="m1" class="mainnav-radio" checked>
+<input type="radio" name="mainnav" id="m2" class="mainnav-radio">
+<input type="radio" name="mainnav" id="m3" class="mainnav-radio">
+
 <div class="wrap">
+
+<div class="mainpanel" id="mp-home">
 
   <!-- HERO BIB -->
   <div class="bib">
@@ -527,6 +586,10 @@ details[open] .chevron{transform:rotate(180deg);}
       </ul>
     </div>
   </div>
+
+</div>
+
+<div class="mainpanel" id="mp-plan">
 
   <!-- TIMELINE -->
   <div class="section-title">Les 11 semaines</div>
@@ -750,6 +813,11 @@ details[open] .chevron{transform:rotate(180deg);}
     </div>
   </div>
 
+
+</div>
+
+<div class="mainpanel" id="mp-zones">
+
   <div class="section-title">Zoom — allures course &amp; vélo</div>
   <div class="zones">
     <div class="zone-card">
@@ -809,8 +877,16 @@ details[open] .chevron{transform:rotate(180deg);}
     </div>
   </div>
 
+</div>
+
   <div class="footnote">Plan Triathlon M · 21 juillet → 11 octobre · 11 semaines, 4 phases</div>
 </div>
+
+<nav class="bottom-nav">
+  <label for="m1" class="nav-item"><span class="nav-icon">🏠</span><span class="nav-label">Accueil</span></label>
+  <label for="m2" class="nav-item"><span class="nav-icon">📅</span><span class="nav-label">Plan</span></label>
+  <label for="m3" class="nav-item"><span class="nav-icon">📊</span><span class="nav-label">Allures</span></label>
+</nav>
 
 <script>
 (function(){
