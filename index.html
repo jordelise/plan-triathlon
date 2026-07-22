@@ -207,6 +207,88 @@ body{font-size:16px;}
   color:var(--ink);
   margin:4px 0 8px;
 }
+.home-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  flex-wrap:nowrap;
+  gap:10px;
+  margin-bottom:16px;
+}
+.home-header .home-title{
+  margin:0;
+  color:var(--ink);
+  text-transform:uppercase;
+  font-size:clamp(28px,9vw,58px);
+  line-height:0.95;
+  min-width:0;
+  flex:1;
+}
+.home-header .bib-date{
+  flex-shrink:0;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  text-align:right;
+}
+.home-header .bib-date .d{font-size:clamp(24px,6vw,38px);}
+.home-header .bib-date .m{font-size:13px;}
+
+/* ---------- PLAN PROGRESS ---------- */
+.progress-card{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:16px 18px;
+  margin-bottom:24px;
+}
+.progress-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-bottom:10px;
+}
+.progress-head .pg-title{
+  font-family:'Oswald',sans-serif;
+  font-size:13px;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--tarmac);
+}
+.progress-head .pg-values{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:12.5px;
+  color:var(--tarmac);
+}
+.progress-head .pg-values b{color:var(--ink);font-weight:600;}
+.progress-track{
+  position:relative;
+  height:14px;
+  border-radius:8px;
+  background:var(--paper-2);
+  overflow:hidden;
+}
+.progress-fill{
+  position:absolute;
+  top:0;left:0;
+  height:100%;
+  border-radius:8px;
+  transition:width .4s ease;
+}
+.progress-fill.expected{background:var(--sand);}
+.progress-fill.actual{background:var(--ink);z-index:2;}
+.progress-legend{
+  display:flex;
+  gap:18px;
+  flex-wrap:wrap;
+  font-size:12px;
+  color:var(--tarmac);
+  margin-top:10px;
+}
+.progress-legend span{display:flex;align-items:center;gap:6px;}
+.progress-legend .dot{width:9px;height:9px;border-radius:2px;display:inline-block;}
 
 /* ---------- SECTION TITLES ---------- */
 .section-title{
@@ -573,19 +655,18 @@ details[open] .chevron{transform:rotate(180deg);}
 
 <div class="mainpanel" id="mp-home">
 
+  <!-- HOME HEADER -->
+  <div class="home-header">
+    <div class="bib-title home-title">Triathlon <em>de la Baie</em></div>
+    <div class="bib-date">
+      <div class="d">11</div>
+      <div class="m">Octobre</div>
+    </div>
+  </div>
+
   <!-- HERO BIB -->
   <div class="bib">
-    <div class="bib-top">
-      <div>
-        <div class="bib-eyebrow">Objectifs visés</div>
-        <div class="bib-title">TRIATHLON <em>M</em></div>
-      </div>
-      <div class="bib-date">
-        <div class="d">11</div>
-        <div class="m">Octobre</div>
-        <div class="bib-countdown">11 semaines de préparation</div>
-      </div>
-    </div>
+    <div class="bib-eyebrow">Objectifs visés</div>
     <div class="splits">
       <div class="split">
         <div class="icon swim-c">🏊</div>
@@ -607,7 +688,7 @@ details[open] .chevron{transform:rotate(180deg);}
       </div>
       <div class="split total">
         <div class="icon">🏁</div>
-        <div class="label">Total visé</div>
+        <div class="label">Total</div>
         <div class="val">≈ 3h00</div>
         <div class="label">avec transitions</div>
       </div>
@@ -639,6 +720,22 @@ details[open] .chevron{transform:rotate(180deg);}
 <div class="mainpanel" id="mp-plan">
 
   <div class="page-title">Plan</div>
+
+  <!-- PROGRESS -->
+  <div class="progress-card">
+    <div class="progress-head">
+      <span class="pg-title">Progression</span>
+      <span class="pg-values"><b id="progress-actual-val">0%</b> réalisé · <b id="progress-expected-val">0%</b> prévu</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill expected" id="progress-expected-fill" style="width:0%"></div>
+      <div class="progress-fill actual" id="progress-actual-fill" style="width:0%"></div>
+    </div>
+    <div class="progress-legend">
+      <span><span class="dot" style="background:var(--sand)"></span>Prévu</span>
+      <span><span class="dot" style="background:var(--ink)"></span>Réalisé</span>
+    </div>
+  </div>
 
   <!-- TIMELINE -->
   <div class="section-title">Les 11 semaines</div>
@@ -978,6 +1075,26 @@ details[open] .chevron{transform:rotate(180deg);}
   function refreshAll(){
     checkboxes.forEach(refreshCard);
     document.querySelectorAll('.week-block').forEach(refreshWeek);
+    refreshProgress();
+  }
+
+  function refreshProgress(){
+    const start = new Date('2026-07-21T00:00:00');
+    const end = new Date('2026-10-11T00:00:00');
+    const now = new Date();
+    const expectedPct = Math.max(0, Math.min(100, (now - start) / (end - start) * 100));
+    const done = checkboxes.filter(cb => cb.checked).length;
+    const actualPct = checkboxes.length ? (done / checkboxes.length * 100) : 0;
+
+    const expectedFill = document.getElementById('progress-expected-fill');
+    const actualFill = document.getElementById('progress-actual-fill');
+    const expectedVal = document.getElementById('progress-expected-val');
+    const actualVal = document.getElementById('progress-actual-val');
+
+    if (expectedFill) expectedFill.style.width = expectedPct + '%';
+    if (actualFill) actualFill.style.width = actualPct + '%';
+    if (expectedVal) expectedVal.textContent = Math.round(expectedPct) + '%';
+    if (actualVal) actualVal.textContent = Math.round(actualPct) + '%';
   }
 
   function loadState(){
@@ -996,6 +1113,7 @@ details[open] .chevron{transform:rotate(180deg);}
     cb.addEventListener('change', () => {
       refreshCard(cb);
       refreshWeek(weekBlockOf(cb));
+      refreshProgress();
       const key = 'tri-session:' + cb.dataset.key;
       try {
         localStorage.setItem(key, cb.checked ? 'true' : 'false');
