@@ -124,6 +124,7 @@ body{font-size:16px;}
 .bib-date{
   text-align:right;
   font-family:'Oswald',sans-serif;
+  margin-left:auto;
 }
 .bib-date .d{font-size:38px;font-weight:700;color:var(--coral);line-height:1;}
 .bib-date .m{font-size:13px;letter-spacing:.14em;text-transform:uppercase;opacity:.75;}
@@ -403,6 +404,7 @@ body{font-size:16px;}
 }
 @media(max-width:700px){.zones{grid-template-columns:1fr;}}
 .zone-card{
+  position:relative;
   background:#fff;
   border:1px solid var(--line);
   border-radius:14px;
@@ -417,6 +419,26 @@ body{font-size:16px;}
   display:flex;
   align-items:center;
   gap:8px;
+}
+.info-toggle{display:none;}
+.info-icon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:18px;height:18px;
+  border-radius:50%;
+  background:var(--paper-2);
+  color:var(--tarmac);
+  font-family:'IBM Plex Mono',monospace;
+  font-size:12px;
+  text-transform:none;
+  letter-spacing:0;
+  cursor:pointer;
+  flex-shrink:0;
+}
+.info-toggle:checked ~ h3 .info-icon{
+  background:var(--ink);
+  color:var(--paper);
 }
 .zone-card .sub{font-size:12px;color:var(--tarmac);opacity:.75;margin-bottom:12px;}
 .zone-row{
@@ -441,14 +463,21 @@ body{font-size:16px;}
 .run-row .zone-val{color:var(--coral);}
 .bike-row .zone-val{color:var(--pool);}
 .zone-note{
-  margin-top:10px;
-  font-size:11.5px;
-  color:var(--tarmac);
-  opacity:.8;
+  display:none;
+  position:absolute;
+  top:46px;
+  left:20px;
+  right:20px;
+  z-index:20;
+  background:var(--ink);
+  color:var(--paper);
+  border-radius:10px;
+  padding:12px 14px;
+  font-size:12px;
   line-height:1.5;
-  border-top:1px dashed var(--line);
-  padding-top:10px;
+  box-shadow:0 10px 28px rgba(22,41,43,0.28);
 }
+.info-toggle:checked ~ .zone-note{display:block;}
 
 .week-block{margin-bottom:24px;}
 .week-block:last-of-type{margin-bottom:16px;}
@@ -530,13 +559,13 @@ details[open] .chevron{transform:rotate(180deg);}
   <div class="bib">
     <div class="bib-top">
       <div>
-        <div class="bib-eyebrow">Course d'endurance · Format M</div>
+        <div class="bib-eyebrow">Objectifs visés</div>
         <div class="bib-title">TRIATHLON <em>M</em></div>
       </div>
       <div class="bib-date">
         <div class="d">11</div>
-        <div class="m">Octobre · Jour J</div>
-        <div class="bib-countdown">11 semaines de préparation — départ le 21 juillet</div>
+        <div class="m">Octobre</div>
+        <div class="bib-countdown">11 semaines de préparation</div>
       </div>
     </div>
     <div class="splits">
@@ -821,7 +850,9 @@ details[open] .chevron{transform:rotate(180deg);}
   <div class="section-title">Zoom — allures course &amp; vélo</div>
   <div class="zones">
     <div class="zone-card">
-      <h3>🏃 Course à pied</h3>
+      <input type="checkbox" class="info-toggle" id="info-course">
+      <h3>🏃 Course à pied <label for="info-course" class="info-icon">i</label></h3>
+      <div class="zone-note">Ton 10 km (5'12/km) tombe pile à la limite Z3/Z4, et ton semi (5'21/km) en plein Z3 — cohérent avec tes zones Strava. Ton marathon (6'49/km) est même un peu plus lent que ta Z2 : les 25 min allure semi et le 6×1000 restent donc les blocs qui vont le plus muscler ton seuil.</div>
       <div class="sub">Zones Strava + tes chronos récents (10k 51'58, semi 1h52'47)</div>
 
       <div class="zone-row run-row">
@@ -845,11 +876,12 @@ details[open] .chevron{transform:rotate(180deg);}
         <div class="zone-val">4'32 – 4'49 /km</div>
       </div>
 
-      <div class="zone-note">Ton 10 km (5'12/km) tombe pile à la limite Z3/Z4, et ton semi (5'21/km) en plein Z3 — cohérent avec tes zones Strava. Ton marathon (6'49/km) est même un peu plus lent que ta Z2 : les 25 min allure semi et le 6×1000 restent donc les blocs qui vont le plus muscler ton seuil.</div>
     </div>
 
     <div class="zone-card">
-      <h3>🚴 Vélo</h3>
+      <input type="checkbox" class="info-toggle" id="info-bike">
+      <h3>🚴 Vélo <label for="info-bike" class="info-icon">i</label></h3>
+      <div class="zone-note">Écart volontaire : ton seuil testé (24-24,5 km/h) est nettement en dessous des allures visées en intervalles (27-29 km/h) et en course (28 km/h). C'est exactement l'écart de +3 à +4 km/h que la Phase 1 doit combler — les séances qualité vont plus vite que ton niveau actuel pour le tirer vers le haut. Pas de watts/FTP renseignés, donc repères en vitesse.</div>
       <div class="sub">Repères en vitesse, calés sur ton test 20 km (46'25, 24,2 km/h)</div>
 
       <div class="zone-row bike-row">
@@ -872,14 +904,11 @@ details[open] .chevron{transform:rotate(180deg);}
         <div><div class="zone-name">Répétitions courtes</div><div class="zone-use">3×5 min — semaine d'affûtage</div></div>
         <div class="zone-val">29 – 31 km/h</div>
       </div>
-
-      <div class="zone-note">Écart volontaire : ton seuil testé (24-24,5 km/h) est nettement en dessous des allures visées en intervalles (27-29 km/h) et en course (28 km/h). C'est exactement l'écart de +3 à +4 km/h que la Phase 1 doit combler — les séances qualité vont plus vite que ton niveau actuel pour le tirer vers le haut. Pas de watts/FTP renseignés, donc repères en vitesse.</div>
     </div>
   </div>
 
 </div>
 
-  <div class="footnote">Plan Triathlon M · 21 juillet → 11 octobre · 11 semaines, 4 phases</div>
 </div>
 
 <nav class="bottom-nav">
