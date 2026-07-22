@@ -234,6 +234,48 @@ body{font-size:16px;}
 .home-header .bib-date .d{font-size:clamp(24px,6vw,38px);}
 .home-header .bib-date .m{font-size:13px;}
 
+/* ---------- COUNTDOWN ---------- */
+.countdown{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  background:var(--paper-2);
+  border-radius:12px;
+  padding:12px 16px;
+  margin-bottom:16px;
+}
+.countdown-label{
+  font-family:'Oswald',sans-serif;
+  font-size:12px;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--tarmac);
+}
+.countdown-timer{
+  display:flex;
+  gap:14px;
+}
+.countdown-unit{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
+.countdown-val{
+  font-family:'IBM Plex Mono',monospace;
+  font-weight:600;
+  font-size:clamp(16px,4vw,22px);
+  color:var(--coral);
+  line-height:1;
+}
+.countdown-unit-label{
+  font-size:9.5px;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--tarmac);
+  margin-top:3px;
+}
+
 /* ---------- PLAN PROGRESS ---------- */
 .progress-card{
   background:#fff;
@@ -661,6 +703,17 @@ details[open] .chevron{transform:rotate(180deg);}
     <div class="bib-date">
       <div class="d">11</div>
       <div class="m">Octobre</div>
+    </div>
+  </div>
+
+  <!-- COUNTDOWN -->
+  <div class="countdown">
+    <span class="countdown-label">Départ dans</span>
+    <div class="countdown-timer">
+      <div class="countdown-unit"><span class="countdown-val" id="cd-days">--</span><span class="countdown-unit-label">jours</span></div>
+      <div class="countdown-unit"><span class="countdown-val" id="cd-hours">--</span><span class="countdown-unit-label">h</span></div>
+      <div class="countdown-unit"><span class="countdown-val" id="cd-mins">--</span><span class="countdown-unit-label">min</span></div>
+      <div class="countdown-unit"><span class="countdown-val" id="cd-secs">--</span><span class="countdown-unit-label">sec</span></div>
     </div>
   </div>
 
@@ -1124,6 +1177,25 @@ details[open] .chevron{transform:rotate(180deg);}
   });
 
   loadState();
+
+  function updateCountdown(){
+    const target = new Date('2026-10-11T10:00:00');
+    const now = new Date();
+    let diff = Math.max(0, target - now);
+
+    const days = Math.floor(diff / 86400000); diff -= days * 86400000;
+    const hours = Math.floor(diff / 3600000); diff -= hours * 3600000;
+    const mins = Math.floor(diff / 60000); diff -= mins * 60000;
+    const secs = Math.floor(diff / 1000);
+
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = String(val).padStart(2, '0'); };
+    set('cd-days', days);
+    set('cd-hours', hours);
+    set('cd-mins', mins);
+    set('cd-secs', secs);
+  }
+  updateCountdown();
+  setInterval(updateCountdown, 1000);
 })();
 </script>
 </body>
