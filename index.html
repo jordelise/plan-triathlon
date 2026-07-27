@@ -363,7 +363,16 @@ summary.section-title::marker{content:"";}
   margin-top:6px;
   padding:0 4px;
 }
-.timeline-legend span{display:flex;align-items:center;gap:6px;}
+@media(max-width:640px){
+  .timeline-legend{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:6px 10px;
+    font-size:10.5px;
+  }
+}
+.timeline-legend span{display:flex;align-items:flex-start;gap:6px;}
+.timeline-legend .dot{margin-top:3px;flex-shrink:0;}
 .dot{width:9px;height:9px;border-radius:2px;display:inline-block;}
 
 /* ---------- PHASE SECTIONS (sticky headers) ---------- */
