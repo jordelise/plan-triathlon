@@ -4,8 +4,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" type="image/png" href="icon.png">
-<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" type="image/png" href="/icon.png">
+<link rel="apple-touch-icon" href="/icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Triathlon de la Baie">
@@ -720,9 +720,58 @@ details[open] .chevron{transform:rotate(180deg);}
   text-align:center;
   opacity:.7;
 }
+
+/* ---------- AUTH ---------- */
+.wrap, .bottom-nav{display:none;}
+body.authed .wrap{display:block;}
+body.authed .bottom-nav{display:flex;}
+body.authed .auth-screen{display:none;}
+.auth-screen{
+  position:fixed;inset:0;z-index:200;
+  background:var(--paper);
+  display:flex;align-items:center;justify-content:center;
+  padding:20px;
+}
+.auth-card{
+  max-width:360px;width:100%;
+  background:#fff;
+  border-radius:16px;
+  padding:28px 26px;
+  border:1px solid var(--line);
+  text-align:center;
+}
+.auth-card h1{font-family:'Oswald',sans-serif;font-size:24px;margin:0 0 8px;}
+.auth-card p{font-size:14px;color:var(--tarmac);margin:0 0 18px;}
+.auth-card form{display:flex;flex-direction:column;gap:10px;}
+.auth-card input{padding:10px 12px;border-radius:8px;border:1px solid var(--line);font-size:15px;font-family:inherit;}
+.auth-card button{padding:10px 12px;border-radius:8px;border:none;background:var(--coral);color:#fff;font-family:'Oswald',sans-serif;letter-spacing:.04em;text-transform:uppercase;font-size:13px;cursor:pointer;}
+.auth-card button:disabled{opacity:.6;cursor:default;}
+.auth-message{font-size:13px;margin-top:12px;color:var(--tarmac);min-height:16px;}
+.signout-btn{
+  position:fixed;top:10px;right:10px;z-index:60;
+  background:rgba(22,41,43,0.85);color:var(--paper);
+  border:none;border-radius:20px;
+  padding:6px 12px;font-size:11px;
+  font-family:'IBM Plex Sans',sans-serif;
+  cursor:pointer;
+}
 </style>
 </head>
 <body>
+
+<div class="auth-screen" id="auth-screen">
+  <div class="auth-card">
+    <h1>Triathlon <em>de la Baie</em></h1>
+    <p>Connecte-toi pour suivre ta progression.</p>
+    <form id="auth-form">
+      <input type="email" id="auth-email" placeholder="ton@email.com" required autocomplete="email">
+      <button type="submit" id="auth-submit">Recevoir le lien de connexion</button>
+    </form>
+    <p class="auth-message" id="auth-message"></p>
+  </div>
+</div>
+
+<button class="signout-btn" id="signout-btn" hidden>Se déconnecter</button>
 
 <input type="radio" name="mainnav" id="m1" class="mainnav-radio" checked>
 <input type="radio" name="mainnav" id="m2" class="mainnav-radio">
@@ -1183,98 +1232,6 @@ details[open] .chevron{transform:rotate(180deg);}
   </label>
 </nav>
 
-<script>
-(function(){
-  const checkboxes = Array.from(document.querySelectorAll('.session-check'));
-
-  function cardOf(cb){ return cb.closest('.wcard, .reinf'); }
-  function weekBlockOf(cb){ return cb.closest('.week-block'); }
-
-  function refreshCard(cb){
-    const card = cardOf(cb);
-    if (card) card.classList.toggle('done', cb.checked);
-  }
-
-  function refreshWeek(block){
-    if (!block) return;
-    const boxes = block.querySelectorAll('.session-check');
-    const done = Array.from(boxes).filter(b => b.checked).length;
-    const el = block.querySelector('.wc-done');
-    if (el) el.textContent = done;
-  }
-
-  function refreshAll(){
-    checkboxes.forEach(refreshCard);
-    document.querySelectorAll('.week-block').forEach(refreshWeek);
-    refreshProgress();
-  }
-
-  function refreshProgress(){
-    const start = new Date('2026-07-21T00:00:00');
-    const end = new Date('2026-10-11T00:00:00');
-    const now = new Date();
-    const expectedPct = Math.max(0, Math.min(100, (now - start) / (end - start) * 100));
-    const done = checkboxes.filter(cb => cb.checked).length;
-    const actualPct = checkboxes.length ? (done / checkboxes.length * 100) : 0;
-
-    const expectedFill = document.getElementById('progress-expected-fill');
-    const actualFill = document.getElementById('progress-actual-fill');
-    const expectedVal = document.getElementById('progress-expected-val');
-    const actualVal = document.getElementById('progress-actual-val');
-
-    if (expectedFill) expectedFill.style.width = expectedPct + '%';
-    if (actualFill) actualFill.style.width = actualPct + '%';
-    if (expectedVal) expectedVal.textContent = Math.round(expectedPct) + '%';
-    if (actualVal) actualVal.textContent = Math.round(actualPct) + '%';
-  }
-
-  function loadState(){
-    checkboxes.forEach(cb => {
-      const key = 'tri-session:' + cb.dataset.key;
-      try {
-        if (localStorage.getItem(key) === 'true') cb.checked = true;
-      } catch (e) {
-        // localStorage indisponible (mode privé, etc.)
-      }
-    });
-    refreshAll();
-  }
-
-  checkboxes.forEach(cb => {
-    cb.addEventListener('change', () => {
-      refreshCard(cb);
-      refreshWeek(weekBlockOf(cb));
-      refreshProgress();
-      const key = 'tri-session:' + cb.dataset.key;
-      try {
-        localStorage.setItem(key, cb.checked ? 'true' : 'false');
-      } catch (e) {
-        console.error('Erreur de sauvegarde', e);
-      }
-    });
-  });
-
-  loadState();
-
-  function updateCountdown(){
-    const target = new Date('2026-10-11T10:00:00');
-    const now = new Date();
-    let diff = Math.max(0, target - now);
-
-    const days = Math.floor(diff / 86400000); diff -= days * 86400000;
-    const hours = Math.floor(diff / 3600000); diff -= hours * 3600000;
-    const mins = Math.floor(diff / 60000); diff -= mins * 60000;
-    const secs = Math.floor(diff / 1000);
-
-    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = String(val).padStart(2, '0'); };
-    set('cd-days', days);
-    set('cd-hours', hours);
-    set('cd-mins', mins);
-    set('cd-secs', secs);
-  }
-  updateCountdown();
-  setInterval(updateCountdown, 1000);
-})();
-</script>
+<script type="module" src="/src/main.js"></script>
 </body>
 </html>
