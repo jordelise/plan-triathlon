@@ -1,6 +1,72 @@
 import { supabase } from './supabaseClient.js';
 
-const checkboxes = Array.from(document.querySelectorAll('.session-check'));
+const WEEK_LABEL_OVERRIDES = { 11: 'Semaine S11 — dernière semaine' };
+
+function escapeHtml(str){
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function sessionCardHtml(s){
+  const tagHtml = s.tag ? `<span class="tag">${escapeHtml(s.tag)}</span>` : '';
+  const segsHtml = (s.segments || [])
+    .map(seg => `<span class="seg"><b class="seg-label">${escapeHtml(seg.label)}</b> ${seg.text}</span>`)
+    .join('');
+  const altHtml = s.alt_note ? `<div class="alt">${s.alt_note}</div>` : '';
+
+  return `<div class="wcard ${s.discipline}"><div class="wc-head"><span class="wc-title">${s.icon} ${escapeHtml(s.title)} ${tagHtml}</span><label class="wc-check"><input type="checkbox" class="session-check" data-key="${s.session_key}"${s.done ? ' checked' : ''}></label></div><p>${segsHtml}</p>${altHtml}</div>`;
+}
+
+function weekBlockHtml(weekNumber, sessions, isOpen){
+  const label = WEEK_LABEL_OVERRIDES[weekNumber] || `Semaine S${weekNumber}`;
+  const doneCount = sessions.filter(s => s.done).length;
+
+  return `<details class="week-block" data-week="wk${weekNumber}"${isOpen ? ' open' : ''}><summary class="week-heading"><span>${label}</span><span class="week-right"><span class="week-count"><span class="wc-done">${doneCount}</span>/${sessions.length}</span><svg class="chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span></summary><div class="week-grid">${sessions.map(sessionCardHtml).join('')}</div></details>`;
+}
+
+async function loadAndRenderSessions(){
+  const { data, error } = await supabase
+    .from('plan_session_completions')
+    .select('*')
+    .order('week_number', { ascending: true })
+    .order('order_index', { ascending: true });
+
+  if (error) {
+    console.error('Erreur de chargement', error);
+    return;
+  }
+
+  const byPhase = new Map();
+  for (const row of data) {
+    if (!byPhase.has(row.phase)) byPhase.set(row.phase, new Map());
+    const weeks = byPhase.get(row.phase);
+    if (!weeks.has(row.week_number)) weeks.set(row.week_number, []);
+    weeks.get(row.week_number).push(row);
+  }
+
+  document.querySelectorAll('.week-list').forEach(container => {
+    const phase = Number(container.dataset.phase);
+    const weeks = byPhase.get(phase);
+    if (!weeks) return;
+    const weekNumbers = Array.from(weeks.keys()).sort((a, b) => a - b);
+    container.innerHTML = weekNumbers
+      .map((wn, i) => weekBlockHtml(wn, weeks.get(wn), i === 0))
+      .join('');
+  });
+
+  attachCheckboxHandlers();
+  refreshProgress();
+}
+
+function attachCheckboxHandlers(){
+  document.querySelectorAll('.session-check').forEach(cb => {
+    cb.addEventListener('change', () => {
+      refreshCard(cb);
+      refreshWeek(weekBlockOf(cb));
+      refreshProgress();
+      saveCompletion(cb.dataset.key, cb.checked);
+    });
+  });
+}
 
 function cardOf(cb){ return cb.closest('.wcard, .reinf'); }
 function weekBlockOf(cb){ return cb.closest('.week-block'); }
@@ -23,6 +89,8 @@ function refreshProgress(){
   const end = new Date('2026-10-11T00:00:00');
   const now = new Date();
   const expectedPct = Math.max(0, Math.min(100, (now - start) / (end - start) * 100));
+
+  const checkboxes = Array.from(document.querySelectorAll('.session-check'));
   const done = checkboxes.filter(cb => cb.checked).length;
   const actualPct = checkboxes.length ? (done / checkboxes.length * 100) : 0;
 
@@ -37,50 +105,16 @@ function refreshProgress(){
   if (actualVal) actualVal.textContent = Math.round(actualPct) + '%';
 }
 
-function refreshAll(){
-  checkboxes.forEach(refreshCard);
-  document.querySelectorAll('.week-block').forEach(refreshWeek);
-  refreshProgress();
-}
-
-async function loadCompletions(){
-  const { data, error } = await supabase
-    .from('plan_session_completions')
-    .select('session_key, done');
-
-  if (error) {
-    console.error('Erreur de chargement', error);
-    return;
-  }
-
-  const doneKeys = new Set(data.filter(row => row.done).map(row => row.session_key));
-  checkboxes.forEach(cb => {
-    cb.checked = doneKeys.has(cb.dataset.key);
-  });
-  refreshAll();
-}
-
 async function saveCompletion(sessionKey, done){
   const { error } = await supabase
     .from('plan_session_completions')
-    .upsert(
-      { session_key: sessionKey, done, updated_at: new Date().toISOString() },
-      { onConflict: 'session_key' }
-    );
+    .update({ done, updated_at: new Date().toISOString() })
+    .eq('session_key', sessionKey);
 
   if (error) console.error('Erreur de sauvegarde', error);
 }
 
-checkboxes.forEach(cb => {
-  cb.addEventListener('change', () => {
-    refreshCard(cb);
-    refreshWeek(weekBlockOf(cb));
-    refreshProgress();
-    saveCompletion(cb.dataset.key, cb.checked);
-  });
-});
-
-loadCompletions();
+loadAndRenderSessions();
 
 function updateCountdown(){
   const target = new Date('2026-10-11T10:00:00');

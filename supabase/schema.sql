@@ -1,5 +1,16 @@
-create table if not exists plan_session_completions (
+drop table if exists plan_session_completions;
+
+create table plan_session_completions (
   session_key text primary key,
+  week_number int not null,
+  phase int not null,
+  order_index int not null,
+  discipline text not null,
+  icon text not null,
+  title text not null,
+  tag text,
+  segments jsonb not null default '[]'::jsonb,
+  alt_note text,
   done boolean not null default false,
   updated_at timestamptz not null default now()
 );
