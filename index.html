@@ -749,9 +749,9 @@ details[open] .chevron{transform:rotate(180deg);}
 .day-card{
   flex:1;
   display:flex;align-items:center;gap:10px;
-  background:var(--ink);
-  color:var(--paper);
-  border:none;
+  background:#fff;
+  color:var(--ink);
+  border:1px solid var(--line);
   border-left:4px solid var(--tarmac);
   border-radius:12px;
   padding:14px 16px;
@@ -760,13 +760,13 @@ details[open] .chevron{transform:rotate(180deg);}
   font-family:'IBM Plex Sans',sans-serif;
   -webkit-tap-highlight-color:transparent;
 }
-.day-card.swim{border-left-color:#6FC6E0;}
-.day-card.bike{border-left-color:#C9CFA9;}
+.day-card.swim{border-left-color:var(--pool);}
+.day-card.bike{border-left-color:var(--tarmac);}
 .day-card.run{border-left-color:var(--coral);}
 .day-card.mix{border-left-color:#9B8A5A;}
-.day-card.strength{border-left-color:#D9B98A;}
+.day-card.strength{border-left-color:#8C6E54;}
 .day-card-icon{font-size:20px;flex-shrink:0;}
-.day-card-title{flex:1;font-weight:600;font-size:14.5px;}
+.day-card-title{flex:1;font-weight:600;font-size:14.5px;color:#2A3B3C;}
 .day-card-check{color:var(--coral);font-weight:700;font-size:15px;width:16px;text-align:center;flex-shrink:0;}
 .day-card.done{opacity:.5;}
 
