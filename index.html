@@ -481,16 +481,6 @@ summary.section-title::marker{content:"";}
   letter-spacing:.05em;
   margin-bottom:8px;
 }
-.wcard .wc-head .tag{
-  font-family:'IBM Plex Mono',monospace;
-  font-size:10.5px;
-  background:var(--paper-2);
-  padding:2px 7px;
-  border-radius:20px;
-  text-transform:none;
-  letter-spacing:0;
-  color:var(--tarmac);
-}
 .wcard p{margin:0;font-size:13.5px;line-height:1.5;color:#2A3B3C;}
 .wcard p .seg{display:block;margin-bottom:5px;}
 .wcard p .seg:last-child{margin-bottom:0;}
@@ -788,13 +778,21 @@ details[open] .chevron{transform:rotate(180deg);}
 }
 .detail-head{display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;}
 .detail-icon{font-size:30px;line-height:1;}
+.detail-title-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 .detail-title{
   font-family:'Oswald',sans-serif;
   font-size:20px;
   text-transform:uppercase;
   letter-spacing:.03em;
 }
-.detail-tag{margin-top:6px;}
+.tag{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10.5px;
+  background:var(--paper-2);
+  padding:2px 7px;
+  border-radius:20px;
+  color:var(--tarmac);
+}
 .detail-segments{font-size:14px;line-height:1.6;color:#2A3B3C;margin:0;}
 .detail-segments .seg{display:block;margin-bottom:10px;}
 .detail-segments .seg:last-child{margin-bottom:0;}
