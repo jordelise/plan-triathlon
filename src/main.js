@@ -326,6 +326,7 @@ const GOAL_SEGMENTS = {
     label: 'Vitesse (km/h)',
     format: (goals) => formatSpeedKmh(goals.bike_duration_sec, goals.bike_distance_km),
     parse: (str, goals) => parseSpeedKmh(str, goals.bike_distance_km),
+    inputMode: 'decimal',
   }},
   t2: { title: 'T2', durationField: 't2_duration_sec', durationFormat: 'mmss' },
   run: { title: 'Course', durationField: 'run_duration_sec', durationFormat: 'mmss', pace: {
@@ -342,13 +343,13 @@ function goalSegmentEditorHtml(segment, goals){
     : formatMMSS(goals[segment.durationField]);
 
   const paceHtml = segment.pace
-    ? `<label>${segment.pace.label}</label><input type="text" id="edit-goal-pace" value="${segment.pace.format(goals)}">`
+    ? `<label>${segment.pace.label}</label><input type="text" inputmode="${segment.pace.inputMode || 'numeric'}" id="edit-goal-pace" value="${segment.pace.format(goals)}">`
     : '';
 
   return `<div class="detail-title" style="margin-bottom:16px;">${segment.title}</div>
     <div class="goal-field">
       <label>${durationLabel}</label>
-      <input type="text" id="edit-goal-duration" value="${durationValue}">
+      <input type="text" inputmode="numeric" id="edit-goal-duration" value="${durationValue}">
       ${paceHtml}
     </div>
     <button type="button" class="goal-save-btn" id="save-goals-btn">Enregistrer</button>`;
