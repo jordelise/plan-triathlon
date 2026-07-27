@@ -120,6 +120,16 @@ body{font-size:16px;}
   text-transform:uppercase;
   opacity:.65;
 }
+.edit-goals-btn{
+  background:none;
+  border:none;
+  font-size:13px;
+  cursor:pointer;
+  opacity:.75;
+  padding:0;
+  margin-left:2px;
+  vertical-align:middle;
+}
 .bib-title{
   font-family:'Oswald',sans-serif;
   font-weight:700;
@@ -761,6 +771,37 @@ details[open] .chevron{transform:rotate(180deg);}
 }
 .detail-done-toggle input{width:18px;height:18px;cursor:pointer;accent-color:var(--coral);}
 
+.goal-field{display:flex;flex-direction:column;gap:4px;margin-bottom:14px;}
+.goal-field label{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;
+  color:var(--tarmac);
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+.goal-field input{
+  padding:8px 10px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  font-size:14px;
+  font-family:inherit;
+  margin-bottom:8px;
+}
+.goal-field input:last-child{margin-bottom:0;}
+.goal-save-btn{
+  margin-top:8px;
+  padding:10px 16px;
+  border:none;
+  border-radius:8px;
+  background:var(--coral);
+  color:#fff;
+  font-family:'Oswald',sans-serif;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  font-size:13px;
+  cursor:pointer;
+}
+
 .footnote{
   margin-top:34px;
   font-size:12px;
@@ -803,42 +844,42 @@ details[open] .chevron{transform:rotate(180deg);}
 
   <!-- HERO BIB -->
   <div class="bib">
-    <div class="bib-eyebrow">Objectifs visés</div>
+    <div class="bib-eyebrow">Objectifs visés <button type="button" id="edit-goals-btn" class="edit-goals-btn" aria-label="Modifier les objectifs">✏️</button></div>
     <div class="splits">
       <div class="split">
         <div class="icon swim-c">🏊</div>
         <div class="label">1500 m</div>
-        <div class="val swim-c">~32:00</div>
-        <div class="label pace-label">2'08/100m</div>
+        <div class="val swim-c" id="split-swim-duration">~32:00</div>
+        <div class="label pace-label" id="split-swim-pace">2'08/100m</div>
       </div>
       <div class="split">
         <div class="icon">🔄</div>
         <div class="label">T1</div>
-        <div class="val">~4:00</div>
+        <div class="val" id="split-t1-duration">~4:00</div>
         <div class="label pace-label">transition</div>
       </div>
       <div class="split">
         <div class="icon bike-c">🚴</div>
         <div class="label">40 km</div>
-        <div class="val bike-c">~1:25</div>
-        <div class="label pace-label">28 km/h</div>
+        <div class="val bike-c" id="split-bike-duration">~1:25</div>
+        <div class="label pace-label" id="split-bike-speed">28 km/h</div>
       </div>
       <div class="split">
         <div class="icon">🔄</div>
         <div class="label">T2</div>
-        <div class="val">~3:00</div>
+        <div class="val" id="split-t2-duration">~3:00</div>
         <div class="label pace-label">transition</div>
       </div>
       <div class="split">
         <div class="icon run-c">🏃</div>
         <div class="label">10 km</div>
-        <div class="val run-c">~55:00</div>
-        <div class="label pace-label">5'30/km</div>
+        <div class="val run-c" id="split-run-duration">~55:00</div>
+        <div class="label pace-label" id="split-run-pace">5'30/km</div>
       </div>
       <div class="split total">
         <div class="icon">🏁</div>
         <div class="label">Total</div>
-        <div class="val">≈ 2h59</div>
+        <div class="val" id="split-total">≈ 2h59</div>
         <div class="label">avec transitions</div>
       </div>
     </div>

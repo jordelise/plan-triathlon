@@ -222,6 +222,197 @@ document.getElementById('detail-overlay').addEventListener('click', (e) => {
 
 loadAndRenderSessions();
 loadAndRenderExercises();
+loadAndRenderGoals();
+
+function formatMMSS(totalSec){
+  const m = Math.floor(totalSec / 60);
+  const s = Math.round(totalSec % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function parseMMSS(str){
+  const [m, s] = str.split(':').map(Number);
+  return (m || 0) * 60 + (s || 0);
+}
+
+function formatHMM(totalSec){
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.round((totalSec % 3600) / 60);
+  return `${h}:${String(m).padStart(2, '0')}`;
+}
+
+function parseHMM(str){
+  const [h, m] = str.split(':').map(Number);
+  return (h || 0) * 3600 + (m || 0) * 60;
+}
+
+function formatPacePer100(durationSec, distanceM){
+  const per100Sec = durationSec / (distanceM / 100);
+  const m = Math.floor(per100Sec / 60);
+  const s = Math.round(per100Sec % 60);
+  return `${m}'${String(s).padStart(2, '0')}`;
+}
+
+function parsePacePer100(str, distanceM){
+  const match = str.match(/(\d+)['’](\d+)/);
+  if (!match) return null;
+  const per100Sec = Number(match[1]) * 60 + Number(match[2]);
+  return per100Sec * (distanceM / 100);
+}
+
+function formatPacePerKm(durationSec, distanceKm){
+  const perKmSec = durationSec / distanceKm;
+  const m = Math.floor(perKmSec / 60);
+  const s = Math.round(perKmSec % 60);
+  return `${m}'${String(s).padStart(2, '0')}`;
+}
+
+function parsePacePerKm(str, distanceKm){
+  const match = str.match(/(\d+)['’](\d+)/);
+  if (!match) return null;
+  const perKmSec = Number(match[1]) * 60 + Number(match[2]);
+  return perKmSec * distanceKm;
+}
+
+function formatSpeedKmh(durationSec, distanceKm){
+  const speed = distanceKm / (durationSec / 3600);
+  return Math.round(speed);
+}
+
+function parseSpeedKmh(str, distanceKm){
+  const speed = parseFloat(str);
+  if (!speed) return null;
+  return (distanceKm / speed) * 3600;
+}
+
+let currentGoals = null;
+
+function renderGoals(goals){
+  document.getElementById('split-swim-duration').textContent = '~' + formatMMSS(goals.swim_duration_sec);
+  document.getElementById('split-swim-pace').textContent = formatPacePer100(goals.swim_duration_sec, goals.swim_distance_m) + '/100m';
+  document.getElementById('split-t1-duration').textContent = '~' + formatMMSS(goals.t1_duration_sec);
+  document.getElementById('split-bike-duration').textContent = '~' + formatHMM(goals.bike_duration_sec);
+  document.getElementById('split-bike-speed').textContent = formatSpeedKmh(goals.bike_duration_sec, goals.bike_distance_km) + ' km/h';
+  document.getElementById('split-t2-duration').textContent = '~' + formatMMSS(goals.t2_duration_sec);
+  document.getElementById('split-run-duration').textContent = '~' + formatMMSS(goals.run_duration_sec);
+  document.getElementById('split-run-pace').textContent = formatPacePerKm(goals.run_duration_sec, goals.run_distance_km) + '/km';
+
+  const totalMin = Math.round(
+    (goals.swim_duration_sec + goals.t1_duration_sec + goals.bike_duration_sec + goals.t2_duration_sec + goals.run_duration_sec) / 60
+  );
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  document.getElementById('split-total').textContent = `≈ ${h}h${String(m).padStart(2, '0')}`;
+}
+
+async function loadAndRenderGoals(){
+  const { data, error } = await supabase.from('plan_race_goals').select('*').eq('id', 1).single();
+  if (error) {
+    console.error('Erreur de chargement des objectifs', error);
+    return;
+  }
+  currentGoals = data;
+  renderGoals(currentGoals);
+}
+
+function goalsEditorHtml(goals){
+  return `<div class="detail-title" style="margin-bottom:16px;">Objectifs visés</div>
+    <div class="goal-field">
+      <label>Natation — durée (mm:ss)</label>
+      <input type="text" id="edit-swim-duration" value="${formatMMSS(goals.swim_duration_sec)}">
+      <label>Natation — allure (m'ss/100m)</label>
+      <input type="text" id="edit-swim-pace" value="${formatPacePer100(goals.swim_duration_sec, goals.swim_distance_m)}">
+    </div>
+    <div class="goal-field">
+      <label>T1 — durée (mm:ss)</label>
+      <input type="text" id="edit-t1-duration" value="${formatMMSS(goals.t1_duration_sec)}">
+    </div>
+    <div class="goal-field">
+      <label>Vélo — durée (h:mm)</label>
+      <input type="text" id="edit-bike-duration" value="${formatHMM(goals.bike_duration_sec)}">
+      <label>Vélo — vitesse (km/h)</label>
+      <input type="text" id="edit-bike-speed" value="${formatSpeedKmh(goals.bike_duration_sec, goals.bike_distance_km)}">
+    </div>
+    <div class="goal-field">
+      <label>T2 — durée (mm:ss)</label>
+      <input type="text" id="edit-t2-duration" value="${formatMMSS(goals.t2_duration_sec)}">
+    </div>
+    <div class="goal-field">
+      <label>Course — durée (mm:ss)</label>
+      <input type="text" id="edit-run-duration" value="${formatMMSS(goals.run_duration_sec)}">
+      <label>Course — allure (m'ss/km)</label>
+      <input type="text" id="edit-run-pace" value="${formatPacePerKm(goals.run_duration_sec, goals.run_distance_km)}">
+    </div>
+    <button type="button" class="goal-save-btn" id="save-goals-btn">Enregistrer</button>`;
+}
+
+function openGoalsEditor(){
+  if (!currentGoals) return;
+
+  document.getElementById('detail-content').innerHTML = goalsEditorHtml(currentGoals);
+
+  const swimDurationInput = document.getElementById('edit-swim-duration');
+  const swimPaceInput = document.getElementById('edit-swim-pace');
+  swimDurationInput.addEventListener('change', () => {
+    const sec = parseMMSS(swimDurationInput.value);
+    swimPaceInput.value = formatPacePer100(sec, currentGoals.swim_distance_m);
+  });
+  swimPaceInput.addEventListener('change', () => {
+    const sec = parsePacePer100(swimPaceInput.value, currentGoals.swim_distance_m);
+    if (sec) swimDurationInput.value = formatMMSS(sec);
+  });
+
+  const bikeDurationInput = document.getElementById('edit-bike-duration');
+  const bikeSpeedInput = document.getElementById('edit-bike-speed');
+  bikeDurationInput.addEventListener('change', () => {
+    const sec = parseHMM(bikeDurationInput.value);
+    bikeSpeedInput.value = formatSpeedKmh(sec, currentGoals.bike_distance_km);
+  });
+  bikeSpeedInput.addEventListener('change', () => {
+    const sec = parseSpeedKmh(bikeSpeedInput.value, currentGoals.bike_distance_km);
+    if (sec) bikeDurationInput.value = formatHMM(sec);
+  });
+
+  const runDurationInput = document.getElementById('edit-run-duration');
+  const runPaceInput = document.getElementById('edit-run-pace');
+  runDurationInput.addEventListener('change', () => {
+    const sec = parseMMSS(runDurationInput.value);
+    runPaceInput.value = formatPacePerKm(sec, currentGoals.run_distance_km);
+  });
+  runPaceInput.addEventListener('change', () => {
+    const sec = parsePacePerKm(runPaceInput.value, currentGoals.run_distance_km);
+    if (sec) runDurationInput.value = formatMMSS(sec);
+  });
+
+  document.getElementById('save-goals-btn').addEventListener('click', async () => {
+    const updated = {
+      id: 1,
+      swim_distance_m: currentGoals.swim_distance_m,
+      swim_duration_sec: parseMMSS(swimDurationInput.value),
+      t1_duration_sec: parseMMSS(document.getElementById('edit-t1-duration').value),
+      bike_distance_km: currentGoals.bike_distance_km,
+      bike_duration_sec: parseHMM(bikeDurationInput.value),
+      t2_duration_sec: parseMMSS(document.getElementById('edit-t2-duration').value),
+      run_distance_km: currentGoals.run_distance_km,
+      run_duration_sec: parseMMSS(runDurationInput.value),
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase.from('plan_race_goals').upsert(updated);
+    if (error) {
+      console.error('Erreur de sauvegarde des objectifs', error);
+      return;
+    }
+
+    currentGoals = updated;
+    renderGoals(currentGoals);
+    closeDetail();
+  });
+
+  document.getElementById('detail-overlay').classList.add('open');
+}
+
+document.getElementById('edit-goals-btn').addEventListener('click', openGoalsEditor);
 
 function exerciseItemHtml(ex){
   return `<div class="exo-item"><b>${escapeHtml(ex.name)}</b> — ${escapeHtml(ex.description)}</div>`;
