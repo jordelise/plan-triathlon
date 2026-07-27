@@ -76,7 +76,7 @@ function sessionDetailHtml(s){
     .join('');
   const altHtml = s.alt_note ? `<div class="alt">${s.alt_note}</div>` : '';
 
-  return `<div class="detail-head"><span class="detail-icon">${s.icon}</span><div class="detail-title-row"><span class="detail-title">${escapeHtml(s.title)}</span>${tagHtml}</div></div><p class="detail-segments">${segsHtml}</p>${altHtml}<label class="detail-date-field">Date<input type="date" id="detail-date-input" data-key="${s.session_key}" value="${s.session_date || ''}"></label><label class="detail-done-toggle">Marquer comme fait<input type="checkbox" id="detail-done-checkbox" data-key="${s.session_key}"${s.done ? ' checked' : ''}></label>`;
+  return `<div class="detail-head"><span class="detail-icon">${s.icon}</span><div class="detail-title-row"><span class="detail-title">${escapeHtml(s.title)}</span>${tagHtml}</div></div><div class="detail-card"><p class="detail-segments">${segsHtml}</p>${altHtml}</div><label class="detail-date-field">Date<input type="date" id="detail-date-input" data-key="${s.session_key}" value="${s.session_date || ''}"></label><label class="detail-done-toggle">Marquer comme fait<input type="checkbox" id="detail-done-checkbox" data-key="${s.session_key}"${s.done ? ' checked' : ''}></label>`;
 }
 
 function weekBlockHtml(weekNumber, sessions, isOpen){
