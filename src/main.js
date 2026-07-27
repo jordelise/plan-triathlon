@@ -403,6 +403,15 @@ function exerciseItemHtml(ex){
   return `<div class="exo-item"><b>${escapeHtml(ex.name)}</b> — ${escapeHtml(ex.description)}</div>`;
 }
 
+let exercisesByCategory = new Map();
+
+function renderExerciseCategory(category){
+  const container = document.querySelector('[data-exercise-category]');
+  if (!container) return;
+  container.dataset.exerciseCategory = category;
+  container.innerHTML = (exercisesByCategory.get(category) || []).map(exerciseItemHtml).join('');
+}
+
 async function loadAndRenderExercises(){
   const { data, error } = await supabase
     .from('plan_exercises')
@@ -414,14 +423,22 @@ async function loadAndRenderExercises(){
     return;
   }
 
-  document.querySelectorAll('[data-exercise-category]').forEach(container => {
-    const category = container.dataset.exerciseCategory;
-    container.innerHTML = data
-      .filter(ex => ex.category === category)
-      .map(exerciseItemHtml)
-      .join('');
-  });
+  exercisesByCategory = new Map();
+  for (const ex of data) {
+    if (!exercisesByCategory.has(ex.category)) exercisesByCategory.set(ex.category, []);
+    exercisesByCategory.get(ex.category).push(ex);
+  }
+
+  renderExerciseCategory('swim_drill');
 }
+
+document.querySelectorAll('.exo-filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.exo-filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderExerciseCategory(btn.dataset.exerciseFilter);
+  });
+});
 
 function updateCountdown(){
   const target = new Date('2026-10-11T10:00:00');

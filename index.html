@@ -508,6 +508,30 @@ summary.section-title::marker{content:"";}
 .pace.run{border-bottom:3px solid var(--coral);}
 
 /* ---------- EXERCISE LIBRARY ---------- */
+.exo-filter{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin-bottom:14px;
+}
+.exo-filter-btn{
+  cursor:pointer;
+  text-align:center;
+  padding:12px 8px;
+  border-radius:10px;
+  background:var(--paper-2);
+  border:1px solid transparent;
+  font-family:'Oswald',sans-serif;
+  font-size:13px;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  color:var(--tarmac);
+  transition:all .15s ease;
+}
+.exo-filter-btn.active{
+  background:var(--ink);
+  color:var(--paper);
+}
 .exo-lib{
   background:#fff;
   border:1px solid var(--line);
@@ -941,15 +965,12 @@ details[open] .chevron{transform:rotate(180deg);}
 
   <div class="page-title">Exercices</div>
 
-  <details class="zoom-fold">
-    <summary class="section-title">Bibliothèque d'éducatifs natation<svg class="chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></summary>
-    <div class="exo-lib" data-exercise-category="swim_drill"></div>
-  </details>
-
-  <details class="zoom-fold">
-    <summary class="section-title">Bibliothèque d'exercices renforcement<svg class="chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></summary>
-    <div class="exo-lib" data-exercise-category="strength"></div>
-  </details>
+  <div class="section-title">Bibliothèque d'exercices</div>
+  <div class="exo-filter">
+    <button type="button" class="exo-filter-btn active" data-exercise-filter="swim_drill">🏊 Natation</button>
+    <button type="button" class="exo-filter-btn" data-exercise-filter="strength">💪 Renforcement</button>
+  </div>
+  <div class="exo-lib" data-exercise-category="swim_drill"></div>
 
 </div>
 
