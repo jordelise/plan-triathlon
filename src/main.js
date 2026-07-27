@@ -54,18 +54,27 @@ function currentWeekNumber(now){
   return weekNumbers[weekNumbers.length - 1];
 }
 
+const FR_WEEKDAYS = ['DIM.', 'LUN.', 'MAR.', 'MER.', 'JEU.', 'VEN.', 'SAM.'];
+
 function escapeHtml(str){
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function sessionCardHtml(s){
+let sessionsByKey = new Map();
+
+function dayRowHtml(s){
+  const d = new Date(s.session_date + 'T00:00:00');
+  return `<div class="day-row"><div class="day-badge"><div class="day-name">${FR_WEEKDAYS[d.getDay()]}</div><div class="day-num">${d.getDate()}</div></div><button type="button" class="day-card ${s.discipline}${s.done ? ' done' : ''}" data-key="${s.session_key}"><span class="day-card-icon">${s.icon}</span><span class="day-card-title">${escapeHtml(s.title)}</span><span class="day-card-check">${s.done ? '✓' : ''}</span></button></div>`;
+}
+
+function sessionDetailHtml(s){
   const tagHtml = s.tag ? `<span class="tag">${escapeHtml(s.tag)}</span>` : '';
   const segsHtml = (s.segments || [])
     .map(seg => `<span class="seg"><b class="seg-label">${escapeHtml(seg.label)}</b> ${seg.text}</span>`)
     .join('');
   const altHtml = s.alt_note ? `<div class="alt">${s.alt_note}</div>` : '';
 
-  return `<div class="wcard ${s.discipline}"><div class="wc-head"><span class="wc-title">${s.icon} ${escapeHtml(s.title)} ${tagHtml}</span><label class="wc-check"><input type="checkbox" class="session-check" data-key="${s.session_key}"${s.done ? ' checked' : ''}></label></div><p>${segsHtml}</p>${altHtml}</div>`;
+  return `<div class="detail-head"><span class="detail-icon">${s.icon}</span><div><div class="detail-title">${escapeHtml(s.title)}</div>${tagHtml ? `<div class="detail-tag">${tagHtml}</div>` : ''}</div></div><p class="detail-segments">${segsHtml}</p>${altHtml}<label class="detail-done-toggle"><input type="checkbox" id="detail-done-checkbox" data-key="${s.session_key}"${s.done ? ' checked' : ''}> Marquer comme fait</label>`;
 }
 
 function weekBlockHtml(weekNumber, sessions, isOpen){
@@ -73,8 +82,9 @@ function weekBlockHtml(weekNumber, sessions, isOpen){
   const range = WEEK_DATE_RANGES[weekNumber];
   const datesHtml = range ? `<span class="week-dates">${formatWeekDates(range)}</span>` : '';
   const doneCount = sessions.filter(s => s.done).length;
+  const sorted = [...sessions].sort((a, b) => (a.session_date || '').localeCompare(b.session_date || ''));
 
-  return `<details class="week-block" data-week="wk${weekNumber}"${isOpen ? ' open' : ''}><summary class="week-heading"><span>${label} ${datesHtml}</span><span class="week-right"><span class="week-count"><span class="wc-done">${doneCount}</span>/${sessions.length}</span><svg class="chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span></summary><div class="week-grid">${sessions.map(sessionCardHtml).join('')}</div></details>`;
+  return `<details class="week-block" data-week="wk${weekNumber}"${isOpen ? ' open' : ''}><summary class="week-heading"><span>${label} ${datesHtml}</span><span class="week-right"><span class="week-count"><span class="wc-done">${doneCount}</span>/${sessions.length}</span><svg class="chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span></summary><div class="day-list">${sorted.map(dayRowHtml).join('')}</div></details>`;
 }
 
 async function loadAndRenderSessions(){
@@ -88,6 +98,8 @@ async function loadAndRenderSessions(){
     console.error('Erreur de chargement', error);
     return;
   }
+
+  sessionsByKey = new Map(data.map(s => [s.session_key, { ...s }]));
 
   const byPhase = new Map();
   for (const row of data) {
@@ -116,56 +128,76 @@ async function loadAndRenderSessions(){
     if (tabInput) tabInput.checked = true;
   }
 
-  attachCheckboxHandlers();
-  document.querySelectorAll('.session-check').forEach(refreshCard);
-  document.querySelectorAll('.week-block').forEach(refreshWeek);
+  attachDayCardHandlers();
   refreshProgress();
 }
 
-function attachCheckboxHandlers(){
-  document.querySelectorAll('.session-check').forEach(cb => {
-    cb.addEventListener('change', () => {
-      refreshCard(cb);
-      refreshWeek(weekBlockOf(cb));
-      refreshProgress();
-      saveCompletion(cb.dataset.key, cb.checked);
-    });
+function attachDayCardHandlers(){
+  document.querySelectorAll('.day-card').forEach(card => {
+    card.addEventListener('click', () => openDetail(card.dataset.key));
   });
 }
 
-function cardOf(cb){ return cb.closest('.wcard, .reinf'); }
-function weekBlockOf(cb){ return cb.closest('.week-block'); }
+function openDetail(sessionKey){
+  const s = sessionsByKey.get(sessionKey);
+  if (!s) return;
 
-function refreshCard(cb){
-  const card = cardOf(cb);
-  if (card) card.classList.toggle('done', cb.checked);
+  const content = document.getElementById('detail-content');
+  content.innerHTML = sessionDetailHtml(s);
+
+  const checkbox = document.getElementById('detail-done-checkbox');
+  checkbox.addEventListener('change', () => {
+    const key = checkbox.dataset.key;
+    const sess = sessionsByKey.get(key);
+    sess.done = checkbox.checked;
+    saveCompletion(key, checkbox.checked);
+    updateDayCardDone(key, checkbox.checked);
+    refreshWeekCounts();
+    refreshProgress();
+  });
+
+  document.getElementById('detail-overlay').classList.add('open');
 }
 
-function refreshWeek(block){
-  if (!block) return;
-  const boxes = block.querySelectorAll('.session-check');
-  const done = Array.from(boxes).filter(b => b.checked).length;
-  const el = block.querySelector('.wc-done');
-  if (el) el.textContent = done;
+function closeDetail(){
+  document.getElementById('detail-overlay').classList.remove('open');
+}
+
+function updateDayCardDone(key, done){
+  const card = document.querySelector(`.day-card[data-key="${key}"]`);
+  if (!card) return;
+  card.classList.toggle('done', done);
+  const check = card.querySelector('.day-card-check');
+  if (check) check.textContent = done ? '✓' : '';
+}
+
+function refreshWeekCounts(){
+  document.querySelectorAll('.week-block').forEach(block => {
+    const cards = Array.from(block.querySelectorAll('.day-card'));
+    const done = cards.filter(c => c.classList.contains('done')).length;
+    const el = block.querySelector('.wc-done');
+    if (el) el.textContent = done;
+  });
 }
 
 function refreshProgress(){
   const now = new Date();
 
-  const weeks = Array.from(document.querySelectorAll('.week-block')).map(block => ({
-    week: parseInt(block.dataset.week.replace('wk', ''), 10),
-    checkboxes: Array.from(block.querySelectorAll('.session-check')),
-  }));
+  const weeks = new Map();
+  for (const s of sessionsByKey.values()) {
+    if (!weeks.has(s.week_number)) weeks.set(s.week_number, []);
+    weeks.get(s.week_number).push(s);
+  }
 
-  const totalSessions = weeks.reduce((sum, w) => sum + w.checkboxes.length, 0);
+  const totalSessions = sessionsByKey.size;
 
-  const expectedSessions = weeks.reduce(
-    (sum, w) => sum + w.checkboxes.length * weekCreditFraction(w.week, now),
+  const expectedSessions = Array.from(weeks.entries()).reduce(
+    (sum, [weekNumber, sessions]) => sum + sessions.length * weekCreditFraction(weekNumber, now),
     0
   );
   const expectedPct = totalSessions ? (expectedSessions / totalSessions * 100) : 0;
 
-  const done = weeks.reduce((sum, w) => sum + w.checkboxes.filter(cb => cb.checked).length, 0);
+  const done = Array.from(sessionsByKey.values()).filter(s => s.done).length;
   const actualPct = totalSessions ? (done / totalSessions * 100) : 0;
 
   const expectedFill = document.getElementById('progress-expected-fill');
@@ -187,6 +219,11 @@ async function saveCompletion(sessionKey, done){
 
   if (error) console.error('Erreur de sauvegarde', error);
 }
+
+document.getElementById('detail-close').addEventListener('click', closeDetail);
+document.getElementById('detail-overlay').addEventListener('click', (e) => {
+  if (e.target.id === 'detail-overlay') closeDetail();
+});
 
 loadAndRenderSessions();
 
