@@ -1,0 +1,16 @@
+insert into plan_exercises (category, order_index, name, description) values
+('swim_drill', 0, 'Attrape-rattrape', $d$un bras reste tendu devant jusqu'à ce que l'autre le rejoigne avant de repartir ; travaille la glisse et l'alignement du corps.$d$),
+('swim_drill', 1, 'Poing fermé', $d$nager les mains fermées pour sentir l'appui de l'avant-bras plutôt que de la main.$d$),
+('swim_drill', 2, '6 temps', $d$6 battements de jambes par cycle de bras ; insiste sur la rotation du buste.$d$),
+('swim_drill', 3, 'Doigts qui traînent', $d$les doigts frôlent la surface pendant le retour aérien ; corrige un retour de bras trop haut.$d$),
+('swim_drill', 4, 'Jambes seules avec planche', $d$travaille le battement et le gainage des jambes isolément.$d$),
+('swim_drill', 5, 'Bras seuls avec pull-buoy', $d$isole la traction des bras, sans l'aide des jambes.$d$),
+('swim_drill', 6, 'Respiration 3 temps', $d$respiration alternée tous les 3 mouvements de bras ; équilibre la nage des deux côtés.$d$),
+('strength', 0, 'Pont fessier', $d$allongé sur le dos, pieds à plat, pousser les hanches vers le haut ; cible les fessiers.$d$),
+('strength', 1, 'Squats', $d$flexion des jambes, dos droit, descente contrôlée ; fessiers et quadriceps.$d$),
+('strength', 2, 'Gainage ventral (planche)', $d$appui sur les avant-bras et les pointes de pieds, corps aligné ; sangle abdominale.$d$),
+('strength', 3, 'Gainage latéral', $d$appui sur un avant-bras, corps de profil ; obliques et stabilité du bassin.$d$),
+('strength', 4, 'Montées sur pointes', $d$monter et descendre sur la pointe des pieds ; mollets.$d$),
+('strength', 5, 'Flexions de cheville', $d$relever la pointe du pied contre une résistance élastique ; renforce le tibial antérieur et prévient les douleurs de tibia.$d$),
+('strength', 6, 'Extensions dorsales (superman)', $d$allongé sur le ventre, lever bras et jambes simultanément ; renforce le bas du dos.$d$),
+('strength', 7, 'Rowing élastique', $d$tirer un élastique vers la poitrine, coudes près du corps ; dos et posture.$d$);

@@ -221,6 +221,31 @@ document.getElementById('detail-overlay').addEventListener('click', (e) => {
 });
 
 loadAndRenderSessions();
+loadAndRenderExercises();
+
+function exerciseItemHtml(ex){
+  return `<div class="exo-item"><b>${escapeHtml(ex.name)}</b> — ${escapeHtml(ex.description)}</div>`;
+}
+
+async function loadAndRenderExercises(){
+  const { data, error } = await supabase
+    .from('plan_exercises')
+    .select('*')
+    .order('order_index', { ascending: true });
+
+  if (error) {
+    console.error('Erreur de chargement des exercices', error);
+    return;
+  }
+
+  document.querySelectorAll('[data-exercise-category]').forEach(container => {
+    const category = container.dataset.exerciseCategory;
+    container.innerHTML = data
+      .filter(ex => ex.category === category)
+      .map(exerciseItemHtml)
+      .join('');
+  });
+}
 
 function updateCountdown(){
   const target = new Date('2026-10-11T10:00:00');
