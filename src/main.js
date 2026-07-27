@@ -54,6 +54,8 @@ async function loadAndRenderSessions(){
   });
 
   attachCheckboxHandlers();
+  document.querySelectorAll('.session-check').forEach(refreshCard);
+  document.querySelectorAll('.week-block').forEach(refreshWeek);
   refreshProgress();
 }
 
