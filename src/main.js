@@ -400,7 +400,8 @@ document.querySelectorAll('.split.editable').forEach(el => {
 });
 
 function exerciseItemHtml(ex){
-  return `<div class="exo-item"><b>${escapeHtml(ex.name)}</b> — ${escapeHtml(ex.description)}</div>`;
+  const tagHtml = ex.tag ? `<span class="exo-tag">${escapeHtml(ex.tag)}</span>` : '';
+  return `<div class="exo-item"><b>${escapeHtml(ex.name)}</b>${tagHtml} — ${escapeHtml(ex.description)}</div>`;
 }
 
 let exercisesByCategory = new Map();

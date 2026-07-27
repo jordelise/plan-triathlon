@@ -3,7 +3,8 @@ create table if not exists plan_exercises (
   category text not null,
   order_index int not null,
   name text not null,
-  description text not null
+  description text not null,
+  tag text
 );
 
 alter table plan_exercises enable row level security;
