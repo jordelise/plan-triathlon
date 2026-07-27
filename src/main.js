@@ -45,6 +45,15 @@ function formatWeekDates(range){
     : `${start.getDate()} ${startMonth} → ${end.getDate()} ${endMonth}`;
 }
 
+function currentWeekNumber(now){
+  const weekNumbers = Object.keys(WEEK_DATE_RANGES).map(Number).sort((a, b) => a - b);
+  for (const w of weekNumbers) {
+    const end = new Date(WEEK_DATE_RANGES[w][1] + 'T00:00:00');
+    if (now <= end) return w;
+  }
+  return weekNumbers[weekNumbers.length - 1];
+}
+
 function escapeHtml(str){
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -88,15 +97,24 @@ async function loadAndRenderSessions(){
     weeks.get(row.week_number).push(row);
   }
 
+  const activeWeek = currentWeekNumber(new Date());
+  let activePhase = null;
+
   document.querySelectorAll('.week-list').forEach(container => {
     const phase = Number(container.dataset.phase);
     const weeks = byPhase.get(phase);
     if (!weeks) return;
+    if (weeks.has(activeWeek)) activePhase = phase;
     const weekNumbers = Array.from(weeks.keys()).sort((a, b) => a - b);
     container.innerHTML = weekNumbers
-      .map((wn, i) => weekBlockHtml(wn, weeks.get(wn), i === 0))
+      .map(wn => weekBlockHtml(wn, weeks.get(wn), wn === activeWeek))
       .join('');
   });
+
+  if (activePhase) {
+    const tabInput = document.getElementById(`t${activePhase}`);
+    if (tabInput) tabInput.checked = true;
+  }
 
   attachCheckboxHandlers();
   document.querySelectorAll('.session-check').forEach(refreshCard);
