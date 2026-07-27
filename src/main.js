@@ -2,6 +2,34 @@ import { supabase } from './supabaseClient.js';
 
 const WEEK_LABEL_OVERRIDES = { 11: 'Semaine S11 — dernière semaine' };
 
+// Calendar date range covered by each plan week (derived from the phase
+// date ranges shown in the timeline — weeks aren't uniform 7-day blocks).
+const WEEK_DATE_RANGES = {
+  1: ['2026-07-21', '2026-07-27'],
+  2: ['2026-07-28', '2026-08-03'],
+  3: ['2026-08-04', '2026-08-10'],
+  4: ['2026-08-11', '2026-08-17'],
+  5: ['2026-08-18', '2026-08-23'],
+  6: ['2026-08-24', '2026-08-30'],
+  7: ['2026-08-31', '2026-09-06'],
+  8: ['2026-09-07', '2026-09-12'],
+  9: ['2026-09-13', '2026-09-20'],
+  10: ['2026-09-21', '2026-09-28'],
+  11: ['2026-09-29', '2026-10-11'],
+};
+
+function weekCreditFraction(weekNumber, now){
+  const range = WEEK_DATE_RANGES[weekNumber];
+  if (!range) return 0;
+  const start = new Date(range[0] + 'T00:00:00');
+  const end = new Date(range[1] + 'T00:00:00');
+  if (now < start) return 0;
+  if (now > end) return 1;
+  const totalDays = Math.round((end - start) / 86400000) + 1;
+  const elapsedDays = Math.floor((now - start) / 86400000) + 1;
+  return Math.min(1, elapsedDays / totalDays);
+}
+
 function escapeHtml(str){
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -87,8 +115,6 @@ function refreshWeek(block){
 }
 
 function refreshProgress(){
-  const start = new Date('2026-07-21T00:00:00');
-  const msPerWeek = 7 * 24 * 60 * 60 * 1000;
   const now = new Date();
 
   const weeks = Array.from(document.querySelectorAll('.week-block')).map(block => ({
@@ -97,14 +123,11 @@ function refreshProgress(){
   }));
 
   const totalSessions = weeks.reduce((sum, w) => sum + w.checkboxes.length, 0);
-  const maxWeek = weeks.reduce((max, w) => Math.max(max, w.week), 0);
 
-  // Only fully elapsed weeks count as "expected" — the current week's
-  // sessions aren't due yet, so they shouldn't inflate the expected bar.
-  const weeksElapsed = Math.max(0, Math.min(maxWeek, Math.floor((now - start) / msPerWeek)));
-  const expectedSessions = weeks
-    .filter(w => w.week <= weeksElapsed)
-    .reduce((sum, w) => sum + w.checkboxes.length, 0);
+  const expectedSessions = weeks.reduce(
+    (sum, w) => sum + w.checkboxes.length * weekCreditFraction(w.week, now),
+    0
+  );
   const expectedPct = totalSessions ? (expectedSessions / totalSessions * 100) : 0;
 
   const done = weeks.reduce((sum, w) => sum + w.checkboxes.filter(cb => cb.checked).length, 0);
