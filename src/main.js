@@ -112,23 +112,16 @@ async function loadAndRenderSessions(){
   }
 
   const activeWeek = currentWeekNumber(new Date());
-  let activePhase = null;
 
   document.querySelectorAll('.week-list').forEach(container => {
     const phase = Number(container.dataset.phase);
     const weeks = byPhase.get(phase);
     if (!weeks) return;
-    if (weeks.has(activeWeek)) activePhase = phase;
     const weekNumbers = Array.from(weeks.keys()).sort((a, b) => a - b);
     container.innerHTML = weekNumbers
       .map(wn => weekBlockHtml(wn, weeks.get(wn), wn === activeWeek))
       .join('');
   });
-
-  if (activePhase) {
-    const tabInput = document.getElementById(`t${activePhase}`);
-    if (tabInput) tabInput.checked = true;
-  }
 
   attachDayCardHandlers();
   refreshProgress();
