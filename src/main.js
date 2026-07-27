@@ -2,20 +2,22 @@ import { supabase } from './supabaseClient.js';
 
 const WEEK_LABEL_OVERRIDES = { 11: 'Semaine S11 — dernière semaine' };
 
-// Calendar date range covered by each plan week (derived from the phase
-// date ranges shown in the timeline — weeks aren't uniform 7-day blocks).
+// Calendar date range covered by each plan week: real Monday-Sunday weeks,
+// starting from the Monday on/before the plan's first training day (Jul 21,
+// a Tuesday, so week 1 is Jul 20-26). Week 11 extends to race day (Oct 11)
+// as an intentionally longer taper block, matching the original plan.
 const WEEK_DATE_RANGES = {
-  1: ['2026-07-21', '2026-07-27'],
-  2: ['2026-07-28', '2026-08-03'],
-  3: ['2026-08-04', '2026-08-10'],
-  4: ['2026-08-11', '2026-08-17'],
-  5: ['2026-08-18', '2026-08-23'],
+  1: ['2026-07-20', '2026-07-26'],
+  2: ['2026-07-27', '2026-08-02'],
+  3: ['2026-08-03', '2026-08-09'],
+  4: ['2026-08-10', '2026-08-16'],
+  5: ['2026-08-17', '2026-08-23'],
   6: ['2026-08-24', '2026-08-30'],
   7: ['2026-08-31', '2026-09-06'],
-  8: ['2026-09-07', '2026-09-12'],
-  9: ['2026-09-13', '2026-09-20'],
-  10: ['2026-09-21', '2026-09-28'],
-  11: ['2026-09-29', '2026-10-11'],
+  8: ['2026-09-07', '2026-09-13'],
+  9: ['2026-09-14', '2026-09-20'],
+  10: ['2026-09-21', '2026-09-27'],
+  11: ['2026-09-28', '2026-10-11'],
 };
 
 function weekCreditFraction(weekNumber, now){
