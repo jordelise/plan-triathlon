@@ -4,7 +4,7 @@ create table if not exists plan_exercises (
   order_index int not null,
   name text not null,
   description text not null,
-  tag text
+  tags text[]
 );
 
 alter table plan_exercises enable row level security;

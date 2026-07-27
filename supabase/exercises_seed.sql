@@ -1,4 +1,4 @@
-insert into plan_exercises (category, order_index, name, description, tag) values
+insert into plan_exercises (category, order_index, name, description, tags) values
 ('swim_drill', 0, 'Attrape-rattrape', $d$un bras reste tendu devant jusqu'à ce que l'autre le rejoigne avant de repartir ; travaille la glisse et l'alignement du corps.$d$, null),
 ('swim_drill', 1, 'Poing fermé', $d$nager les mains fermées pour sentir l'appui de l'avant-bras plutôt que de la main.$d$, null),
 ('swim_drill', 2, '6 temps', $d$6 battements de jambes par cycle de bras ; insiste sur la rotation du buste.$d$, null),
@@ -6,11 +6,11 @@ insert into plan_exercises (category, order_index, name, description, tag) value
 ('swim_drill', 4, 'Jambes seules avec planche', $d$travaille le battement et le gainage des jambes isolément.$d$, null),
 ('swim_drill', 5, 'Bras seuls avec pull-buoy', $d$isole la traction des bras, sans l'aide des jambes.$d$, null),
 ('swim_drill', 6, 'Respiration 3 temps', $d$respiration alternée tous les 3 mouvements de bras ; équilibre la nage des deux côtés.$d$, null),
-('strength', 0, 'Pont fessier', $d$allongé sur le dos, pieds à plat, pousser les hanches vers le haut ; cible les fessiers.$d$, 'Fessiers'),
-('strength', 1, 'Squats', $d$flexion des jambes, dos droit, descente contrôlée ; fessiers et quadriceps.$d$, 'Fessiers / Quadriceps'),
-('strength', 2, 'Gainage ventral (planche)', $d$appui sur les avant-bras et les pointes de pieds, corps aligné ; sangle abdominale.$d$, 'Gainage'),
-('strength', 3, 'Gainage latéral', $d$appui sur un avant-bras, corps de profil ; obliques et stabilité du bassin.$d$, 'Obliques'),
-('strength', 4, 'Montées sur pointes', $d$monter et descendre sur la pointe des pieds ; mollets.$d$, 'Mollets'),
-('strength', 5, 'Flexions de cheville', $d$relever la pointe du pied contre une résistance élastique ; renforce le tibial antérieur et prévient les douleurs de tibia.$d$, 'Tibial antérieur'),
-('strength', 6, 'Extensions dorsales (superman)', $d$allongé sur le ventre, lever bras et jambes simultanément ; renforce le bas du dos.$d$, 'Dos'),
-('strength', 7, 'Rowing élastique', $d$tirer un élastique vers la poitrine, coudes près du corps ; dos et posture.$d$, 'Dos');
+('strength', 0, 'Pont fessier', $d$allongé sur le dos, pieds à plat, pousser les hanches vers le haut ; cible les fessiers.$d$, array['Fessiers']),
+('strength', 1, 'Squats', $d$flexion des jambes, dos droit, descente contrôlée ; fessiers et quadriceps.$d$, array['Fessiers', 'Quadriceps']),
+('strength', 2, 'Gainage ventral (planche)', $d$appui sur les avant-bras et les pointes de pieds, corps aligné ; sangle abdominale.$d$, array['Abdos']),
+('strength', 3, 'Gainage latéral', $d$appui sur un avant-bras, corps de profil ; obliques et stabilité du bassin.$d$, array['Obliques']),
+('strength', 4, 'Montées sur pointes', $d$monter et descendre sur la pointe des pieds ; mollets.$d$, array['Mollets']),
+('strength', 5, 'Flexions de cheville', $d$relever la pointe du pied contre une résistance élastique ; renforce le tibial antérieur et prévient les douleurs de tibia.$d$, array['Tibial antérieur']),
+('strength', 6, 'Extensions dorsales (superman)', $d$allongé sur le ventre, lever bras et jambes simultanément ; renforce le bas du dos.$d$, array['Dos']),
+('strength', 7, 'Rowing élastique', $d$tirer un élastique vers la poitrine, coudes près du corps ; dos et posture.$d$, array['Dos']);
