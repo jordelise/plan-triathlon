@@ -508,11 +508,17 @@ summary.section-title::marker{content:"";}
 .pace.run{border-bottom:3px solid var(--coral);}
 
 /* ---------- EXERCISE LIBRARY ---------- */
+.exo-list-header{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:14px;
+}
 .exo-filter{
   display:grid;
   grid-template-columns:1fr 1fr;
   gap:8px;
-  margin-bottom:14px;
+  flex:1;
 }
 .exo-filter-btn{
   cursor:pointer;
@@ -532,12 +538,24 @@ summary.section-title::marker{content:"";}
   background:var(--ink);
   color:var(--paper);
 }
-.exo-tag-filter{
+.exo-filter-icon-btn{
+  flex-shrink:0;
   display:flex;
-  flex-wrap:wrap;
-  gap:6px;
-  margin-bottom:14px;
+  align-items:center;
+  gap:4px;
+  cursor:pointer;
+  padding:10px 12px;
+  border-radius:10px;
+  background:var(--paper-2);
+  border:1px solid transparent;
+  color:var(--tarmac);
 }
+.exo-filter-icon-btn.has-active{
+  background:var(--ink);
+  color:var(--paper);
+}
+.exo-filter-icon-btn span{font-family:'IBM Plex Mono',monospace;font-size:11px;}
+.exo-tag-filter{display:flex;flex-wrap:wrap;gap:6px;}
 .exo-tag-filter-btn{
   cursor:pointer;
   padding:5px 12px;
@@ -996,11 +1014,16 @@ details[open] .chevron{transform:rotate(180deg);}
   <div class="page-title">Exercices</div>
 
   <div class="section-title">Bibliothèque d'exercices</div>
-  <div class="exo-filter">
-    <button type="button" class="exo-filter-btn active" data-exercise-filter="swim_drill">🏊 Natation</button>
-    <button type="button" class="exo-filter-btn" data-exercise-filter="strength">💪 Renforcement</button>
+  <div class="exo-list-header">
+    <div class="exo-filter">
+      <button type="button" class="exo-filter-btn active" data-exercise-filter="swim_drill">🏊 Natation</button>
+      <button type="button" class="exo-filter-btn" data-exercise-filter="strength">💪 Renforcement</button>
+    </div>
+    <button type="button" class="exo-filter-icon-btn" id="exo-filter-icon-btn" aria-label="Filtrer par muscle" hidden>
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      <span id="exo-filter-count"></span>
+    </button>
   </div>
-  <div class="exo-tag-filter" id="exo-tag-filter" hidden></div>
   <div class="exo-lib" data-exercise-category="swim_drill"></div>
 
 </div>

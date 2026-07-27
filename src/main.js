@@ -421,25 +421,32 @@ function renderExerciseList(){
   container.innerHTML = filtered.map(exerciseItemHtml).join('');
 }
 
-function renderExerciseTagFilter(){
-  const filterEl = document.getElementById('exo-tag-filter');
-  if (!filterEl) return;
-
+function availableExerciseTags(){
   const exercises = exercisesByCategory.get(currentExerciseCategory) || [];
-  const allTags = Array.from(new Set(exercises.flatMap(ex => ex.tags || []))).sort();
+  return Array.from(new Set(exercises.flatMap(ex => ex.tags || []))).sort();
+}
 
-  if (allTags.length === 0) {
-    filterEl.hidden = true;
-    filterEl.innerHTML = '';
-    return;
-  }
+function updateExerciseFilterButton(){
+  const btn = document.getElementById('exo-filter-icon-btn');
+  const countEl = document.getElementById('exo-filter-count');
+  if (!btn || !countEl) return;
 
-  filterEl.hidden = false;
-  filterEl.innerHTML = allTags
-    .map(tag => `<button type="button" class="exo-tag-filter-btn${selectedExerciseTags.has(tag) ? ' active' : ''}" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)}</button>`)
-    .join('');
+  const tags = availableExerciseTags();
+  btn.hidden = tags.length === 0;
+  btn.classList.toggle('has-active', selectedExerciseTags.size > 0);
+  countEl.textContent = selectedExerciseTags.size > 0 ? String(selectedExerciseTags.size) : '';
+}
 
-  filterEl.querySelectorAll('.exo-tag-filter-btn').forEach(btn => {
+function openExerciseTagFilter(){
+  const tags = availableExerciseTags();
+  if (tags.length === 0) return;
+
+  document.getElementById('detail-content').innerHTML = `<div class="detail-title" style="margin-bottom:16px;">Filtrer par muscle</div>
+    <div class="exo-tag-filter">${tags
+      .map(tag => `<button type="button" class="exo-tag-filter-btn${selectedExerciseTags.has(tag) ? ' active' : ''}" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)}</button>`)
+      .join('')}</div>`;
+
+  document.querySelectorAll('#detail-content .exo-tag-filter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const tag = btn.dataset.tag;
       if (selectedExerciseTags.has(tag)) {
@@ -448,15 +455,20 @@ function renderExerciseTagFilter(){
         selectedExerciseTags.add(tag);
       }
       btn.classList.toggle('active');
+      updateExerciseFilterButton();
       renderExerciseList();
     });
   });
+
+  document.getElementById('detail-overlay').classList.add('open');
 }
+
+document.getElementById('exo-filter-icon-btn').addEventListener('click', openExerciseTagFilter);
 
 function renderExerciseCategory(category){
   currentExerciseCategory = category;
   selectedExerciseTags = new Set();
-  renderExerciseTagFilter();
+  updateExerciseFilterButton();
   renderExerciseList();
 }
 
