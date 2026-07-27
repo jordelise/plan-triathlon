@@ -220,6 +220,23 @@ document.getElementById('detail-overlay').addEventListener('click', (e) => {
   if (e.target.id === 'detail-overlay') closeDetail();
 });
 
+function openTimelineOverlay(){
+  const svg = document.getElementById('timeline-svg');
+  if (!svg) return;
+  document.getElementById('timeline-overlay-content').innerHTML = svg.outerHTML;
+  document.getElementById('timeline-overlay').classList.add('open');
+}
+
+function closeTimelineOverlay(){
+  document.getElementById('timeline-overlay').classList.remove('open');
+}
+
+document.getElementById('timeline-card').addEventListener('click', openTimelineOverlay);
+document.getElementById('timeline-overlay-close').addEventListener('click', closeTimelineOverlay);
+document.getElementById('timeline-overlay').addEventListener('click', (e) => {
+  if (e.target.id === 'timeline-overlay') closeTimelineOverlay();
+});
+
 loadAndRenderSessions();
 loadAndRenderExercises();
 loadAndRenderGoals();

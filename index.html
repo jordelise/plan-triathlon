@@ -343,10 +343,64 @@ summary.section-title::marker{content:"";}
 
 /* ---------- TIMELINE ---------- */
 .timeline-card{
+  position:relative;
   background:#fff;
   border-radius:14px;
   padding:18px 18px 10px;
   border:1px solid var(--line);
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.timeline-card .expand-icon{
+  position:absolute;
+  top:12px;
+  right:12px;
+  color:var(--tarmac);
+  opacity:.6;
+}
+
+/* ---------- TIMELINE FULLSCREEN OVERLAY (forced landscape) ---------- */
+.timeline-overlay{
+  position:fixed;
+  inset:0;
+  z-index:400;
+  background:var(--paper);
+  display:none;
+}
+.timeline-overlay.open{display:block;}
+.timeline-overlay-inner{
+  position:absolute;
+  top:50%;
+  left:50%;
+  width:100vh;
+  height:100vw;
+  transform:translate(-50%,-50%) rotate(90deg);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+}
+@media(orientation:landscape){
+  .timeline-overlay-inner{
+    width:100vw;
+    height:100vh;
+    transform:translate(-50%,-50%) rotate(0deg);
+  }
+}
+#timeline-overlay-content{width:100%;max-width:1100px;}
+#timeline-overlay-content svg{width:100%;height:auto;display:block;}
+.timeline-overlay-close{
+  position:absolute;
+  top:12px;
+  right:12px;
+  background:var(--paper-2);
+  border:none;
+  border-radius:50%;
+  width:32px;
+  height:32px;
+  font-size:16px;
+  cursor:pointer;
+  color:var(--ink);
 }
 .timeline-legend{
   display:flex;
@@ -894,8 +948,9 @@ details[open] .chevron{transform:rotate(180deg);}
 
   <!-- TIMELINE -->
   <div class="section-title">Overview</div>
-  <div class="timeline-card">
-    <svg viewBox="0 0 940 190" width="100%" style="display:block;">
+  <div class="timeline-card" id="timeline-card">
+    <svg class="expand-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+    <svg id="timeline-svg" viewBox="0 0 940 190" width="100%" style="display:block;">
       <!-- phase bands -->
       <rect x="30" y="30" width="380" height="90" fill="#0E6E8C" opacity="0.10" rx="6"/>
       <rect x="410" y="30" width="228" height="90" fill="#4A4E46" opacity="0.35" rx="6"/>
@@ -1033,6 +1088,13 @@ details[open] .chevron{transform:rotate(180deg);}
   <div class="detail-panel">
     <button type="button" class="detail-close" id="detail-close" aria-label="Fermer">←</button>
     <div id="detail-content"></div>
+  </div>
+</div>
+
+<div class="timeline-overlay" id="timeline-overlay">
+  <div class="timeline-overlay-inner">
+    <button type="button" class="timeline-overlay-close" id="timeline-overlay-close" aria-label="Fermer">✕</button>
+    <div id="timeline-overlay-content"></div>
   </div>
 </div>
 
