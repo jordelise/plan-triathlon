@@ -88,13 +88,27 @@ function refreshWeek(block){
 
 function refreshProgress(){
   const start = new Date('2026-07-21T00:00:00');
-  const end = new Date('2026-10-11T00:00:00');
+  const msPerWeek = 7 * 24 * 60 * 60 * 1000;
   const now = new Date();
-  const expectedPct = Math.max(0, Math.min(100, (now - start) / (end - start) * 100));
 
-  const checkboxes = Array.from(document.querySelectorAll('.session-check'));
-  const done = checkboxes.filter(cb => cb.checked).length;
-  const actualPct = checkboxes.length ? (done / checkboxes.length * 100) : 0;
+  const weeks = Array.from(document.querySelectorAll('.week-block')).map(block => ({
+    week: parseInt(block.dataset.week.replace('wk', ''), 10),
+    checkboxes: Array.from(block.querySelectorAll('.session-check')),
+  }));
+
+  const totalSessions = weeks.reduce((sum, w) => sum + w.checkboxes.length, 0);
+  const maxWeek = weeks.reduce((max, w) => Math.max(max, w.week), 0);
+
+  // Only fully elapsed weeks count as "expected" — the current week's
+  // sessions aren't due yet, so they shouldn't inflate the expected bar.
+  const weeksElapsed = Math.max(0, Math.min(maxWeek, Math.floor((now - start) / msPerWeek)));
+  const expectedSessions = weeks
+    .filter(w => w.week <= weeksElapsed)
+    .reduce((sum, w) => sum + w.checkboxes.length, 0);
+  const expectedPct = totalSessions ? (expectedSessions / totalSessions * 100) : 0;
+
+  const done = weeks.reduce((sum, w) => sum + w.checkboxes.filter(cb => cb.checked).length, 0);
+  const actualPct = totalSessions ? (done / totalSessions * 100) : 0;
 
   const expectedFill = document.getElementById('progress-expected-fill');
   const actualFill = document.getElementById('progress-actual-fill');
