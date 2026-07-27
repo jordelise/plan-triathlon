@@ -32,6 +32,19 @@ function weekCreditFraction(weekNumber, now){
   return Math.min(1, elapsedDays / totalDays);
 }
 
+const FR_MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+
+function formatWeekDates(range){
+  const start = new Date(range[0] + 'T00:00:00');
+  const end = new Date(range[1] + 'T00:00:00');
+  const startMonth = FR_MONTHS[start.getMonth()];
+  const endMonth = FR_MONTHS[end.getMonth()];
+
+  return startMonth === endMonth
+    ? `${start.getDate()} → ${end.getDate()} ${endMonth}`
+    : `${start.getDate()} ${startMonth} → ${end.getDate()} ${endMonth}`;
+}
+
 function escapeHtml(str){
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -48,9 +61,11 @@ function sessionCardHtml(s){
 
 function weekBlockHtml(weekNumber, sessions, isOpen){
   const label = WEEK_LABEL_OVERRIDES[weekNumber] || `Semaine S${weekNumber}`;
+  const range = WEEK_DATE_RANGES[weekNumber];
+  const datesHtml = range ? `<span class="week-dates">${formatWeekDates(range)}</span>` : '';
   const doneCount = sessions.filter(s => s.done).length;
 
-  return `<details class="week-block" data-week="wk${weekNumber}"${isOpen ? ' open' : ''}><summary class="week-heading"><span>${label}</span><span class="week-right"><span class="week-count"><span class="wc-done">${doneCount}</span>/${sessions.length}</span><svg class="chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span></summary><div class="week-grid">${sessions.map(sessionCardHtml).join('')}</div></details>`;
+  return `<details class="week-block" data-week="wk${weekNumber}"${isOpen ? ' open' : ''}><summary class="week-heading"><span>${label} ${datesHtml}</span><span class="week-right"><span class="week-count"><span class="wc-done">${doneCount}</span>/${sessions.length}</span><svg class="chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span></summary><div class="week-grid">${sessions.map(sessionCardHtml).join('')}</div></details>`;
 }
 
 async function loadAndRenderSessions(){
