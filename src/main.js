@@ -62,9 +62,11 @@ function escapeHtml(str){
 
 let sessionsByKey = new Map();
 
+const CHECK_ICON_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square" stroke-linejoin="miter"><polyline points="4 12 9 17 20 6"/></svg>';
+
 function dayRowHtml(s){
   const d = new Date(s.session_date + 'T00:00:00');
-  return `<div class="day-row"><div class="day-badge"><div class="day-name">${FR_WEEKDAYS[d.getDay()]}</div><div class="day-num">${d.getDate()}</div></div><button type="button" class="day-card ${s.discipline}${s.done ? ' done' : ''}" data-key="${s.session_key}"><span class="day-card-icon">${s.icon}</span><span class="day-card-title">${escapeHtml(s.title)}</span><span class="day-card-check">${s.done ? '✓' : ''}</span></button></div>`;
+  return `<div class="day-row"><div class="day-badge"><div class="day-name">${FR_WEEKDAYS[d.getDay()]}</div><div class="day-num">${d.getDate()}</div></div><button type="button" class="day-card ${s.discipline}${s.done ? ' done' : ''}" data-key="${s.session_key}"><span class="day-card-icon">${s.icon}</span><span class="day-card-title">${escapeHtml(s.title)}</span><span class="day-card-check">${s.done ? CHECK_ICON_SVG : ''}</span></button></div>`;
 }
 
 function sessionDetailHtml(s){
@@ -168,7 +170,7 @@ function updateDayCardDone(key, done){
   if (!card) return;
   card.classList.toggle('done', done);
   const check = card.querySelector('.day-card-check');
-  if (check) check.textContent = done ? '✓' : '';
+  if (check) check.innerHTML = done ? CHECK_ICON_SVG : '';
 }
 
 function refreshWeekCounts(){
