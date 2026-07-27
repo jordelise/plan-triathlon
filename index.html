@@ -532,6 +532,27 @@ summary.section-title::marker{content:"";}
   background:var(--ink);
   color:var(--paper);
 }
+.exo-tag-filter{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-bottom:14px;
+}
+.exo-tag-filter-btn{
+  cursor:pointer;
+  padding:5px 12px;
+  border-radius:20px;
+  background:var(--paper-2);
+  border:1px solid transparent;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11.5px;
+  color:var(--tarmac);
+  transition:all .15s ease;
+}
+.exo-tag-filter-btn.active{
+  background:var(--ink);
+  color:var(--paper);
+}
 .exo-lib{
   background:#fff;
   border:1px solid var(--line);
@@ -979,6 +1000,7 @@ details[open] .chevron{transform:rotate(180deg);}
     <button type="button" class="exo-filter-btn active" data-exercise-filter="swim_drill">🏊 Natation</button>
     <button type="button" class="exo-filter-btn" data-exercise-filter="strength">💪 Renforcement</button>
   </div>
+  <div class="exo-tag-filter" id="exo-tag-filter" hidden></div>
   <div class="exo-lib" data-exercise-category="swim_drill"></div>
 
 </div>

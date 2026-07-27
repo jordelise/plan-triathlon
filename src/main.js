@@ -405,12 +405,59 @@ function exerciseItemHtml(ex){
 }
 
 let exercisesByCategory = new Map();
+let currentExerciseCategory = 'swim_drill';
+let selectedExerciseTags = new Set();
 
-function renderExerciseCategory(category){
+function renderExerciseList(){
   const container = document.querySelector('[data-exercise-category]');
   if (!container) return;
-  container.dataset.exerciseCategory = category;
-  container.innerHTML = (exercisesByCategory.get(category) || []).map(exerciseItemHtml).join('');
+  container.dataset.exerciseCategory = currentExerciseCategory;
+
+  const exercises = exercisesByCategory.get(currentExerciseCategory) || [];
+  const filtered = selectedExerciseTags.size === 0
+    ? exercises
+    : exercises.filter(ex => (ex.tags || []).some(tag => selectedExerciseTags.has(tag)));
+
+  container.innerHTML = filtered.map(exerciseItemHtml).join('');
+}
+
+function renderExerciseTagFilter(){
+  const filterEl = document.getElementById('exo-tag-filter');
+  if (!filterEl) return;
+
+  const exercises = exercisesByCategory.get(currentExerciseCategory) || [];
+  const allTags = Array.from(new Set(exercises.flatMap(ex => ex.tags || []))).sort();
+
+  if (allTags.length === 0) {
+    filterEl.hidden = true;
+    filterEl.innerHTML = '';
+    return;
+  }
+
+  filterEl.hidden = false;
+  filterEl.innerHTML = allTags
+    .map(tag => `<button type="button" class="exo-tag-filter-btn${selectedExerciseTags.has(tag) ? ' active' : ''}" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)}</button>`)
+    .join('');
+
+  filterEl.querySelectorAll('.exo-tag-filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tag = btn.dataset.tag;
+      if (selectedExerciseTags.has(tag)) {
+        selectedExerciseTags.delete(tag);
+      } else {
+        selectedExerciseTags.add(tag);
+      }
+      btn.classList.toggle('active');
+      renderExerciseList();
+    });
+  });
+}
+
+function renderExerciseCategory(category){
+  currentExerciseCategory = category;
+  selectedExerciseTags = new Set();
+  renderExerciseTagFilter();
+  renderExerciseList();
 }
 
 async function loadAndRenderExercises(){
