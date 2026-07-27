@@ -76,7 +76,7 @@ function sessionDetailHtml(s){
     .join('');
   const altHtml = s.alt_note ? `<div class="alt">${s.alt_note}</div>` : '';
 
-  return `<div class="detail-head"><span class="detail-icon">${s.icon}</span><div><div class="detail-title">${escapeHtml(s.title)}</div>${tagHtml ? `<div class="detail-tag">${tagHtml}</div>` : ''}</div></div><p class="detail-segments">${segsHtml}</p>${altHtml}<label class="detail-done-toggle"><input type="checkbox" id="detail-done-checkbox" data-key="${s.session_key}"${s.done ? ' checked' : ''}> Marquer comme fait</label>`;
+  return `<div class="detail-head"><span class="detail-icon">${s.icon}</span><div><div class="detail-title">${escapeHtml(s.title)}</div>${tagHtml ? `<div class="detail-tag">${tagHtml}</div>` : ''}</div></div><p class="detail-segments">${segsHtml}</p>${altHtml}<label class="detail-date-field">Date<input type="date" id="detail-date-input" data-key="${s.session_key}" value="${s.session_date || ''}"></label><label class="detail-done-toggle"><input type="checkbox" id="detail-done-checkbox" data-key="${s.session_key}"${s.done ? ' checked' : ''}> Marquer comme fait</label>`;
 }
 
 function weekBlockHtml(weekNumber, sessions, isOpen){
@@ -151,7 +151,44 @@ function openDetail(sessionKey){
     refreshProgress();
   });
 
+  const dateInput = document.getElementById('detail-date-input');
+  dateInput.addEventListener('change', () => {
+    const key = dateInput.dataset.key;
+    if (dateInput.value) saveSessionDate(key, dateInput.value);
+  });
+
   document.getElementById('detail-overlay').classList.add('open');
+}
+
+async function saveSessionDate(sessionKey, dateStr){
+  const { error } = await supabase
+    .from('plan_session_completions')
+    .update({ session_date: dateStr, updated_at: new Date().toISOString() })
+    .eq('session_key', sessionKey);
+
+  if (error) {
+    console.error('Erreur de sauvegarde de la date', error);
+    return;
+  }
+
+  const sess = sessionsByKey.get(sessionKey);
+  if (!sess) return;
+  sess.session_date = dateStr;
+  reRenderWeekDayList(sess.phase, sess.week_number);
+}
+
+function reRenderWeekDayList(phase, weekNumber){
+  const container = document.querySelector(`.week-list[data-phase="${phase}"] .week-block[data-week="wk${weekNumber}"] .day-list`);
+  if (!container) return;
+
+  const sessions = Array.from(sessionsByKey.values())
+    .filter(s => s.phase === phase && s.week_number === weekNumber)
+    .sort((a, b) => (a.session_date || '').localeCompare(b.session_date || ''));
+
+  container.innerHTML = sessions.map(dayRowHtml).join('');
+  container.querySelectorAll('.day-card').forEach(card => {
+    card.addEventListener('click', () => openDetail(card.dataset.key));
+  });
 }
 
 function closeDetail(){
