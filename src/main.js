@@ -315,88 +315,71 @@ async function loadAndRenderGoals(){
   renderGoals(currentGoals);
 }
 
-function goalsEditorHtml(goals){
-  return `<div class="detail-title" style="margin-bottom:16px;">Objectifs visés</div>
+const GOAL_SEGMENTS = {
+  swim: { title: 'Natation', durationField: 'swim_duration_sec', durationFormat: 'mmss', pace: {
+    label: "Allure (m'ss/100m)",
+    format: (goals) => formatPacePer100(goals.swim_duration_sec, goals.swim_distance_m),
+    parse: (str, goals) => parsePacePer100(str, goals.swim_distance_m),
+  }},
+  t1: { title: 'T1', durationField: 't1_duration_sec', durationFormat: 'mmss' },
+  bike: { title: 'Vélo', durationField: 'bike_duration_sec', durationFormat: 'hmm', pace: {
+    label: 'Vitesse (km/h)',
+    format: (goals) => formatSpeedKmh(goals.bike_duration_sec, goals.bike_distance_km),
+    parse: (str, goals) => parseSpeedKmh(str, goals.bike_distance_km),
+  }},
+  t2: { title: 'T2', durationField: 't2_duration_sec', durationFormat: 'mmss' },
+  run: { title: 'Course', durationField: 'run_duration_sec', durationFormat: 'mmss', pace: {
+    label: "Allure (m'ss/km)",
+    format: (goals) => formatPacePerKm(goals.run_duration_sec, goals.run_distance_km),
+    parse: (str, goals) => parsePacePerKm(str, goals.run_distance_km),
+  }},
+};
+
+function goalSegmentEditorHtml(segment, goals){
+  const durationLabel = segment.durationFormat === 'hmm' ? 'Durée (h:mm)' : 'Durée (mm:ss)';
+  const durationValue = segment.durationFormat === 'hmm'
+    ? formatHMM(goals[segment.durationField])
+    : formatMMSS(goals[segment.durationField]);
+
+  const paceHtml = segment.pace
+    ? `<label>${segment.pace.label}</label><input type="text" id="edit-goal-pace" value="${segment.pace.format(goals)}">`
+    : '';
+
+  return `<div class="detail-title" style="margin-bottom:16px;">${segment.title}</div>
     <div class="goal-field">
-      <label>Natation — durée (mm:ss)</label>
-      <input type="text" id="edit-swim-duration" value="${formatMMSS(goals.swim_duration_sec)}">
-      <label>Natation — allure (m'ss/100m)</label>
-      <input type="text" id="edit-swim-pace" value="${formatPacePer100(goals.swim_duration_sec, goals.swim_distance_m)}">
-    </div>
-    <div class="goal-field">
-      <label>T1 — durée (mm:ss)</label>
-      <input type="text" id="edit-t1-duration" value="${formatMMSS(goals.t1_duration_sec)}">
-    </div>
-    <div class="goal-field">
-      <label>Vélo — durée (h:mm)</label>
-      <input type="text" id="edit-bike-duration" value="${formatHMM(goals.bike_duration_sec)}">
-      <label>Vélo — vitesse (km/h)</label>
-      <input type="text" id="edit-bike-speed" value="${formatSpeedKmh(goals.bike_duration_sec, goals.bike_distance_km)}">
-    </div>
-    <div class="goal-field">
-      <label>T2 — durée (mm:ss)</label>
-      <input type="text" id="edit-t2-duration" value="${formatMMSS(goals.t2_duration_sec)}">
-    </div>
-    <div class="goal-field">
-      <label>Course — durée (mm:ss)</label>
-      <input type="text" id="edit-run-duration" value="${formatMMSS(goals.run_duration_sec)}">
-      <label>Course — allure (m'ss/km)</label>
-      <input type="text" id="edit-run-pace" value="${formatPacePerKm(goals.run_duration_sec, goals.run_distance_km)}">
+      <label>${durationLabel}</label>
+      <input type="text" id="edit-goal-duration" value="${durationValue}">
+      ${paceHtml}
     </div>
     <button type="button" class="goal-save-btn" id="save-goals-btn">Enregistrer</button>`;
 }
 
-function openGoalsEditor(){
+function openGoalsEditor(goalKey){
   if (!currentGoals) return;
+  const segment = GOAL_SEGMENTS[goalKey];
+  if (!segment) return;
 
-  document.getElementById('detail-content').innerHTML = goalsEditorHtml(currentGoals);
+  document.getElementById('detail-content').innerHTML = goalSegmentEditorHtml(segment, currentGoals);
 
-  const swimDurationInput = document.getElementById('edit-swim-duration');
-  const swimPaceInput = document.getElementById('edit-swim-pace');
-  swimDurationInput.addEventListener('change', () => {
-    const sec = parseMMSS(swimDurationInput.value);
-    swimPaceInput.value = formatPacePer100(sec, currentGoals.swim_distance_m);
-  });
-  swimPaceInput.addEventListener('change', () => {
-    const sec = parsePacePer100(swimPaceInput.value, currentGoals.swim_distance_m);
-    if (sec) swimDurationInput.value = formatMMSS(sec);
-  });
+  const durationInput = document.getElementById('edit-goal-duration');
+  const parseDuration = segment.durationFormat === 'hmm' ? parseHMM : parseMMSS;
+  const formatDuration = segment.durationFormat === 'hmm' ? formatHMM : formatMMSS;
 
-  const bikeDurationInput = document.getElementById('edit-bike-duration');
-  const bikeSpeedInput = document.getElementById('edit-bike-speed');
-  bikeDurationInput.addEventListener('change', () => {
-    const sec = parseHMM(bikeDurationInput.value);
-    bikeSpeedInput.value = formatSpeedKmh(sec, currentGoals.bike_distance_km);
-  });
-  bikeSpeedInput.addEventListener('change', () => {
-    const sec = parseSpeedKmh(bikeSpeedInput.value, currentGoals.bike_distance_km);
-    if (sec) bikeDurationInput.value = formatHMM(sec);
-  });
-
-  const runDurationInput = document.getElementById('edit-run-duration');
-  const runPaceInput = document.getElementById('edit-run-pace');
-  runDurationInput.addEventListener('change', () => {
-    const sec = parseMMSS(runDurationInput.value);
-    runPaceInput.value = formatPacePerKm(sec, currentGoals.run_distance_km);
-  });
-  runPaceInput.addEventListener('change', () => {
-    const sec = parsePacePerKm(runPaceInput.value, currentGoals.run_distance_km);
-    if (sec) runDurationInput.value = formatMMSS(sec);
-  });
+  const paceInput = document.getElementById('edit-goal-pace');
+  if (paceInput) {
+    durationInput.addEventListener('change', () => {
+      const sec = parseDuration(durationInput.value);
+      paceInput.value = segment.pace.format({ ...currentGoals, [segment.durationField]: sec });
+    });
+    paceInput.addEventListener('change', () => {
+      const sec = segment.pace.parse(paceInput.value, currentGoals);
+      if (sec) durationInput.value = formatDuration(sec);
+    });
+  }
 
   document.getElementById('save-goals-btn').addEventListener('click', async () => {
-    const updated = {
-      id: 1,
-      swim_distance_m: currentGoals.swim_distance_m,
-      swim_duration_sec: parseMMSS(swimDurationInput.value),
-      t1_duration_sec: parseMMSS(document.getElementById('edit-t1-duration').value),
-      bike_distance_km: currentGoals.bike_distance_km,
-      bike_duration_sec: parseHMM(bikeDurationInput.value),
-      t2_duration_sec: parseMMSS(document.getElementById('edit-t2-duration').value),
-      run_distance_km: currentGoals.run_distance_km,
-      run_duration_sec: parseMMSS(runDurationInput.value),
-      updated_at: new Date().toISOString(),
-    };
+    const sec = parseDuration(durationInput.value);
+    const updated = { ...currentGoals, [segment.durationField]: sec, updated_at: new Date().toISOString() };
 
     const { error } = await supabase.from('plan_race_goals').upsert(updated);
     if (error) {
@@ -412,7 +395,9 @@ function openGoalsEditor(){
   document.getElementById('detail-overlay').classList.add('open');
 }
 
-document.getElementById('edit-goals-btn').addEventListener('click', openGoalsEditor);
+document.querySelectorAll('.split.editable').forEach(el => {
+  el.addEventListener('click', () => openGoalsEditor(el.dataset.goal));
+});
 
 function exerciseItemHtml(ex){
   return `<div class="exo-item"><b>${escapeHtml(ex.name)}</b> — ${escapeHtml(ex.description)}</div>`;

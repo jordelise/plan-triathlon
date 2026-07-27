@@ -120,16 +120,6 @@ body{font-size:16px;}
   text-transform:uppercase;
   opacity:.65;
 }
-.edit-goals-btn{
-  background:none;
-  border:none;
-  font-size:13px;
-  cursor:pointer;
-  opacity:.75;
-  padding:0;
-  margin-left:2px;
-  vertical-align:middle;
-}
 .bib-title{
   font-family:'Oswald',sans-serif;
   font-weight:700;
@@ -168,6 +158,16 @@ body{font-size:16px;}
   padding:16px 14px;
   text-align:center;
 }
+.split.editable{
+  appearance:none;
+  border:none;
+  margin:0;
+  width:100%;
+  font-family:inherit;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.split.editable:active{opacity:.85;}
 .split .icon{font-size:18px;opacity:.85;}
 .split .label{
   font-size:11px;
@@ -844,38 +844,38 @@ details[open] .chevron{transform:rotate(180deg);}
 
   <!-- HERO BIB -->
   <div class="bib">
-    <div class="bib-eyebrow">Objectifs visés <button type="button" id="edit-goals-btn" class="edit-goals-btn" aria-label="Modifier les objectifs">✏️</button></div>
+    <div class="bib-eyebrow">Objectifs visés</div>
     <div class="splits">
-      <div class="split">
+      <button type="button" class="split editable" data-goal="swim">
         <div class="icon swim-c">🏊</div>
         <div class="label">1500 m</div>
         <div class="val swim-c" id="split-swim-duration">~32:00</div>
         <div class="label pace-label" id="split-swim-pace">2'08/100m</div>
-      </div>
-      <div class="split">
+      </button>
+      <button type="button" class="split editable" data-goal="t1">
         <div class="icon">🔄</div>
         <div class="label">T1</div>
         <div class="val" id="split-t1-duration">~4:00</div>
         <div class="label pace-label">transition</div>
-      </div>
-      <div class="split">
+      </button>
+      <button type="button" class="split editable" data-goal="bike">
         <div class="icon bike-c">🚴</div>
         <div class="label">40 km</div>
         <div class="val bike-c" id="split-bike-duration">~1:25</div>
         <div class="label pace-label" id="split-bike-speed">28 km/h</div>
-      </div>
-      <div class="split">
+      </button>
+      <button type="button" class="split editable" data-goal="t2">
         <div class="icon">🔄</div>
         <div class="label">T2</div>
         <div class="val" id="split-t2-duration">~3:00</div>
         <div class="label pace-label">transition</div>
-      </div>
-      <div class="split">
+      </button>
+      <button type="button" class="split editable" data-goal="run">
         <div class="icon run-c">🏃</div>
         <div class="label">10 km</div>
         <div class="val run-c" id="split-run-duration">~55:00</div>
         <div class="label pace-label" id="split-run-pace">5'30/km</div>
-      </div>
+      </button>
       <div class="split total">
         <div class="icon">🏁</div>
         <div class="label">Total</div>
