@@ -804,21 +804,37 @@ details[open] .chevron{transform:rotate(180deg);}
 .detail-segments .seg:last-child{margin-bottom:0;}
 .detail-meta-row{
   display:flex;
-  flex-wrap:wrap;
-  gap:16px;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
 }
 .detail-date-field, .detail-done-toggle{
-  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  display:flex;align-items:center;gap:8px;
   font-family:'Oswald',sans-serif;
   font-size:13px;
   text-transform:uppercase;
   letter-spacing:.05em;
   color:var(--ink);
+  white-space:nowrap;
 }
 .detail-done-toggle{cursor:pointer;}
-.detail-done-toggle input{width:18px;height:18px;cursor:pointer;accent-color:var(--coral);}
+.detail-done-toggle input{
+  appearance:none;
+  -webkit-appearance:none;
+  width:22px;height:22px;
+  border-radius:50%;
+  border:2px solid var(--line);
+  cursor:pointer;
+  background:#fff;
+  transition:background .15s ease, border-color .15s ease;
+}
+.detail-done-toggle input:checked{
+  background:var(--coral);
+  border-color:var(--coral);
+}
 .detail-date-field input{
-  padding:6px 10px;
+  width:128px;
+  padding:6px 8px;
   border:1px solid var(--line);
   border-radius:8px;
   font-size:16px;
