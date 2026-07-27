@@ -152,7 +152,7 @@ body{font-size:16px;}
   border-radius:12px;
   overflow:hidden;
 }
-@media(min-width:860px){.splits{grid-template-columns:repeat(4,1fr);}}
+@media(min-width:860px){.splits{grid-template-columns:repeat(3,1fr);}}
 .split{
   background:var(--ink);
   padding:16px 14px;
@@ -180,31 +180,6 @@ body{font-size:16px;}
 .run-c{color:#F0B98A;}
 
 /* ---------- PROFIL ---------- */
-.profile{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:16px;
-  margin-top:20px;
-}
-@media(max-width:640px){.profile{grid-template-columns:1fr;}}
-.pcard{
-  background:var(--paper-2);
-  border-radius:14px;
-  padding:18px 20px;
-  border-left:4px solid var(--tarmac);
-}
-.pcard.weak{border-left-color:var(--coral);}
-.pcard h3{
-  font-family:'Oswald',sans-serif;
-  font-size:14px;
-  letter-spacing:.1em;
-  text-transform:uppercase;
-  margin:0 0 10px;
-}
-.pcard ul{margin:0;padding-left:18px;font-size:14px;line-height:1.55;}
-.pcard li{margin-bottom:4px;}
-.pcard strong{font-weight:normal;color:var(--pace);}
-
 /* ---------- PAGE TITLE ---------- */
 .page-title{
   font-family:'Oswald',sans-serif;
@@ -837,10 +812,22 @@ details[open] .chevron{transform:rotate(180deg);}
         <div class="label pace-label">2'08/100m</div>
       </div>
       <div class="split">
+        <div class="icon">🔄</div>
+        <div class="label">T1</div>
+        <div class="val">4:00</div>
+        <div class="label pace-label">transition</div>
+      </div>
+      <div class="split">
         <div class="icon bike-c">🚴</div>
         <div class="label">40 km</div>
         <div class="val bike-c">~1:25</div>
         <div class="label pace-label">28 km/h</div>
+      </div>
+      <div class="split">
+        <div class="icon">🔄</div>
+        <div class="label">T2</div>
+        <div class="val">3:00</div>
+        <div class="label pace-label">transition</div>
       </div>
       <div class="split">
         <div class="icon run-c">🏃</div>
@@ -854,26 +841,6 @@ details[open] .chevron{transform:rotate(180deg);}
         <div class="val">≈ 3h00</div>
         <div class="label">avec transitions</div>
       </div>
-    </div>
-  </div>
-
-  <!-- PROFIL -->
-  <div class="profile">
-    <div class="pcard">
-      <h3>Points d'appui</h3>
-      <ul>
-        <li>Très bonne endurance — marathon et semi bouclé en 1h52'47</li>
-        <li>Bonne base natation — <strong>2'00/100m</strong> tenu sur 5 km</li>
-        <li>Bonne récupération entre les séances</li>
-      </ul>
-    </div>
-    <div class="pcard weak">
-      <h3>À travailler</h3>
-      <ul>
-        <li>Vélo : discipline avec la plus grosse marge de progression</li>
-        <li>Sensibilité tibia / patte d'oie si trop d'impact</li>
-        <li>Seulement 4 séances/semaine → chaque séance doit avoir un objectif précis</li>
-      </ul>
     </div>
   </div>
 
