@@ -280,18 +280,11 @@ body{font-size:16px;}
 }
 .progress-head{
   display:flex;
-  justify-content:space-between;
+  justify-content:flex-end;
   align-items:baseline;
   flex-wrap:wrap;
   gap:8px;
   margin-bottom:10px;
-}
-.progress-head .pg-title{
-  font-family:'Oswald',sans-serif;
-  font-size:13px;
-  letter-spacing:.1em;
-  text-transform:uppercase;
-  color:var(--tarmac);
 }
 .progress-head .pg-values{
   font-family:'IBM Plex Mono',monospace;
@@ -889,9 +882,9 @@ details[open] .chevron{transform:rotate(180deg);}
   <div class="page-title">Plan</div>
 
   <!-- PROGRESS -->
+  <div class="section-title">Progression</div>
   <div class="progress-card">
     <div class="progress-head">
-      <span class="pg-title">Progression</span>
       <span class="pg-values"><b id="progress-actual-val">0%</b> réalisé · <b id="progress-expected-val">0%</b> prévu</span>
     </div>
     <div class="progress-track">
