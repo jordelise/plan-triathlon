@@ -1,12 +1,5 @@
 import { supabase } from './supabaseClient.js';
 
-const authScreen = document.getElementById('auth-screen');
-const authForm = document.getElementById('auth-form');
-const authEmail = document.getElementById('auth-email');
-const authMessage = document.getElementById('auth-message');
-const authSubmit = document.getElementById('auth-submit');
-const signoutBtn = document.getElementById('signout-btn');
-
 const checkboxes = Array.from(document.querySelectorAll('.session-check'));
 
 function cardOf(cb){ return cb.closest('.wcard, .reinf'); }
@@ -50,11 +43,10 @@ function refreshAll(){
   refreshProgress();
 }
 
-async function loadCompletions(userId){
+async function loadCompletions(){
   const { data, error } = await supabase
     .from('plan_session_completions')
-    .select('session_key, done')
-    .eq('user_id', userId);
+    .select('session_key, done');
 
   if (error) {
     console.error('Erreur de chargement', error);
@@ -68,71 +60,27 @@ async function loadCompletions(userId){
   refreshAll();
 }
 
-async function saveCompletion(userId, sessionKey, done){
+async function saveCompletion(sessionKey, done){
   const { error } = await supabase
     .from('plan_session_completions')
     .upsert(
-      { user_id: userId, session_key: sessionKey, done, updated_at: new Date().toISOString() },
-      { onConflict: 'user_id,session_key' }
+      { session_key: sessionKey, done, updated_at: new Date().toISOString() },
+      { onConflict: 'session_key' }
     );
 
   if (error) console.error('Erreur de sauvegarde', error);
 }
-
-let currentUserId = null;
 
 checkboxes.forEach(cb => {
   cb.addEventListener('change', () => {
     refreshCard(cb);
     refreshWeek(weekBlockOf(cb));
     refreshProgress();
-    if (currentUserId) saveCompletion(currentUserId, cb.dataset.key, cb.checked);
+    saveCompletion(cb.dataset.key, cb.checked);
   });
 });
 
-function showApp(){
-  document.body.classList.add('authed');
-  signoutBtn.hidden = false;
-}
-
-function showAuth(){
-  document.body.classList.remove('authed');
-  signoutBtn.hidden = true;
-}
-
-authForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const email = authEmail.value.trim();
-  if (!email) return;
-
-  authSubmit.disabled = true;
-  authMessage.textContent = 'Envoi en cours...';
-
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: window.location.origin }
-  });
-
-  authSubmit.disabled = false;
-  authMessage.textContent = error
-    ? "Erreur d'envoi, réessaie."
-    : 'Lien envoyé ! Vérifie ta boîte mail.';
-});
-
-signoutBtn.addEventListener('click', async () => {
-  await supabase.auth.signOut();
-});
-
-supabase.auth.onAuthStateChange((_event, session) => {
-  if (session?.user) {
-    currentUserId = session.user.id;
-    showApp();
-    loadCompletions(currentUserId);
-  } else {
-    currentUserId = null;
-    showAuth();
-  }
-});
+loadCompletions();
 
 function updateCountdown(){
   const target = new Date('2026-10-11T10:00:00');

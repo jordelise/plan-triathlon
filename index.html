@@ -721,57 +721,9 @@ details[open] .chevron{transform:rotate(180deg);}
   opacity:.7;
 }
 
-/* ---------- AUTH ---------- */
-.wrap, .bottom-nav{display:none;}
-body.authed .wrap{display:block;}
-body.authed .bottom-nav{display:flex;}
-body.authed .auth-screen{display:none;}
-.auth-screen{
-  position:fixed;inset:0;z-index:200;
-  background:var(--paper);
-  display:flex;align-items:center;justify-content:center;
-  padding:20px;
-}
-.auth-card{
-  max-width:360px;width:100%;
-  background:#fff;
-  border-radius:16px;
-  padding:28px 26px;
-  border:1px solid var(--line);
-  text-align:center;
-}
-.auth-card h1{font-family:'Oswald',sans-serif;font-size:24px;margin:0 0 8px;}
-.auth-card p{font-size:14px;color:var(--tarmac);margin:0 0 18px;}
-.auth-card form{display:flex;flex-direction:column;gap:10px;}
-.auth-card input{padding:10px 12px;border-radius:8px;border:1px solid var(--line);font-size:15px;font-family:inherit;}
-.auth-card button{padding:10px 12px;border-radius:8px;border:none;background:var(--coral);color:#fff;font-family:'Oswald',sans-serif;letter-spacing:.04em;text-transform:uppercase;font-size:13px;cursor:pointer;}
-.auth-card button:disabled{opacity:.6;cursor:default;}
-.auth-message{font-size:13px;margin-top:12px;color:var(--tarmac);min-height:16px;}
-.signout-btn{
-  position:fixed;top:10px;right:10px;z-index:60;
-  background:rgba(22,41,43,0.85);color:var(--paper);
-  border:none;border-radius:20px;
-  padding:6px 12px;font-size:11px;
-  font-family:'IBM Plex Sans',sans-serif;
-  cursor:pointer;
-}
 </style>
 </head>
 <body>
-
-<div class="auth-screen" id="auth-screen">
-  <div class="auth-card">
-    <h1>Triathlon <em>de la Baie</em></h1>
-    <p>Connecte-toi pour suivre ta progression.</p>
-    <form id="auth-form">
-      <input type="email" id="auth-email" placeholder="ton@email.com" required autocomplete="email">
-      <button type="submit" id="auth-submit">Recevoir le lien de connexion</button>
-    </form>
-    <p class="auth-message" id="auth-message"></p>
-  </div>
-</div>
-
-<button class="signout-btn" id="signout-btn" hidden>Se déconnecter</button>
 
 <input type="radio" name="mainnav" id="m1" class="mainnav-radio" checked>
 <input type="radio" name="mainnav" id="m2" class="mainnav-radio">
