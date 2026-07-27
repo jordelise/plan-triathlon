@@ -1,7 +1,5 @@
 import { supabase } from './supabaseClient.js';
 
-const WEEK_LABEL_OVERRIDES = { 11: 'Semaine S11 — dernière semaine' };
-
 // Calendar date range covered by each plan week: real Monday-Sunday weeks,
 // starting from the Monday on/before the plan's first training day (Jul 21,
 // a Tuesday, so week 1 is Jul 20-26). Week 11 extends to race day (Oct 11)
@@ -80,7 +78,7 @@ function sessionDetailHtml(s){
 }
 
 function weekBlockHtml(weekNumber, sessions, isOpen){
-  const label = WEEK_LABEL_OVERRIDES[weekNumber] || `Semaine S${weekNumber}`;
+  const label = `Semaine S${weekNumber}`;
   const range = WEEK_DATE_RANGES[weekNumber];
   const datesHtml = range ? `<span class="week-dates">${formatWeekDates(range)}</span>` : '';
   const doneCount = sessions.filter(s => s.done).length;
