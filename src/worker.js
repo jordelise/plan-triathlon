@@ -32,6 +32,12 @@ function loginPageHtml(error) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/png" href="/icon.png">
+<link rel="apple-touch-icon" href="/icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Triathlon de la Baie">
+<meta name="theme-color" content="#16292B">
 <title>Connexion — Plan Triathlon</title>
 <style>
   body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#F1ECDF;font-family:-apple-system,'IBM Plex Sans',sans-serif;}
