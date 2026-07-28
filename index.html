@@ -42,7 +42,8 @@ body{font-size:16px;}
 .mainpanel{display:none;}
 #m1:checked ~ .wrap #mp-home,
 #m2:checked ~ .wrap #mp-plan,
-#m3:checked ~ .wrap #mp-zones{display:block;}
+#m3:checked ~ .wrap #mp-zones,
+#m4:checked ~ .wrap #mp-settings{display:block;}
 
 .bottom-nav{
   position:fixed;
@@ -83,7 +84,8 @@ body{font-size:16px;}
 .nav-label{line-height:1;}
 #m1:checked ~ .bottom-nav label[for="m1"],
 #m2:checked ~ .bottom-nav label[for="m2"],
-#m3:checked ~ .bottom-nav label[for="m3"]{
+#m3:checked ~ .bottom-nav label[for="m3"],
+#m4:checked ~ .bottom-nav label[for="m4"]{
   opacity:1;
   background:var(--coral);
   box-shadow:0 2px 10px rgba(232,80,47,0.45), inset 0 1px 0 rgba(255,255,255,0.3);
@@ -938,6 +940,38 @@ details[open] .chevron{transform:rotate(180deg);}
   opacity:.7;
 }
 
+/* ---------- SETTINGS ---------- */
+.settings-card{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:16px 18px;
+}
+.settings-status{
+  margin:0 0 4px;
+  font-size:14px;
+  color:var(--ink);
+}
+.settings-sub{
+  margin:0 0 14px;
+  font-size:13px;
+  color:var(--tarmac);
+}
+.settings-btn{
+  padding:10px 16px;
+  border:none;
+  border-radius:8px;
+  font-family:'Oswald',sans-serif;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  font-size:13px;
+  cursor:pointer;
+  text-decoration:none;
+  display:inline-block;
+}
+.settings-btn.connect{background:var(--coral);color:#fff;}
+.settings-btn.disconnect{background:transparent;color:var(--tarmac);border:1px solid var(--line);}
+
 </style>
 </head>
 <body>
@@ -945,6 +979,7 @@ details[open] .chevron{transform:rotate(180deg);}
 <input type="radio" name="mainnav" id="m1" class="mainnav-radio" checked>
 <input type="radio" name="mainnav" id="m2" class="mainnav-radio">
 <input type="radio" name="mainnav" id="m3" class="mainnav-radio">
+<input type="radio" name="mainnav" id="m4" class="mainnav-radio">
 
 <div class="wrap">
 
@@ -1012,8 +1047,6 @@ details[open] .chevron{transform:rotate(180deg);}
       </div>
     </div>
   </div>
-
-  <div class="footnote" id="strava-status"></div>
 
 </div>
 
@@ -1158,6 +1191,17 @@ details[open] .chevron{transform:rotate(180deg);}
 
 </div>
 
+<div class="mainpanel" id="mp-settings">
+
+  <div class="page-title">Réglages</div>
+
+  <div class="section-title">Connexion Strava</div>
+  <div class="settings-card" id="strava-settings-card">
+    <p class="settings-status">Chargement…</p>
+  </div>
+
+</div>
+
 </div>
 
 <nav class="bottom-nav">
@@ -1172,6 +1216,10 @@ details[open] .chevron{transform:rotate(180deg);}
   <label for="m3" class="nav-item">
     <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>
     <span class="nav-label">Exercices</span>
+  </label>
+  <label for="m4" class="nav-item">
+    <svg class="nav-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    <span class="nav-label">Réglages</span>
   </label>
 </nav>
 

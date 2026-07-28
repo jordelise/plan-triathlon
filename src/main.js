@@ -168,13 +168,30 @@ async function loadStravaForSession(s){
   }
 }
 
+function formatStravaExpiry(expiresAt){
+  const d = new Date(expiresAt * 1000);
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${d.getDate()} ${FR_MONTHS[d.getMonth()]} à ${hh}:${mm}`;
+}
+
 async function refreshStravaConnectStatus(){
-  const el = document.getElementById('strava-status');
+  const el = document.getElementById('strava-settings-card');
   if (!el) return;
   try {
     const res = await fetch('/api/strava/status');
-    const { connected } = await res.json();
-    el.innerHTML = connected ? 'Strava connecté ✓' : '<a href="/api/strava/connect">Connecter Strava</a>';
+    const data = await res.json();
+    if (data.connected) {
+      const who = data.athlete_name ? `Connecté en tant que <b>${escapeHtml(data.athlete_name)}</b>.` : 'Connecté.';
+      const expiry = data.expires_at ? `<p class="settings-sub">Jeton d'accès valide jusqu'au ${formatStravaExpiry(data.expires_at)}.</p>` : '';
+      el.innerHTML = `<p class="settings-status">${who}</p>${expiry}<button type="button" class="settings-btn disconnect" id="strava-disconnect-btn">Déconnecter</button>`;
+      document.getElementById('strava-disconnect-btn').addEventListener('click', async () => {
+        await fetch('/api/strava/disconnect');
+        refreshStravaConnectStatus();
+      });
+    } else {
+      el.innerHTML = `<p class="settings-status">Non connecté.</p><p class="settings-sub">Connecte ton compte Strava pour voir les vraies stats de tes séances.</p><a href="/api/strava/connect" class="settings-btn connect">Connecter Strava</a>`;
+    }
   } catch {
     // Under plain `vite dev` (no Worker runtime) this fails silently — non-fatal.
   }

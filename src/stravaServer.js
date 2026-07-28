@@ -87,14 +87,25 @@ export async function handleCallback(request, env) {
     access_token: tokens.access_token,
     refresh_token: tokens.refresh_token,
     expires_at: tokens.expires_at,
+    athlete_name: tokens.athlete ? `${tokens.athlete.firstname} ${tokens.athlete.lastname}`.trim() : null,
   }));
 
   return Response.redirect(`${url.origin}/?strava=connected`, 302);
 }
 
 export async function handleStatus(env) {
-  const stored = await env.STRAVA_KV.get(TOKENS_KEY);
-  return Response.json({ connected: !!stored });
+  const stored = await env.STRAVA_KV.get(TOKENS_KEY, 'json');
+  if (!stored) return Response.json({ connected: false });
+  return Response.json({
+    connected: true,
+    athlete_name: stored.athlete_name || null,
+    expires_at: stored.expires_at,
+  });
+}
+
+export async function handleDisconnect(env) {
+  await env.STRAVA_KV.delete(TOKENS_KEY);
+  return Response.json({ connected: false });
 }
 
 export async function handleActivities(request, env) {
