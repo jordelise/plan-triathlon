@@ -404,7 +404,6 @@ document.getElementById('timeline-overlay').addEventListener('click', (e) => {
 loadAndRenderSessions();
 loadAndRenderExercises();
 loadAndRenderGoals();
-loadAndRenderRaceInfo();
 
 if (new URLSearchParams(location.search).has('strava')) {
   history.replaceState(null, '', location.pathname);
@@ -498,6 +497,16 @@ function updateSplitLabels(goals){
   document.getElementById('split-run-label').textContent = `${goals.run_distance_km} km`;
 }
 
+function renderRaceInfo(goals){
+  document.getElementById('home-race-name').textContent = goals.name;
+  const d = new Date(goals.race_date + 'T00:00:00');
+  document.getElementById('home-race-day').textContent = d.getDate();
+  document.getElementById('home-race-month').textContent = FR_MONTHS[d.getMonth()];
+  document.getElementById('home-race-badge').textContent = RACE_SIZE_LABELS[goals.size] || goals.size;
+  document.title = `Plan Triathlon ${goals.size} — ${d.getDate()} ${FR_MONTHS[d.getMonth()]}`;
+  raceTargetDate = new Date(goals.race_date + 'T10:00:00');
+}
+
 async function loadAndRenderGoals(){
   const { data, error } = await supabase.from('plan_race_goals').select('*').eq('id', 1).single();
   if (error) {
@@ -507,6 +516,7 @@ async function loadAndRenderGoals(){
   currentGoals = data;
   renderGoals(currentGoals);
   updateSplitLabels(currentGoals);
+  renderRaceInfo(currentGoals);
 }
 
 const RACE_SIZE_LABELS = { S: 'Sprint', M: 'M', L: 'L (70.3)', IRONMAN: 'Iron Man' };
@@ -518,52 +528,30 @@ const RACE_SIZE_DISTANCES = {
   IRONMAN: { swim_distance_m: 3800, bike_distance_km: 180, run_distance_km: 42.2 },
 };
 
-let currentRaceInfo = null;
-
-function renderRaceInfo(info){
-  document.getElementById('home-race-name').textContent = info.name;
-  const d = new Date(info.race_date + 'T00:00:00');
-  document.getElementById('home-race-day').textContent = d.getDate();
-  document.getElementById('home-race-month').textContent = FR_MONTHS[d.getMonth()];
-  document.getElementById('home-race-badge').textContent = RACE_SIZE_LABELS[info.size] || info.size;
-  document.title = `Plan Triathlon ${info.size} — ${d.getDate()} ${FR_MONTHS[d.getMonth()]}`;
-  raceTargetDate = new Date(info.race_date + 'T10:00:00');
-}
-
-async function loadAndRenderRaceInfo(){
-  const { data, error } = await supabase.from('plan_race_info').select('*').eq('id', 1).single();
-  if (error) {
-    console.error('Erreur de chargement des infos de course', error);
-    return;
-  }
-  currentRaceInfo = data;
-  renderRaceInfo(currentRaceInfo);
-}
-
-function raceInfoEditorHtml(info){
+function raceInfoEditorHtml(goals){
   return `<div class="detail-title" style="margin-bottom:16px;">Mon triathlon</div>
     <div class="goal-field">
       <label>Nom</label>
-      <input type="text" id="race-info-name" value="${escapeHtml(info.name)}">
+      <input type="text" id="race-info-name" value="${escapeHtml(goals.name)}">
     </div>
     <div class="goal-field">
       <label>Date</label>
-      <input type="date" id="race-info-date" value="${info.race_date}">
+      <input type="date" id="race-info-date" value="${goals.race_date}">
     </div>
     <div class="goal-field">
       <label>Format</label>
       <div class="race-size-options">${['S', 'M', 'L', 'IRONMAN']
-        .map(sz => `<button type="button" class="race-size-btn${info.size === sz ? ' active' : ''}" data-size="${sz}">${RACE_SIZE_LABELS[sz]}</button>`)
+        .map(sz => `<button type="button" class="race-size-btn${goals.size === sz ? ' active' : ''}" data-size="${sz}">${RACE_SIZE_LABELS[sz]}</button>`)
         .join('')}</div>
     </div>
     <button type="button" class="goal-save-btn" id="save-race-info-btn">Enregistrer</button>`;
 }
 
 function openRaceInfoEditor(){
-  if (!currentRaceInfo) return;
-  let selectedSize = currentRaceInfo.size;
+  if (!currentGoals) return;
+  let selectedSize = currentGoals.size;
 
-  document.getElementById('detail-content').innerHTML = raceInfoEditorHtml(currentRaceInfo);
+  document.getElementById('detail-content').innerHTML = raceInfoEditorHtml(currentGoals);
 
   document.querySelectorAll('.race-size-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -574,29 +562,21 @@ function openRaceInfoEditor(){
   });
 
   document.getElementById('save-race-info-btn').addEventListener('click', async () => {
-    const name = document.getElementById('race-info-name').value.trim() || currentRaceInfo.name;
-    const raceDate = document.getElementById('race-info-date').value || currentRaceInfo.race_date;
-    const sizeChanged = selectedSize !== currentRaceInfo.size;
+    const name = document.getElementById('race-info-name').value.trim() || currentGoals.name;
+    const raceDate = document.getElementById('race-info-date').value || currentGoals.race_date;
+    const sizeChanged = selectedSize !== currentGoals.size;
+    const distances = sizeChanged ? RACE_SIZE_DISTANCES[selectedSize] : {};
 
-    const updatedInfo = { ...currentRaceInfo, name, race_date: raceDate, size: selectedSize, updated_at: new Date().toISOString() };
-    const { error } = await supabase.from('plan_race_info').upsert(updatedInfo);
+    const updated = { ...currentGoals, name, race_date: raceDate, size: selectedSize, ...distances, updated_at: new Date().toISOString() };
+    const { error } = await supabase.from('plan_race_goals').upsert(updated);
     if (error) {
       console.error('Erreur de sauvegarde des infos de course', error);
       return;
     }
-    currentRaceInfo = updatedInfo;
-    renderRaceInfo(currentRaceInfo);
-
-    if (sizeChanged && currentGoals) {
-      const updatedGoals = { ...currentGoals, ...RACE_SIZE_DISTANCES[selectedSize], updated_at: new Date().toISOString() };
-      const { error: goalsError } = await supabase.from('plan_race_goals').upsert(updatedGoals);
-      if (!goalsError) {
-        currentGoals = updatedGoals;
-        renderGoals(currentGoals);
-        updateSplitLabels(currentGoals);
-      }
-    }
-
+    currentGoals = updated;
+    renderRaceInfo(currentGoals);
+    renderGoals(currentGoals);
+    updateSplitLabels(currentGoals);
     closeDetail();
   });
 
