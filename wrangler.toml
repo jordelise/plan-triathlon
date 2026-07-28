@@ -1,5 +1,11 @@
 name = "plan-triathlon"
 compatibility_date = "2024-09-23"
+main = "src/worker.js"
 
 [assets]
 directory = "./dist"
+binding = "ASSETS"
+
+[[kv_namespaces]]
+binding = "STRAVA_KV"
+id = "5079450990474f659e3463d233959a8e"

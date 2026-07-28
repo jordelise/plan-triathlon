@@ -73,8 +73,111 @@ function sessionDetailHtml(s){
     .map(seg => `<span class="seg"><b class="seg-label">${escapeHtml(seg.label)}</b> ${seg.text}</span>`)
     .join('');
   const altHtml = s.alt_note ? `<div class="alt">${s.alt_note}</div>` : '';
+  const stravaHtml = s.session_date
+    ? `<p class="detail-card-title">Résultat de la séance</p><div class="detail-card detail-strava"><div id="detail-strava"><p class="detail-strava-status">Chargement Strava…</p></div></div>`
+    : '';
 
-  return `<div class="detail-head"><span class="detail-icon">${s.icon}</span><div class="detail-title-row"><span class="detail-title">${escapeHtml(s.title)}</span>${tagHtml}</div></div><div class="detail-meta-row"><label class="detail-date-field">Date<input type="date" id="detail-date-input" data-key="${s.session_key}" value="${s.session_date || ''}"></label><label class="detail-done-toggle">Fait<span class="detail-done-box-wrap"><input type="checkbox" id="detail-done-checkbox" data-key="${s.session_key}"${s.done ? ' checked' : ''}><span class="detail-done-box"><svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="square" stroke-linejoin="miter"><polyline points="4 12 9 17 20 6"/></svg></span></span></label></div><div class="detail-card"><p class="detail-segments">${segsHtml}</p>${altHtml}</div>`;
+  return `<div class="detail-head"><span class="detail-icon">${s.icon}</span><div class="detail-title-row"><span class="detail-title">${escapeHtml(s.title)}</span>${tagHtml}</div></div><div class="detail-meta-row"><label class="detail-date-field">Date<input type="date" id="detail-date-input" data-key="${s.session_key}" value="${s.session_date || ''}"></label><label class="detail-done-toggle">Fait<span class="detail-done-box-wrap"><input type="checkbox" id="detail-done-checkbox" data-key="${s.session_key}"${s.done ? ' checked' : ''}><span class="detail-done-box"><svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="square" stroke-linejoin="miter"><polyline points="4 12 9 17 20 6"/></svg></span></span></label></div><p class="detail-card-title">Détail de la séance</p><div class="detail-card"><p class="detail-segments">${segsHtml}</p>${altHtml}</div>${stravaHtml}`;
+}
+
+let stravaRequestSeq = 0;
+
+function formatDistTimePace(discipline, distanceM, movingTimeSec){
+  if (discipline === 'swim') {
+    return `${Math.round(distanceM)} m · ${formatMMSS(movingTimeSec)} · ${formatPacePer100(movingTimeSec, distanceM)}/100m`;
+  }
+  if (discipline === 'run') {
+    return `${(distanceM / 1000).toFixed(1)} km · ${formatMMSS(movingTimeSec)} · ${formatPacePerKm(movingTimeSec, distanceM / 1000)}/km`;
+  }
+  if (discipline === 'bike') {
+    return `${(distanceM / 1000).toFixed(1)} km · ${formatHMM(movingTimeSec)} · ${formatSpeedKmh(movingTimeSec, distanceM / 1000)} km/h`;
+  }
+  return formatMMSS(movingTimeSec);
+}
+
+function formatStravaStats(a){
+  return formatDistTimePace(a.matchedDiscipline, a.distance, a.moving_time);
+}
+
+function stravaLapsHtml(a){
+  if (!a.laps || a.laps.length < 2) return '';
+  const rows = a.laps.map(l => {
+    const hr = l.average_heartrate ? ` · ${Math.round(l.average_heartrate)} bpm` : '';
+    return `<div class="strava-lap-row"><span class="strava-lap-num">${l.lap_index}</span><span>${formatDistTimePace(a.matchedDiscipline, l.distance, l.moving_time)}${hr}</span></div>`;
+  }).join('');
+  return `<div class="strava-laps">${rows}</div>`;
+}
+
+function stravaActivityCardHtml(a){
+  const hr = a.average_heartrate ? ` · ${Math.round(a.average_heartrate)} bpm moy.` : '';
+  const descHtml = a.description
+    ? `<p class="strava-activity-desc">${escapeHtml(a.description)}</p>`
+    : '';
+  return `<div class="strava-activity"><div class="strava-activity-name">${escapeHtml(a.name)}</div><div class="strava-stats-row">${formatStravaStats(a)}${hr}</div>${descHtml}${stravaLapsHtml(a)}</div>`;
+}
+
+function renderStravaState(data, ok){
+  const el = document.getElementById('detail-strava');
+  if (!el) return;
+
+  if (!ok) {
+    el.innerHTML = `<p class="detail-strava-status">Impossible de charger les stats Strava.</p>`;
+    return;
+  }
+  if (!data.connected) {
+    el.innerHTML = `<p class="detail-strava-status"><a href="/api/strava/connect">Connecter Strava</a> pour voir les activités réelles.</p>`;
+    return;
+  }
+  if (data.future) {
+    el.innerHTML = `<p class="detail-strava-status">Séance à venir — pas encore réalisée.</p>`;
+    return;
+  }
+  if (!data.matches.length) {
+    el.innerHTML = `<p class="detail-strava-status">Séance pas encore réalisée (ou pas trouvée sur Strava).</p>`;
+    return;
+  }
+  el.innerHTML = data.matches.map(stravaActivityCardHtml).join('');
+}
+
+function setSessionDone(key, done){
+  const sess = sessionsByKey.get(key);
+  if (!sess || sess.done === done) return;
+  sess.done = done;
+  saveCompletion(key, done);
+  updateDayCardDone(key, done);
+  const checkbox = document.getElementById('detail-done-checkbox');
+  if (checkbox && checkbox.dataset.key === key) checkbox.checked = done;
+  refreshWeekCounts();
+  refreshProgress();
+}
+
+async function loadStravaForSession(s){
+  const seq = ++stravaRequestSeq;
+  try {
+    const res = await fetch(`/api/strava/activities?date=${s.session_date}&discipline=${s.discipline}`);
+    if (seq !== stravaRequestSeq) return;
+    const data = await res.json();
+    renderStravaState(data, res.ok);
+    if (res.ok && data.connected && data.matches?.length && !s.done) {
+      setSessionDone(s.session_key, true);
+    }
+  } catch (err) {
+    if (seq !== stravaRequestSeq) return;
+    console.error('Erreur Strava', err);
+    renderStravaState(null, false);
+  }
+}
+
+async function refreshStravaConnectStatus(){
+  const el = document.getElementById('strava-status');
+  if (!el) return;
+  try {
+    const res = await fetch('/api/strava/status');
+    const { connected } = await res.json();
+    el.innerHTML = connected ? 'Strava connecté ✓' : '<a href="/api/strava/connect">Connecter Strava</a>';
+  } catch {
+    // Under plain `vite dev` (no Worker runtime) this fails silently — non-fatal.
+  }
 }
 
 function weekBlockHtml(weekNumber, sessions, isOpen){
@@ -137,16 +240,11 @@ function openDetail(sessionKey){
 
   const content = document.getElementById('detail-content');
   content.innerHTML = sessionDetailHtml(s);
+  if (s.session_date) loadStravaForSession(s);
 
   const checkbox = document.getElementById('detail-done-checkbox');
   checkbox.addEventListener('change', () => {
-    const key = checkbox.dataset.key;
-    const sess = sessionsByKey.get(key);
-    sess.done = checkbox.checked;
-    saveCompletion(key, checkbox.checked);
-    updateDayCardDone(key, checkbox.checked);
-    refreshWeekCounts();
-    refreshProgress();
+    setSessionDone(checkbox.dataset.key, checkbox.checked);
   });
 
   const dateInput = document.getElementById('detail-date-input');
@@ -275,6 +373,11 @@ document.getElementById('timeline-overlay').addEventListener('click', (e) => {
 loadAndRenderSessions();
 loadAndRenderExercises();
 loadAndRenderGoals();
+
+if (new URLSearchParams(location.search).has('strava')) {
+  history.replaceState(null, '', location.pathname);
+}
+refreshStravaConnectStatus();
 
 function formatMMSS(totalSec){
   const m = Math.floor(totalSec / 60);
