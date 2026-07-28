@@ -226,7 +226,7 @@ async function renderStravaSettingsContent(){
 
 function openStravaSettings(){
   document.getElementById('detail-content').innerHTML = `<div class="detail-title" style="margin-bottom:16px;">Applications connectées</div><p class="settings-status">Chargement de Strava…</p>`;
-  document.getElementById('detail-overlay').classList.add('open');
+  openDetailOverlay(false);
   renderStravaSettingsContent();
 }
 
@@ -305,7 +305,7 @@ function openDetail(sessionKey){
     if (dateInput.value) saveSessionDate(key, dateInput.value);
   });
 
-  document.getElementById('detail-overlay').classList.add('open');
+  openDetailOverlay(false);
 }
 
 async function saveSessionDate(sessionKey, dateStr){
@@ -339,8 +339,28 @@ function reRenderWeekDayList(phase, weekNumber){
   });
 }
 
+// Opening/closing toggles both 'open' and 'sheet-bottom' in one go in a
+// few places; if the browser never paints an intermediate frame with only
+// 'sheet-bottom' applied, the transition animates from whatever the
+// previous drawer's transform function was (translateX) to the new one
+// (translateY), producing a diagonal slide instead of a clean one.
+// Forcing a layout read between the two class changes fixes the open
+// side; closing waits for the transition to finish before dropping
+// 'sheet-bottom' so the close animation uses the same axis it opened with.
+function openDetailOverlay(sheetBottom){
+  const overlay = document.getElementById('detail-overlay');
+  overlay.classList.toggle('sheet-bottom', sheetBottom);
+  void overlay.offsetWidth;
+  overlay.classList.add('open');
+}
+
 function closeDetail(){
-  document.getElementById('detail-overlay').classList.remove('open', 'sheet-bottom');
+  const overlay = document.getElementById('detail-overlay');
+  overlay.classList.remove('open');
+  const panel = overlay.querySelector('.detail-panel');
+  panel.addEventListener('transitionend', () => {
+    overlay.classList.remove('sheet-bottom');
+  }, { once: true });
 }
 
 function updateDayCardDone(key, done){
@@ -800,7 +820,7 @@ function openRaceInfoEditor(){
     maybeShowOnboardingPopup(currentGoals);
   });
 
-  document.getElementById('detail-overlay').classList.add('open');
+  openDetailOverlay(false);
 }
 
 document.getElementById('race-info-settings-row').addEventListener('click', openRaceInfoEditor);
@@ -883,7 +903,7 @@ function openGoalsEditor(goalKey){
     closeDetail();
   });
 
-  document.getElementById('detail-overlay').classList.add('open', 'sheet-bottom');
+  openDetailOverlay(true);
 }
 
 document.querySelectorAll('.split.editable').forEach(el => {
@@ -951,7 +971,7 @@ function openExerciseTagFilter(){
     });
   });
 
-  document.getElementById('detail-overlay').classList.add('open');
+  openDetailOverlay(false);
 }
 
 document.getElementById('exo-filter-icon-btn').addEventListener('click', openExerciseTagFilter);
