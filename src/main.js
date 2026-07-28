@@ -415,6 +415,8 @@ function initApp(){
 const authGate = document.getElementById('auth-gate');
 const authForm = document.getElementById('auth-form');
 const authError = document.getElementById('auth-error');
+const authRecoveryForm = document.getElementById('auth-recovery-form');
+const authRecoveryError = document.getElementById('auth-recovery-error');
 
 authForm.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -435,13 +437,49 @@ authForm.addEventListener('submit', async (e) => {
   // On success, onAuthStateChange below hides the gate and starts the app.
 });
 
+authRecoveryForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const password = document.getElementById('auth-new-password').value;
+  const submitBtn = authRecoveryForm.querySelector('button');
+
+  submitBtn.disabled = true;
+  authRecoveryError.hidden = true;
+
+  const { error } = await supabase.auth.updateUser({ password });
+
+  submitBtn.disabled = false;
+  if (error) {
+    authRecoveryError.textContent = "Impossible d'enregistrer ce mot de passe.";
+    authRecoveryError.hidden = false;
+    return;
+  }
+  authRecoveryForm.hidden = true;
+  authForm.hidden = false;
+  authGate.hidden = true;
+  if (!appStarted) {
+    appStarted = true;
+    initApp();
+  }
+});
+
 let appStarted = false;
+let inRecovery = false;
 
 document.getElementById('sign-out-btn').addEventListener('click', () => {
   supabase.auth.signOut();
 });
 
-supabase.auth.onAuthStateChange((_event, session) => {
+supabase.auth.onAuthStateChange((event, session) => {
+  if (event === 'PASSWORD_RECOVERY') {
+    inRecovery = true;
+    authGate.hidden = false;
+    authForm.hidden = true;
+    authRecoveryForm.hidden = false;
+    return;
+  }
+
+  if (inRecovery) return; // stay on the recovery form until it is submitted
+
   if (session) {
     authGate.hidden = true;
     if (!appStarted) {
