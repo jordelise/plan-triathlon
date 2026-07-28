@@ -686,21 +686,51 @@ async function loadAndRenderGoals(){
   maybeShowOnboardingPopup(currentGoals);
 }
 
-function maybeShowOnboardingPopup(goals){
-  const needsSetup = !goals.race_date || goals.swim_distance_m == null;
-  if (!needsSetup) return;
-
+function showOnboardingPopup({ title, text, primaryLabel, onPrimary }){
   const popup = document.getElementById('onboarding-popup');
+  document.getElementById('onboarding-title').textContent = title;
+  document.getElementById('onboarding-text').textContent = text;
+
+  const primaryBtn = document.getElementById('onboarding-primary-btn');
+  primaryBtn.textContent = primaryLabel;
+  const dismissBtn = document.getElementById('onboarding-dismiss-btn');
+
+  const newPrimaryBtn = primaryBtn.cloneNode(true);
+  primaryBtn.replaceWith(newPrimaryBtn);
+  const newDismissBtn = dismissBtn.cloneNode(true);
+  dismissBtn.replaceWith(newDismissBtn);
+
+  newPrimaryBtn.addEventListener('click', () => {
+    popup.hidden = true;
+    onPrimary();
+  }, { once: true });
+  newDismissBtn.addEventListener('click', () => {
+    popup.hidden = true;
+  }, { once: true });
+
   popup.hidden = false;
+}
 
-  document.getElementById('onboarding-configure-btn').addEventListener('click', () => {
-    popup.hidden = true;
-    openRaceInfoEditor();
-  }, { once: true });
+function maybeShowOnboardingPopup(goals){
+  if (!goals.race_date || goals.swim_distance_m == null) {
+    showOnboardingPopup({
+      title: 'Configure ta course',
+      text: 'Renseigne le nom, la date et le format de ton triathlon pour personnaliser ton plan et tes objectifs.',
+      primaryLabel: 'Configurer maintenant',
+      onPrimary: openRaceInfoEditor,
+    });
+    return;
+  }
 
-  document.getElementById('onboarding-dismiss-btn').addEventListener('click', () => {
-    popup.hidden = true;
-  }, { once: true });
+  const durations = [goals.swim_duration_sec, goals.t1_duration_sec, goals.bike_duration_sec, goals.t2_duration_sec, goals.run_duration_sec];
+  if (durations.some(v => v == null)) {
+    showOnboardingPopup({
+      title: 'Définis tes objectifs de temps',
+      text: 'Sur la page d\'accueil, tape sur chaque étape (nage, T1, vélo, T2, course) pour indiquer le temps ou l\'allure que tu vises.',
+      primaryLabel: 'Compris',
+      onPrimary: () => {},
+    });
+  }
 }
 
 const RACE_SIZE_LABELS = { S: 'Sprint', M: 'M', L: 'L (70.3)', IRONMAN: 'Iron Man' };
@@ -763,6 +793,7 @@ function openRaceInfoEditor(){
     renderGoals(currentGoals);
     updateSplitLabels(currentGoals);
     closeDetail();
+    maybeShowOnboardingPopup(currentGoals);
   });
 
   document.getElementById('detail-overlay').classList.add('open');
