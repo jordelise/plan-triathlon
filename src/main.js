@@ -78,7 +78,7 @@ function formatDurationBadge(minutes){
 
 function sessionDetailHtml(s){
   const tagHtml = s.tag ? `<span class="tag">${escapeHtml(s.tag)}</span>` : '';
-  const durationHtml = s.duration_min ? `<span class="tag duration-tag">${formatDurationBadge(s.duration_min)}</span>` : '';
+  const durationHtml = s.duration_min ? `<span class="tag">${formatDurationBadge(s.duration_min)}</span>` : '';
   const segsHtml = (s.segments || [])
     .map(seg => `<span class="seg"><b class="seg-label">${escapeHtml(seg.label)}</b> ${seg.text}</span>`)
     .join('');
