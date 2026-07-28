@@ -59,7 +59,7 @@ function escapeHtml(str){
 }
 
 let sessionsByKey = new Map();
-let raceTargetDate = new Date('2026-10-11T10:00:00');
+let raceTargetDate = null;
 
 const CHECK_ICON_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square" stroke-linejoin="miter"><polyline points="4 12 9 17 20 6"/></svg>';
 
@@ -131,6 +131,17 @@ function stravaActivityCardHtml(a){
   return `<div class="strava-activity"><div class="strava-activity-name">${escapeHtml(a.name)}</div><div class="strava-stats-row">${formatStravaStats(a)}${hr}</div>${descHtml}${stravaLapsHtml(a)}</div>`;
 }
 
+async function stravaAuthHeaders(){
+  const { data } = await supabase.auth.getSession();
+  return data.session ? { Authorization: `Bearer ${data.session.access_token}` } : {};
+}
+
+async function goToStravaConnect(){
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) return;
+  window.location.href = `/api/strava/connect?access_token=${encodeURIComponent(data.session.access_token)}`;
+}
+
 function renderStravaState(data, ok){
   const el = document.getElementById('detail-strava');
   if (!el) return;
@@ -140,7 +151,11 @@ function renderStravaState(data, ok){
     return;
   }
   if (!data.connected) {
-    el.innerHTML = `<p class="detail-strava-status"><a href="/api/strava/connect">Connecter Strava</a> pour voir les activités réelles.</p>`;
+    el.innerHTML = `<p class="detail-strava-status"><a href="#" id="strava-connect-link-detail">Connecter Strava</a> pour voir les activités réelles.</p>`;
+    document.getElementById('strava-connect-link-detail').addEventListener('click', (e) => {
+      e.preventDefault();
+      goToStravaConnect();
+    });
     return;
   }
   if (data.future) {
@@ -169,7 +184,9 @@ function setSessionDone(key, done){
 async function loadStravaForSession(s){
   const seq = ++stravaRequestSeq;
   try {
-    const res = await fetch(`/api/strava/activities?date=${s.session_date}&discipline=${s.discipline}`);
+    const res = await fetch(`/api/strava/activities?date=${s.session_date}&discipline=${s.discipline}`, {
+      headers: await stravaAuthHeaders(),
+    });
     if (seq !== stravaRequestSeq) return;
     const data = await res.json();
     renderStravaState(data, res.ok);
@@ -186,17 +203,21 @@ async function loadStravaForSession(s){
 async function renderStravaSettingsContent(){
   const el = document.getElementById('detail-content');
   try {
-    const res = await fetch('/api/strava/status');
+    const res = await fetch('/api/strava/status', { headers: await stravaAuthHeaders() });
     const data = await res.json();
     if (data.connected) {
       const who = data.athlete_name ? `Connecté à <b>Strava</b> en tant que <b>${escapeHtml(data.athlete_name)}</b>.` : 'Connecté à <b>Strava</b>.';
       el.innerHTML = `<div class="detail-title" style="margin-bottom:16px;">Applications connectées</div><p class="settings-status">${who}</p><button type="button" class="settings-btn disconnect" id="strava-disconnect-btn">Déconnecter</button>`;
       document.getElementById('strava-disconnect-btn').addEventListener('click', async () => {
-        await fetch('/api/strava/disconnect');
+        await fetch('/api/strava/disconnect', { headers: await stravaAuthHeaders() });
         renderStravaSettingsContent();
       });
     } else {
-      el.innerHTML = `<div class="detail-title" style="margin-bottom:16px;">Applications connectées</div><p class="settings-status">Non connecté à <b>Strava</b>.</p><p class="settings-sub">Connecte ton compte Strava pour voir les vraies stats de tes séances.</p><a href="/api/strava/connect" class="settings-btn connect">Connecter Strava</a>`;
+      el.innerHTML = `<div class="detail-title" style="margin-bottom:16px;">Applications connectées</div><p class="settings-status">Non connecté à <b>Strava</b>.</p><p class="settings-sub">Connecte ton compte Strava pour voir les vraies stats de tes séances.</p><a href="#" class="settings-btn connect" id="strava-connect-link">Connecter Strava</a>`;
+      document.getElementById('strava-connect-link').addEventListener('click', (e) => {
+        e.preventDefault();
+        goToStravaConnect();
+      });
     }
   } catch {
     el.innerHTML = `<div class="detail-title" style="margin-bottom:16px;">Applications connectées</div><p class="settings-status">Impossible de vérifier la connexion Strava.</p>`;
@@ -620,6 +641,19 @@ function updateSplitLabels(goals){
 }
 
 function renderRaceInfo(goals){
+  const countdownBlock = document.getElementById('countdown-block');
+
+  if (!goals.name || !goals.race_date) {
+    document.getElementById('home-race-name').innerHTML = `<em>Configurer</em> ma course`;
+    document.getElementById('home-race-day').textContent = '–';
+    document.getElementById('home-race-month').textContent = '';
+    document.title = 'Plan Triathlon';
+    countdownBlock.hidden = true;
+    raceTargetDate = null;
+    return;
+  }
+
+  countdownBlock.hidden = false;
   const [firstWord, ...rest] = goals.name.split(' ');
   document.getElementById('home-race-name').innerHTML = `<em>${escapeHtml(firstWord)}</em>${rest.length ? ' ' + escapeHtml(rest.join(' ')) : ''}`;
   const d = new Date(goals.race_date + 'T00:00:00');
@@ -654,11 +688,11 @@ function raceInfoEditorHtml(goals){
   return `<div class="detail-title" style="margin-bottom:16px;">Mon triathlon</div>
     <div class="goal-field">
       <label>Nom</label>
-      <input type="text" id="race-info-name" value="${escapeHtml(goals.name)}">
+      <input type="text" id="race-info-name" value="${escapeHtml(goals.name || '')}">
     </div>
     <div class="goal-field">
       <label>Date</label>
-      <input type="date" id="race-info-date" value="${goals.race_date}">
+      <input type="date" id="race-info-date" value="${goals.race_date || ''}">
     </div>
     <div class="goal-field">
       <label>Format</label>
@@ -894,6 +928,7 @@ document.querySelectorAll('.exo-filter-btn').forEach(btn => {
 });
 
 function updateCountdown(){
+  if (!raceTargetDate) return;
   const now = new Date();
   let diff = Math.max(0, raceTargetDate - now);
 

@@ -3,10 +3,13 @@
 // the resulting access/refresh tokens entirely off the client: the browser
 // only ever talks to our own /api/strava/* routes and only ever receives
 // trimmed activity JSON back, never a token.
-
-const TOKENS_KEY = 'strava_tokens';
+//
+// Tokens are stored per Supabase user (tokensKey below), not in one shared
+// KV entry — otherwise whoever connects Strava last would overwrite
+// everyone else's connection.
 
 class StravaNotConnectedError extends Error {}
+class UnauthorizedError extends Error {}
 
 const DISCIPLINE_TYPES = {
   swim: ['Swim'],
@@ -15,8 +18,30 @@ const DISCIPLINE_TYPES = {
   strength: ['WeightTraining', 'Workout', 'Crossfit', 'Yoga'],
 };
 
-async function getValidAccessToken(env) {
-  const stored = await env.STRAVA_KV.get(TOKENS_KEY, 'json');
+function tokensKey(userId) {
+  return `strava_tokens:${userId}`;
+}
+
+// Verifies a Supabase access token by asking Supabase who it belongs to —
+// avoids needing the project's JWT secret in this Worker.
+async function getUserId(accessToken, env) {
+  if (!accessToken) return null;
+  const res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+    headers: { Authorization: `Bearer ${accessToken}`, apikey: env.SUPABASE_ANON_KEY },
+  });
+  if (!res.ok) return null;
+  const user = await res.json();
+  return user.id || null;
+}
+
+function bearerToken(request) {
+  const auth = request.headers.get('Authorization');
+  if (!auth || !auth.startsWith('Bearer ')) return null;
+  return auth.slice(7);
+}
+
+async function getValidAccessToken(userId, env) {
+  const stored = await env.STRAVA_KV.get(tokensKey(userId), 'json');
   if (!stored) throw new StravaNotConnectedError();
 
   const now = Math.floor(Date.now() / 1000);
@@ -34,27 +59,32 @@ async function getValidAccessToken(env) {
   });
 
   if (!res.ok) {
-    await env.STRAVA_KV.delete(TOKENS_KEY);
+    await env.STRAVA_KV.delete(tokensKey(userId));
     throw new StravaNotConnectedError();
   }
 
   const fresh = await res.json();
-  await env.STRAVA_KV.put(TOKENS_KEY, JSON.stringify({
+  await env.STRAVA_KV.put(tokensKey(userId), JSON.stringify({
     access_token: fresh.access_token,
     refresh_token: fresh.refresh_token,
     expires_at: fresh.expires_at,
+    athlete_name: stored.athlete_name || null,
   }));
   return fresh.access_token;
 }
 
-export function handleConnect(request, env) {
-  const { origin } = new URL(request.url);
+export async function handleConnect(request, env) {
+  const url = new URL(request.url);
+  const userId = await getUserId(url.searchParams.get('access_token'), env);
+  if (!userId) return new Response('Non authentifié.', { status: 401 });
+
   const authorizeUrl = new URL('https://www.strava.com/oauth/authorize');
   authorizeUrl.searchParams.set('client_id', env.STRAVA_CLIENT_ID);
-  authorizeUrl.searchParams.set('redirect_uri', `${origin}/api/strava/callback`);
+  authorizeUrl.searchParams.set('redirect_uri', `${url.origin}/api/strava/callback`);
   authorizeUrl.searchParams.set('response_type', 'code');
   authorizeUrl.searchParams.set('approval_prompt', 'auto');
   authorizeUrl.searchParams.set('scope', 'activity:read_all');
+  authorizeUrl.searchParams.set('state', userId);
   return Response.redirect(authorizeUrl.toString(), 302);
 }
 
@@ -62,8 +92,9 @@ export async function handleCallback(request, env) {
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
   const error = url.searchParams.get('error');
+  const userId = url.searchParams.get('state');
 
-  if (error || !code) {
+  if (error || !code || !userId) {
     return Response.redirect(`${url.origin}/?strava=error`, 302);
   }
 
@@ -83,7 +114,7 @@ export async function handleCallback(request, env) {
   }
 
   const tokens = await res.json();
-  await env.STRAVA_KV.put(TOKENS_KEY, JSON.stringify({
+  await env.STRAVA_KV.put(tokensKey(userId), JSON.stringify({
     access_token: tokens.access_token,
     refresh_token: tokens.refresh_token,
     expires_at: tokens.expires_at,
@@ -93,8 +124,11 @@ export async function handleCallback(request, env) {
   return Response.redirect(`${url.origin}/?strava=connected`, 302);
 }
 
-export async function handleStatus(env) {
-  const stored = await env.STRAVA_KV.get(TOKENS_KEY, 'json');
+export async function handleStatus(request, env) {
+  const userId = await getUserId(bearerToken(request), env);
+  if (!userId) return Response.json({ connected: false });
+
+  const stored = await env.STRAVA_KV.get(tokensKey(userId), 'json');
   if (!stored) return Response.json({ connected: false });
   return Response.json({
     connected: true,
@@ -102,8 +136,9 @@ export async function handleStatus(env) {
   });
 }
 
-export async function handleDisconnect(env) {
-  await env.STRAVA_KV.delete(TOKENS_KEY);
+export async function handleDisconnect(request, env) {
+  const userId = await getUserId(bearerToken(request), env);
+  if (userId) await env.STRAVA_KV.delete(tokensKey(userId));
   return Response.json({ connected: false });
 }
 
@@ -116,9 +151,12 @@ export async function handleActivities(request, env) {
     return Response.json({ error: 'missing_params' }, { status: 400 });
   }
 
+  const userId = await getUserId(bearerToken(request), env);
+  if (!userId) return Response.json({ connected: false, matches: [] });
+
   let accessToken;
   try {
-    accessToken = await getValidAccessToken(env);
+    accessToken = await getValidAccessToken(userId, env);
   } catch (err) {
     if (err instanceof StravaNotConnectedError) {
       return Response.json({ connected: false, matches: [] });

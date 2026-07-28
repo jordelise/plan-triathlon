@@ -1,7 +1,7 @@
 create table if not exists plan_race_goals (
   user_id uuid primary key references auth.users(id) on delete cascade,
-  name text not null default 'Triathlon de la Baie',
-  race_date date not null default '2026-10-11',
+  name text,
+  race_date date,
   size text not null default 'M',
   swim_distance_m int not null default 1500,
   swim_duration_sec int not null default 1920,
@@ -22,8 +22,9 @@ create policy "Owner read/write access"
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
 
--- Every new signup gets a default goals row automatically, so the home
--- page has something sane to show before they ever open the editor.
+-- Every new signup gets a default goals row automatically (generic
+-- distances/durations, but no race name/date — the home page prompts
+-- them to fill that in via Mon triathlon instead of showing a fake race).
 create or replace function public.handle_new_user_goals()
 returns trigger as $$
 begin

@@ -13,8 +13,8 @@ export default {
 
     if (url.pathname === '/api/strava/connect') return handleConnect(request, env);
     if (url.pathname === '/api/strava/callback') return handleCallback(request, env);
-    if (url.pathname === '/api/strava/status') return handleStatus(env);
-    if (url.pathname === '/api/strava/disconnect') return handleDisconnect(env);
+    if (url.pathname === '/api/strava/status') return handleStatus(request, env);
+    if (url.pathname === '/api/strava/disconnect') return handleDisconnect(request, env);
     if (url.pathname === '/api/strava/activities') return handleActivities(request, env);
 
     return env.ASSETS.fetch(request);
