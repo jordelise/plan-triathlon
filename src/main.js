@@ -67,8 +67,18 @@ function dayRowHtml(s){
   return `<div class="day-row"><div class="day-badge"><div class="day-name">${FR_WEEKDAYS[d.getDay()]}</div><div class="day-num">${d.getDate()}</div></div><button type="button" class="day-card ${s.discipline}${s.done ? ' done' : ''}" data-key="${s.session_key}"><span class="day-card-icon">${s.icon}</span><span class="day-card-title">${escapeHtml(s.title)}</span><span class="day-card-check">${s.done ? CHECK_ICON_SVG : ''}</span></button></div>`;
 }
 
+function formatDurationBadge(minutes){
+  if (minutes >= 60) {
+    const h = Math.floor(minutes / 60);
+    const m = Math.round(minutes % 60);
+    return `≈ ${h}h${String(m).padStart(2, '0')}`;
+  }
+  return `≈ ${Math.round(minutes)} min`;
+}
+
 function sessionDetailHtml(s){
   const tagHtml = s.tag ? `<span class="tag">${escapeHtml(s.tag)}</span>` : '';
+  const durationHtml = s.duration_min ? `<span class="tag duration-tag">${formatDurationBadge(s.duration_min)}</span>` : '';
   const segsHtml = (s.segments || [])
     .map(seg => `<span class="seg"><b class="seg-label">${escapeHtml(seg.label)}</b> ${seg.text}</span>`)
     .join('');
@@ -77,7 +87,7 @@ function sessionDetailHtml(s){
     ? `<p class="detail-card-title">Résultat de la séance</p><div class="detail-card detail-strava"><div id="detail-strava"><p class="detail-strava-status">Chargement Strava…</p></div></div>`
     : '';
 
-  return `<div class="detail-head"><span class="detail-icon">${s.icon}</span><div class="detail-title-row"><span class="detail-title">${escapeHtml(s.title)}</span>${tagHtml}</div></div><div class="detail-meta-row"><label class="detail-date-field">Date<input type="date" id="detail-date-input" data-key="${s.session_key}" value="${s.session_date || ''}"></label><label class="detail-done-toggle">Fait<span class="detail-done-box-wrap"><input type="checkbox" id="detail-done-checkbox" data-key="${s.session_key}"${s.done ? ' checked' : ''}><span class="detail-done-box"><svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="square" stroke-linejoin="miter"><polyline points="4 12 9 17 20 6"/></svg></span></span></label></div><p class="detail-card-title">Détail de la séance</p><div class="detail-card"><p class="detail-segments">${segsHtml}</p>${altHtml}</div>${stravaHtml}`;
+  return `<div class="detail-head"><span class="detail-icon">${s.icon}</span><div class="detail-title-row"><span class="detail-title">${escapeHtml(s.title)}</span>${tagHtml}${durationHtml}</div></div><div class="detail-meta-row"><label class="detail-date-field">Date<input type="date" id="detail-date-input" data-key="${s.session_key}" value="${s.session_date || ''}"></label><label class="detail-done-toggle">Fait<span class="detail-done-box-wrap"><input type="checkbox" id="detail-done-checkbox" data-key="${s.session_key}"${s.done ? ' checked' : ''}><span class="detail-done-box"><svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="square" stroke-linejoin="miter"><polyline points="4 12 9 17 20 6"/></svg></span></span></label></div><p class="detail-card-title">Détail de la séance</p><div class="detail-card"><p class="detail-segments">${segsHtml}</p>${altHtml}</div>${stravaHtml}`;
 }
 
 let stravaRequestSeq = 0;

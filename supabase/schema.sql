@@ -9,6 +9,7 @@ create table plan_session_completions (
   icon text not null,
   title text not null,
   tag text,
+  duration_min numeric,
   segments jsonb not null default '[]'::jsonb,
   alt_note text,
   session_date date,
