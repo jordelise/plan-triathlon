@@ -26,7 +26,7 @@ function getCookie(request, name) {
 }
 
 function loginPageHtml(error) {
-  const errorHtml = error ? `<p class="error">Mot de passe incorrect.</p>` : '';
+  const errorHtml = error ? `<p class="error">Mot de passe incorrect, réessaie.</p>` : '';
   return `<!doctype html>
 <html lang="fr">
 <head>
@@ -40,21 +40,59 @@ function loginPageHtml(error) {
 <meta name="theme-color" content="#16292B">
 <title>Connexion — Plan Triathlon</title>
 <style>
-  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#F1ECDF;font-family:-apple-system,'IBM Plex Sans',sans-serif;}
-  form{background:#fff;padding:28px 24px;border-radius:16px;box-shadow:0 8px 30px rgba(22,41,43,0.12);width:100%;max-width:320px;box-sizing:border-box;}
-  h1{font-size:20px;margin:0 0 18px;color:#16292B;}
-  input{width:100%;box-sizing:border-box;padding:12px 14px;font-size:16px;border:1px solid rgba(22,41,43,0.2);border-radius:10px;margin-top:4px;}
-  button{width:100%;margin-top:16px;padding:12px;border:none;border-radius:10px;background:#E8502F;color:#fff;font-size:15px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
-  .error{color:#E8502F;font-size:13px;margin:8px 0 0;}
+  @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+  *{box-sizing:border-box;}
+  body{
+    margin:0;min-height:100vh;padding:20px;
+    display:flex;align-items:center;justify-content:center;
+    background:#F1ECDF;color:#16292B;
+    font-family:'IBM Plex Sans',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .card{width:100%;max-width:340px;text-align:center;}
+  .icon{width:64px;height:64px;border-radius:18px;margin-bottom:18px;box-shadow:0 6px 20px rgba(22,41,43,0.18);}
+  h1{
+    font-family:'Oswald',sans-serif;font-weight:700;
+    font-size:26px;text-transform:uppercase;line-height:1;
+    margin:0 0 6px;letter-spacing:.01em;
+  }
+  h1 em{font-style:normal;color:#E8502F;}
+  p.sub{margin:0 0 26px;font-size:13.5px;color:#4A4E46;opacity:.85;}
+  form{background:#fff;padding:22px 20px;border-radius:16px;border:1px solid rgba(22,41,43,0.1);box-shadow:0 8px 30px rgba(22,41,43,0.1);}
+  label{
+    display:block;text-align:left;
+    font-family:'IBM Plex Mono',monospace;font-size:11px;
+    color:#4A4E46;text-transform:uppercase;letter-spacing:.06em;
+    margin-bottom:6px;
+  }
+  input{
+    width:100%;padding:13px 14px;font-size:16px;font-family:inherit;
+    border:1px solid rgba(22,41,43,0.18);border-radius:10px;
+    background:#F1ECDF;color:#16292B;
+  }
+  input:focus{outline:2px solid #E8502F;outline-offset:1px;}
+  button{
+    width:100%;margin-top:16px;padding:13px;border:none;border-radius:10px;
+    background:#E8502F;color:#fff;
+    font-family:'Oswald',sans-serif;font-size:14px;font-weight:600;
+    text-transform:uppercase;letter-spacing:.06em;cursor:pointer;
+  }
+  button:active{opacity:.85;}
+  .error{color:#E8502F;font-size:12.5px;margin:12px 0 0;text-align:left;}
 </style>
 </head>
 <body>
-<form method="POST" action="/login">
-  <h1>Plan Triathlon</h1>
-  <input type="password" name="password" placeholder="Mot de passe" autofocus required>
-  ${errorHtml}
-  <button type="submit">Se connecter</button>
-</form>
+<div class="card">
+  <img class="icon" src="/icon.png" alt="">
+  <h1><em>Plan</em> Triathlon</h1>
+  <p class="sub">Accès privé — entre le mot de passe pour continuer.</p>
+  <form method="POST" action="/login">
+    <label for="password">Mot de passe</label>
+    <input id="password" type="password" name="password" placeholder="••••••••" autofocus required autocomplete="current-password">
+    ${errorHtml}
+    <button type="submit">Se connecter</button>
+  </form>
+</div>
 </body>
 </html>`;
 }
