@@ -941,11 +941,24 @@ details[open] .chevron{transform:rotate(180deg);}
 }
 
 /* ---------- SETTINGS ---------- */
-.settings-card{
+.settings-row{
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
   background:#fff;
   border:1px solid var(--line);
   border-radius:14px;
   padding:16px 18px;
+  font-family:inherit;
+  cursor:pointer;
+  text-align:left;
+}
+.settings-row-label{
+  font-family:'Oswald',sans-serif;
+  font-weight:600;
+  font-size:15px;
+  color:var(--ink);
 }
 .settings-status{
   margin:0 0 4px;
@@ -1195,10 +1208,10 @@ details[open] .chevron{transform:rotate(180deg);}
 
   <div class="page-title">Réglages</div>
 
-  <div class="section-title">Connexion Strava</div>
-  <div class="settings-card" id="strava-settings-card">
-    <p class="settings-status">Chargement…</p>
-  </div>
+  <button type="button" class="settings-row" id="strava-settings-row">
+    <span class="settings-row-label">Connexion Strava</span>
+    <svg class="chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+  </button>
 
 </div>
 
