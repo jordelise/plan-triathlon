@@ -523,7 +523,7 @@ authRecoveryForm.addEventListener('submit', async (e) => {
   }
 });
 
-let appStarted = false;
+let initializedUserId = null;
 let inRecovery = false;
 
 document.getElementById('sign-out-btn').addEventListener('click', () => {
@@ -544,12 +544,16 @@ supabase.auth.onAuthStateChange((event, session) => {
 
   if (session) {
     authGate.hidden = true;
-    if (!appStarted) {
-      appStarted = true;
+    // Re-run on first login and whenever a different account signs in
+    // within the same page session (sign out then back in as someone
+    // else) — not on every token refresh for the same user.
+    if (session.user.id !== initializedUserId) {
+      initializedUserId = session.user.id;
       initApp();
     }
   } else {
     authGate.hidden = false;
+    initializedUserId = null;
   }
 });
 
