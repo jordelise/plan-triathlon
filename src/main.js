@@ -71,9 +71,9 @@ function formatDurationBadge(minutes){
   if (minutes >= 60) {
     const h = Math.floor(minutes / 60);
     const m = Math.round(minutes % 60);
-    return `≈ ${h}h${String(m).padStart(2, '0')}`;
+    return `≈${h}h${String(m).padStart(2, '0')}`;
   }
-  return `≈ ${Math.round(minutes)} min`;
+  return `≈${Math.round(minutes)} min`;
 }
 
 function sessionDetailHtml(s){
