@@ -850,6 +850,34 @@ details[open] .chevron{transform:rotate(180deg);}
   margin-bottom:18px;
   padding:0;
 }
+
+/* Bottom sheet variant, used for small forms (goal editor) instead of
+   the full-height side panel used everywhere else. */
+.detail-overlay.sheet-bottom .detail-panel{
+  top:auto;left:0;right:0;bottom:0;
+  width:100%;
+  max-width:520px;
+  margin:0 auto;
+  max-height:85vh;
+  border-radius:20px 20px 0 0;
+  transform:translateY(100%);
+  padding:14px 22px 24px;
+}
+.detail-overlay.sheet-bottom.open .detail-panel{transform:translateY(0);}
+.detail-overlay.sheet-bottom .detail-panel::before{
+  content:"";
+  display:block;
+  width:36px;height:4px;
+  border-radius:2px;
+  background:var(--line);
+  margin:0 auto 14px;
+}
+.detail-overlay.sheet-bottom .detail-close{
+  position:absolute;top:14px;right:18px;
+  font-size:20px;
+  color:var(--tarmac);
+  margin-bottom:0;
+}
 .detail-head{display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;}
 .detail-icon{font-size:30px;line-height:1;}
 .detail-title-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
@@ -1368,7 +1396,7 @@ details[open] .chevron{transform:rotate(180deg);}
 
 <div class="detail-overlay" id="detail-overlay">
   <div class="detail-panel">
-    <button type="button" class="detail-close" id="detail-close" aria-label="Fermer">←</button>
+    <button type="button" class="detail-close" id="detail-close" aria-label="Fermer">✕</button>
     <div id="detail-content"></div>
   </div>
 </div>

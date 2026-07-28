@@ -340,7 +340,7 @@ function reRenderWeekDayList(phase, weekNumber){
 }
 
 function closeDetail(){
-  document.getElementById('detail-overlay').classList.remove('open');
+  document.getElementById('detail-overlay').classList.remove('open', 'sheet-bottom');
 }
 
 function updateDayCardDone(key, done){
@@ -883,7 +883,7 @@ function openGoalsEditor(goalKey){
     closeDetail();
   });
 
-  document.getElementById('detail-overlay').classList.add('open');
+  document.getElementById('detail-overlay').classList.add('open', 'sheet-bottom');
 }
 
 document.querySelectorAll('.split.editable').forEach(el => {
