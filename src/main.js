@@ -467,6 +467,7 @@ let appStarted = false;
 let inRecovery = false;
 
 document.getElementById('sign-out-btn').addEventListener('click', () => {
+  document.getElementById('m1').checked = true;
   supabase.auth.signOut();
 });
 
