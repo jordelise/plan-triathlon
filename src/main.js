@@ -679,6 +679,24 @@ async function loadAndRenderGoals(){
   renderGoals(currentGoals);
   updateSplitLabels(currentGoals);
   renderRaceInfo(currentGoals);
+  maybeShowOnboardingPopup(currentGoals);
+}
+
+function maybeShowOnboardingPopup(goals){
+  const needsSetup = !goals.name || !goals.race_date || goals.swim_distance_m == null;
+  if (!needsSetup) return;
+
+  const popup = document.getElementById('onboarding-popup');
+  popup.hidden = false;
+
+  document.getElementById('onboarding-configure-btn').addEventListener('click', () => {
+    popup.hidden = true;
+    openRaceInfoEditor();
+  }, { once: true });
+
+  document.getElementById('onboarding-dismiss-btn').addEventListener('click', () => {
+    popup.hidden = true;
+  }, { once: true });
 }
 
 const RACE_SIZE_LABELS = { S: 'Sprint', M: 'M', L: 'L (70.3)', IRONMAN: 'Iron Man' };

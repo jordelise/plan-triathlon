@@ -796,6 +796,31 @@ details[open] .chevron{transform:rotate(180deg);}
 .day-card.done{opacity:.5;}
 
 /* ---------- SESSION DETAIL DRAWER ---------- */
+.onboarding-popup{
+  position:fixed;inset:0;z-index:250;
+  display:flex;align-items:center;justify-content:center;
+  padding:20px;
+  background:rgba(22,41,43,.45);
+}
+.onboarding-popup[hidden]{display:none;}
+.onboarding-card{
+  width:100%;max-width:340px;
+  background:#fff;border-radius:16px;
+  padding:24px 22px;
+  box-shadow:0 12px 40px rgba(22,41,43,0.25);
+  text-align:center;
+}
+.onboarding-title{
+  font-family:'Oswald',sans-serif;font-weight:700;
+  font-size:20px;text-transform:uppercase;
+  margin:0 0 10px;color:var(--ink);
+}
+.onboarding-text{margin:0 0 18px;font-size:13.5px;color:var(--tarmac);line-height:1.5;}
+.onboarding-dismiss{
+  width:100%;margin-top:10px;padding:10px;border:none;background:none;
+  color:var(--tarmac);font-family:'Oswald',sans-serif;font-size:12.5px;
+  text-transform:uppercase;letter-spacing:.04em;cursor:pointer;
+}
 .detail-overlay{
   position:fixed;inset:0;z-index:300;
   background:rgba(22,41,43,0);
@@ -1345,6 +1370,15 @@ details[open] .chevron{transform:rotate(180deg);}
   <div class="detail-panel">
     <button type="button" class="detail-close" id="detail-close" aria-label="Fermer">←</button>
     <div id="detail-content"></div>
+  </div>
+</div>
+
+<div class="onboarding-popup" id="onboarding-popup" hidden>
+  <div class="onboarding-card">
+    <h2 class="onboarding-title">Configure ta course</h2>
+    <p class="onboarding-text">Renseigne le nom, la date et le format de ton triathlon pour personnaliser ton plan et tes objectifs.</p>
+    <button type="button" class="goal-save-btn" id="onboarding-configure-btn">Configurer maintenant</button>
+    <button type="button" class="onboarding-dismiss" id="onboarding-dismiss-btn">Plus tard</button>
   </div>
 </div>
 
