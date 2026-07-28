@@ -449,7 +449,8 @@ authRecoveryForm.addEventListener('submit', async (e) => {
 
   submitBtn.disabled = false;
   if (error) {
-    authRecoveryError.textContent = "Impossible d'enregistrer ce mot de passe.";
+    console.error('Erreur updateUser (recovery)', error);
+    authRecoveryError.textContent = `Impossible d'enregistrer ce mot de passe : ${error.message}`;
     authRecoveryError.hidden = false;
     return;
   }
