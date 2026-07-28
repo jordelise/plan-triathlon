@@ -89,6 +89,10 @@ export default {
 
     if (url.pathname === '/login' && request.method === 'POST') return handleLogin(request, env);
 
+    // The home-screen icon has to be fetchable while logged out, otherwise
+    // "Add to Home Screen" captures a blank/default icon instead.
+    if (url.pathname === '/icon.png') return env.ASSETS.fetch(request);
+
     if (!(await isAuthorized(request, env))) {
       return new Response(loginPageHtml(false), { status: 401, headers: { 'Content-Type': 'text/html' } });
     }
