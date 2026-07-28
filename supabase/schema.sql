@@ -1,7 +1,8 @@
 drop table if exists plan_session_completions;
 
 create table plan_session_completions (
-  session_key text primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  session_key text not null,
   week_number int not null,
   phase int not null,
   order_index int not null,
@@ -13,14 +14,14 @@ create table plan_session_completions (
   segments jsonb not null default '[]'::jsonb,
   session_date date,
   done boolean not null default false,
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  primary key (user_id, session_key)
 );
 
--- Single personal user, but a real Supabase Auth login gates this now:
--- only authenticated requests (a valid session) can read or write.
+-- Each account only ever sees and edits its own rows.
 alter table plan_session_completions enable row level security;
 
-create policy "Authenticated read/write access"
+create policy "Owner read/write access"
   on plan_session_completions for all
-  using (auth.role() = 'authenticated')
-  with check (auth.role() = 'authenticated');
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());

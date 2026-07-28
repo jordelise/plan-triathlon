@@ -415,21 +415,60 @@ function initApp(){
 const authGate = document.getElementById('auth-gate');
 const authForm = document.getElementById('auth-form');
 const authError = document.getElementById('auth-error');
+const authInfo = document.getElementById('auth-info');
+const authSubmitBtn = document.getElementById('auth-submit-btn');
+const authToggleLink = document.getElementById('auth-toggle-link');
 const authRecoveryForm = document.getElementById('auth-recovery-form');
 const authRecoveryError = document.getElementById('auth-recovery-error');
+
+let authMode = 'signin';
+
+authToggleLink.addEventListener('click', (e) => {
+  e.preventDefault();
+  authMode = authMode === 'signin' ? 'signup' : 'signin';
+  authError.hidden = true;
+  authInfo.hidden = true;
+  const passwordInput = document.getElementById('auth-password');
+  if (authMode === 'signup') {
+    authSubmitBtn.textContent = 'Créer le compte';
+    authToggleLink.textContent = 'Déjà un compte ? Se connecter';
+    passwordInput.autocomplete = 'new-password';
+  } else {
+    authSubmitBtn.textContent = 'Se connecter';
+    authToggleLink.textContent = 'Pas encore de compte ? Créer un compte';
+    passwordInput.autocomplete = 'current-password';
+  }
+});
 
 authForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const email = document.getElementById('auth-email').value.trim();
   const password = document.getElementById('auth-password').value;
-  const submitBtn = authForm.querySelector('button');
 
-  submitBtn.disabled = true;
+  authSubmitBtn.disabled = true;
   authError.hidden = true;
+  authInfo.hidden = true;
+
+  if (authMode === 'signup') {
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    authSubmitBtn.disabled = false;
+    if (error) {
+      authError.textContent = error.message;
+      authError.hidden = false;
+      return;
+    }
+    if (!data.session) {
+      authInfo.textContent = 'Compte créé. Vérifie ta boîte mail pour confirmer ton adresse, puis connecte-toi.';
+      authInfo.hidden = false;
+      authToggleLink.click();
+    }
+    // If email confirmation is disabled, a session comes back immediately
+    // and onAuthStateChange below hides the gate and starts the app.
+    return;
+  }
 
   const { error } = await supabase.auth.signInWithPassword({ email, password });
-
-  submitBtn.disabled = false;
+  authSubmitBtn.disabled = false;
   if (error) {
     authError.textContent = 'Email ou mot de passe incorrect.';
     authError.hidden = false;
@@ -591,7 +630,7 @@ function renderRaceInfo(goals){
 }
 
 async function loadAndRenderGoals(){
-  const { data, error } = await supabase.from('plan_race_goals').select('*').eq('id', 1).single();
+  const { data, error } = await supabase.from('plan_race_goals').select('*').single();
   if (error) {
     console.error('Erreur de chargement des objectifs', error);
     return;

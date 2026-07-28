@@ -71,6 +71,9 @@
 #auth-form button:active{opacity:.85;}
 #auth-form button:disabled{opacity:.6;cursor:default;}
 .auth-error{color:var(--coral);font-size:12.5px;margin:-4px 0 14px;}
+.auth-info{color:var(--tarmac);font-size:12.5px;margin:-4px 0 14px;}
+.auth-toggle{margin:16px 0 0;font-size:13px;}
+.auth-toggle a{color:var(--tarmac);text-decoration:underline;}
 body{
   margin:0;
   background:var(--paper);
@@ -1074,8 +1077,10 @@ details[open] .chevron{transform:rotate(180deg);}
       <label for="auth-password">Mot de passe</label>
       <input id="auth-password" type="password" autocomplete="current-password" required>
       <p class="auth-error" id="auth-error" hidden></p>
-      <button type="submit">Se connecter</button>
+      <p class="auth-info" id="auth-info" hidden></p>
+      <button type="submit" id="auth-submit-btn">Se connecter</button>
     </form>
+    <p class="auth-toggle"><a href="#" id="auth-toggle-link">Pas encore de compte ? Créer un compte</a></p>
     <form id="auth-recovery-form" hidden>
       <label for="auth-new-password">Nouveau mot de passe</label>
       <input id="auth-new-password" type="password" autocomplete="new-password" required>
