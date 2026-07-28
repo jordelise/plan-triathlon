@@ -168,13 +168,6 @@ async function loadStravaForSession(s){
   }
 }
 
-function formatStravaExpiry(expiresAt){
-  const d = new Date(expiresAt * 1000);
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  return `${d.getDate()} ${FR_MONTHS[d.getMonth()]} à ${hh}:${mm}`;
-}
-
 async function renderStravaSettingsContent(){
   const el = document.getElementById('detail-content');
   try {
@@ -182,8 +175,7 @@ async function renderStravaSettingsContent(){
     const data = await res.json();
     if (data.connected) {
       const who = data.athlete_name ? `Connecté en tant que <b>${escapeHtml(data.athlete_name)}</b>.` : 'Connecté.';
-      const expiry = data.expires_at ? `<p class="settings-sub">Jeton d'accès valide jusqu'au ${formatStravaExpiry(data.expires_at)}.</p>` : '';
-      el.innerHTML = `<div class="detail-title" style="margin-bottom:16px;">Connexion Strava</div><p class="settings-status">${who}</p>${expiry}<button type="button" class="settings-btn disconnect" id="strava-disconnect-btn">Déconnecter</button>`;
+      el.innerHTML = `<div class="detail-title" style="margin-bottom:16px;">Connexion Strava</div><p class="settings-status">${who}</p><button type="button" class="settings-btn disconnect" id="strava-disconnect-btn">Déconnecter</button>`;
       document.getElementById('strava-disconnect-btn').addEventListener('click', async () => {
         await fetch('/api/strava/disconnect');
         renderStravaSettingsContent();

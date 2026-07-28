@@ -99,7 +99,6 @@ export async function handleStatus(env) {
   return Response.json({
     connected: true,
     athlete_name: stored.athlete_name || null,
-    expires_at: stored.expires_at,
   });
 }
 
