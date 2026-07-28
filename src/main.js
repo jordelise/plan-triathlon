@@ -361,10 +361,13 @@ function openDetailOverlay(sheetBottom){
 function closeDetail(){
   const overlay = document.getElementById('detail-overlay');
   overlay.classList.remove('open');
-  const panel = overlay.querySelector('.detail-panel');
-  panel.addEventListener('transitionend', () => {
+  // Fixed delay instead of transitionend: rapid class toggles around this
+  // transition make transitionend fire unreliably (sometimes immediately),
+  // which was stripping 'sheet-bottom' mid-slide and finishing the close
+  // along the wrong axis. 280ms matches the panel's transition duration.
+  setTimeout(() => {
     overlay.classList.remove('sheet-bottom');
-  }, { once: true });
+  }, 280);
 }
 
 function updateDayCardDone(key, done){
