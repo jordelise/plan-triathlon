@@ -502,7 +502,6 @@ function renderRaceInfo(goals){
   const d = new Date(goals.race_date + 'T00:00:00');
   document.getElementById('home-race-day').textContent = d.getDate();
   document.getElementById('home-race-month').textContent = FR_MONTHS[d.getMonth()];
-  document.getElementById('home-race-badge').textContent = RACE_SIZE_LABELS[goals.size] || goals.size;
   document.title = `Plan Triathlon ${goals.size} — ${d.getDate()} ${FR_MONTHS[d.getMonth()]}`;
   raceTargetDate = new Date(goals.race_date + 'T10:00:00');
 }
