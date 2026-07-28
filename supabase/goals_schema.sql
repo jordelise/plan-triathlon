@@ -3,14 +3,14 @@ create table if not exists plan_race_goals (
   name text,
   race_date date,
   size text not null default 'M',
-  swim_distance_m int not null default 1500,
-  swim_duration_sec int not null default 1920,
-  t1_duration_sec int not null default 240,
-  bike_distance_km numeric not null default 40,
-  bike_duration_sec int not null default 5100,
-  t2_duration_sec int not null default 180,
-  run_distance_km numeric not null default 10,
-  run_duration_sec int not null default 3300,
+  swim_distance_m int,
+  swim_duration_sec int,
+  t1_duration_sec int,
+  bike_distance_km numeric,
+  bike_duration_sec int,
+  t2_duration_sec int,
+  run_distance_km numeric,
+  run_duration_sec int,
   updated_at timestamptz not null default now(),
   constraint plan_race_goals_size_check check (size in ('S', 'M', 'L', 'IRONMAN'))
 );
@@ -22,9 +22,9 @@ create policy "Owner read/write access"
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
 
--- Every new signup gets a default goals row automatically (generic
--- distances/durations, but no race name/date — the home page prompts
--- them to fill that in via Mon triathlon instead of showing a fake race).
+-- Every new signup gets an empty goals row automatically (a placeholder
+-- to upsert into later) — the home page shows "–" for every split until
+-- Mon triathlon / the split editors are filled in.
 create or replace function public.handle_new_user_goals()
 returns trigger as $$
 begin

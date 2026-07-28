@@ -617,27 +617,33 @@ function parseSpeedKmh(str, distanceKm){
 let currentGoals = null;
 
 function renderGoals(goals){
-  document.getElementById('split-swim-duration').textContent = '~' + formatMMSS(goals.swim_duration_sec);
-  document.getElementById('split-swim-pace').textContent = formatPacePer100(goals.swim_duration_sec, goals.swim_distance_m) + '/100m';
-  document.getElementById('split-t1-duration').textContent = '~' + formatMMSS(goals.t1_duration_sec);
-  document.getElementById('split-bike-duration').textContent = '~' + formatHMM(goals.bike_duration_sec);
-  document.getElementById('split-bike-speed').textContent = formatSpeedKmh(goals.bike_duration_sec, goals.bike_distance_km) + ' km/h';
-  document.getElementById('split-t2-duration').textContent = '~' + formatMMSS(goals.t2_duration_sec);
-  document.getElementById('split-run-duration').textContent = '~' + formatMMSS(goals.run_duration_sec);
-  document.getElementById('split-run-pace').textContent = formatPacePerKm(goals.run_duration_sec, goals.run_distance_km) + '/km';
+  const durationOrDash = (sec, formatter) => (sec == null ? '–' : '~' + formatter(sec));
+  const paceOrDash = (sec, dist, formatter, unit) => (sec == null || dist == null ? '–' : formatter(sec, dist) + unit);
 
-  const totalMin = Math.round(
-    (goals.swim_duration_sec + goals.t1_duration_sec + goals.bike_duration_sec + goals.t2_duration_sec + goals.run_duration_sec) / 60
-  );
+  document.getElementById('split-swim-duration').textContent = durationOrDash(goals.swim_duration_sec, formatMMSS);
+  document.getElementById('split-swim-pace').textContent = paceOrDash(goals.swim_duration_sec, goals.swim_distance_m, formatPacePer100, '/100m');
+  document.getElementById('split-t1-duration').textContent = durationOrDash(goals.t1_duration_sec, formatMMSS);
+  document.getElementById('split-bike-duration').textContent = durationOrDash(goals.bike_duration_sec, formatHMM);
+  document.getElementById('split-bike-speed').textContent = paceOrDash(goals.bike_duration_sec, goals.bike_distance_km, formatSpeedKmh, ' km/h');
+  document.getElementById('split-t2-duration').textContent = durationOrDash(goals.t2_duration_sec, formatMMSS);
+  document.getElementById('split-run-duration').textContent = durationOrDash(goals.run_duration_sec, formatMMSS);
+  document.getElementById('split-run-pace').textContent = paceOrDash(goals.run_duration_sec, goals.run_distance_km, formatPacePerKm, '/km');
+
+  const durations = [goals.swim_duration_sec, goals.t1_duration_sec, goals.bike_duration_sec, goals.t2_duration_sec, goals.run_duration_sec];
+  if (durations.some(v => v == null)) {
+    document.getElementById('split-total').textContent = '–';
+    return;
+  }
+  const totalMin = Math.round(durations.reduce((a, b) => a + b, 0) / 60);
   const h = Math.floor(totalMin / 60);
   const m = totalMin % 60;
   document.getElementById('split-total').textContent = `≈ ${h}h${String(m).padStart(2, '0')}`;
 }
 
 function updateSplitLabels(goals){
-  document.getElementById('split-swim-label').textContent = `${goals.swim_distance_m} m`;
-  document.getElementById('split-bike-label').textContent = `${goals.bike_distance_km} km`;
-  document.getElementById('split-run-label').textContent = `${goals.run_distance_km} km`;
+  document.getElementById('split-swim-label').textContent = goals.swim_distance_m == null ? '–' : `${goals.swim_distance_m} m`;
+  document.getElementById('split-bike-label').textContent = goals.bike_distance_km == null ? '–' : `${goals.bike_distance_km} km`;
+  document.getElementById('split-run-label').textContent = goals.run_distance_km == null ? '–' : `${goals.run_distance_km} km`;
 }
 
 function renderRaceInfo(goals){
@@ -721,7 +727,8 @@ function openRaceInfoEditor(){
     const name = document.getElementById('race-info-name').value.trim() || currentGoals.name;
     const raceDate = document.getElementById('race-info-date').value || currentGoals.race_date;
     const sizeChanged = selectedSize !== currentGoals.size;
-    const distances = sizeChanged ? RACE_SIZE_DISTANCES[selectedSize] : {};
+    const notYetConfigured = currentGoals.swim_distance_m == null;
+    const distances = (sizeChanged || notYetConfigured) ? RACE_SIZE_DISTANCES[selectedSize] : {};
 
     const updated = { ...currentGoals, name, race_date: raceDate, size: selectedSize, ...distances, updated_at: new Date().toISOString() };
     const { error } = await supabase.from('plan_race_goals').upsert(updated);
@@ -764,12 +771,12 @@ const GOAL_SEGMENTS = {
 
 function goalSegmentEditorHtml(segment, goals){
   const durationLabel = segment.durationFormat === 'hmm' ? 'Durée (h:mm)' : 'Durée (mm:ss)';
-  const durationValue = segment.durationFormat === 'hmm'
-    ? formatHMM(goals[segment.durationField])
-    : formatMMSS(goals[segment.durationField]);
+  const rawDuration = goals[segment.durationField];
+  const durationValue = rawDuration == null ? '' : (segment.durationFormat === 'hmm' ? formatHMM(rawDuration) : formatMMSS(rawDuration));
 
+  const paceValue = rawDuration == null ? '' : segment.pace?.format(goals) ?? '';
   const paceHtml = segment.pace
-    ? `<label>${segment.pace.label}</label><input type="text" inputmode="${segment.pace.inputMode || 'numeric'}" id="edit-goal-pace" value="${segment.pace.format(goals)}">`
+    ? `<label>${segment.pace.label}</label><input type="text" inputmode="${segment.pace.inputMode || 'numeric'}" id="edit-goal-pace" value="${paceValue}">`
     : '';
 
   return `<div class="detail-title" style="margin-bottom:16px;">${segment.title}</div>
