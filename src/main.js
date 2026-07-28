@@ -649,7 +649,7 @@ function updateSplitLabels(goals){
 function renderRaceInfo(goals){
   const countdownBlock = document.getElementById('countdown-block');
 
-  if (!goals.name || !goals.race_date) {
+  if (!goals.race_date) {
     document.getElementById('home-race-name').innerHTML = `<em>Configurer</em> ma course`;
     document.getElementById('home-race-day').textContent = '–';
     document.getElementById('home-race-month').textContent = '';
@@ -660,8 +660,12 @@ function renderRaceInfo(goals){
   }
 
   countdownBlock.hidden = false;
-  const [firstWord, ...rest] = goals.name.split(' ');
-  document.getElementById('home-race-name').innerHTML = `<em>${escapeHtml(firstWord)}</em>${rest.length ? ' ' + escapeHtml(rest.join(' ')) : ''}`;
+  if (goals.name) {
+    const [firstWord, ...rest] = goals.name.split(' ');
+    document.getElementById('home-race-name').innerHTML = `<em>${escapeHtml(firstWord)}</em>${rest.length ? ' ' + escapeHtml(rest.join(' ')) : ''}`;
+  } else {
+    document.getElementById('home-race-name').innerHTML = `<em>Mon</em> triathlon`;
+  }
   const d = new Date(goals.race_date + 'T00:00:00');
   document.getElementById('home-race-day').textContent = d.getDate();
   document.getElementById('home-race-month').textContent = FR_MONTHS[d.getMonth()];
@@ -683,7 +687,7 @@ async function loadAndRenderGoals(){
 }
 
 function maybeShowOnboardingPopup(goals){
-  const needsSetup = !goals.name || !goals.race_date || goals.swim_distance_m == null;
+  const needsSetup = !goals.race_date || goals.swim_distance_m == null;
   if (!needsSetup) return;
 
   const popup = document.getElementById('onboarding-popup');
@@ -742,7 +746,7 @@ function openRaceInfoEditor(){
   });
 
   document.getElementById('save-race-info-btn').addEventListener('click', async () => {
-    const name = document.getElementById('race-info-name').value.trim() || currentGoals.name;
+    const name = document.getElementById('race-info-name').value.trim() || null;
     const raceDate = document.getElementById('race-info-date').value || currentGoals.race_date;
     const sizeChanged = selectedSize !== currentGoals.size;
     const notYetConfigured = currentGoals.swim_distance_m == null;
