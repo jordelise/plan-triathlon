@@ -174,14 +174,14 @@ async function renderStravaSettingsContent(){
     const res = await fetch('/api/strava/status');
     const data = await res.json();
     if (data.connected) {
-      const who = data.athlete_name ? `Connecté en tant que <b>${escapeHtml(data.athlete_name)}</b>.` : 'Connecté.';
+      const who = data.athlete_name ? `Connecté à <b>Strava</b> en tant que <b>${escapeHtml(data.athlete_name)}</b>.` : 'Connecté à <b>Strava</b>.';
       el.innerHTML = `<div class="detail-title" style="margin-bottom:16px;">Applications connectées</div><p class="settings-status">${who}</p><button type="button" class="settings-btn disconnect" id="strava-disconnect-btn">Déconnecter</button>`;
       document.getElementById('strava-disconnect-btn').addEventListener('click', async () => {
         await fetch('/api/strava/disconnect');
         renderStravaSettingsContent();
       });
     } else {
-      el.innerHTML = `<div class="detail-title" style="margin-bottom:16px;">Applications connectées</div><p class="settings-status">Non connecté.</p><p class="settings-sub">Connecte ton compte Strava pour voir les vraies stats de tes séances.</p><a href="/api/strava/connect" class="settings-btn connect">Connecter Strava</a>`;
+      el.innerHTML = `<div class="detail-title" style="margin-bottom:16px;">Applications connectées</div><p class="settings-status">Non connecté à <b>Strava</b>.</p><p class="settings-sub">Connecte ton compte Strava pour voir les vraies stats de tes séances.</p><a href="/api/strava/connect" class="settings-btn connect">Connecter Strava</a>`;
     }
   } catch {
     el.innerHTML = `<div class="detail-title" style="margin-bottom:16px;">Applications connectées</div><p class="settings-status">Impossible de vérifier la connexion Strava.</p>`;
@@ -189,7 +189,7 @@ async function renderStravaSettingsContent(){
 }
 
 function openStravaSettings(){
-  document.getElementById('detail-content').innerHTML = `<div class="detail-title" style="margin-bottom:16px;">Applications connectées</div><p class="settings-status">Chargement…</p>`;
+  document.getElementById('detail-content').innerHTML = `<div class="detail-title" style="margin-bottom:16px;">Applications connectées</div><p class="settings-status">Chargement de Strava…</p>`;
   document.getElementById('detail-overlay').classList.add('open');
   renderStravaSettingsContent();
 }
