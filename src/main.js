@@ -498,7 +498,8 @@ function updateSplitLabels(goals){
 }
 
 function renderRaceInfo(goals){
-  document.getElementById('home-race-name').textContent = goals.name;
+  const [firstWord, ...rest] = goals.name.split(' ');
+  document.getElementById('home-race-name').innerHTML = `<em>${escapeHtml(firstWord)}</em>${rest.length ? ' ' + escapeHtml(rest.join(' ')) : ''}`;
   const d = new Date(goals.race_date + 'T00:00:00');
   document.getElementById('home-race-day').textContent = d.getDate();
   document.getElementById('home-race-month').textContent = FR_MONTHS[d.getMonth()];
