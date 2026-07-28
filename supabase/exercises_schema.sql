@@ -9,7 +9,7 @@ create table if not exists plan_exercises (
 
 alter table plan_exercises enable row level security;
 
-create policy "Public read/write access"
+create policy "Authenticated read/write access"
   on plan_exercises for all
-  using (true)
-  with check (true);
+  using (auth.role() = 'authenticated')
+  with check (auth.role() = 'authenticated');

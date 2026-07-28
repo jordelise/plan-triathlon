@@ -18,9 +18,9 @@ create table if not exists plan_race_goals (
 
 alter table plan_race_goals enable row level security;
 
-create policy "Public read/write access"
+create policy "Authenticated read/write access"
   on plan_race_goals for all
-  using (true)
-  with check (true);
+  using (auth.role() = 'authenticated')
+  with check (auth.role() = 'authenticated');
 
 insert into plan_race_goals (id) values (1) on conflict (id) do nothing;

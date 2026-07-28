@@ -26,6 +26,51 @@
   --line: rgba(22,41,43,0.14);
 }
 *{box-sizing:border-box;}
+
+/* ---------- AUTH GATE ---------- */
+.auth-gate{
+  position:fixed;inset:0;z-index:200;
+  display:flex;align-items:center;justify-content:center;
+  padding:20px;
+  background:var(--paper);
+}
+.auth-gate[hidden]{display:none;}
+.auth-card{width:100%;max-width:340px;text-align:center;}
+.auth-icon{width:64px;height:64px;border-radius:18px;margin-bottom:18px;box-shadow:0 6px 20px rgba(22,41,43,0.18);}
+.auth-title{
+  font-family:'Oswald',sans-serif;font-weight:700;
+  font-size:26px;text-transform:uppercase;line-height:1;
+  margin:0 0 6px;letter-spacing:.01em;color:var(--ink);
+}
+.auth-title em{font-style:normal;color:var(--coral);}
+.auth-sub{margin:0 0 26px;font-size:13.5px;color:var(--tarmac);opacity:.85;}
+#auth-form{
+  background:#fff;padding:22px 20px;border-radius:16px;
+  border:1px solid var(--line);box-shadow:0 8px 30px rgba(22,41,43,0.1);
+  text-align:left;
+}
+#auth-form label{
+  display:block;
+  font-family:'IBM Plex Mono',monospace;font-size:11px;
+  color:var(--tarmac);text-transform:uppercase;letter-spacing:.06em;
+  margin-bottom:6px;
+}
+#auth-form input{
+  width:100%;padding:13px 14px;font-size:16px;font-family:inherit;
+  border:1px solid var(--line);border-radius:10px;
+  background:var(--paper);color:var(--ink);
+  margin-bottom:14px;
+}
+#auth-form input:focus{outline:2px solid var(--coral);outline-offset:1px;}
+#auth-form button{
+  width:100%;padding:13px;border:none;border-radius:10px;
+  background:var(--coral);color:#fff;
+  font-family:'Oswald',sans-serif;font-size:14px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.06em;cursor:pointer;
+}
+#auth-form button:active{opacity:.85;}
+#auth-form button:disabled{opacity:.6;cursor:default;}
+.auth-error{color:var(--coral);font-size:12.5px;margin:-4px 0 14px;}
 body{
   margin:0;
   background:var(--paper);
@@ -1018,6 +1063,22 @@ details[open] .chevron{transform:rotate(180deg);}
 <input type="radio" name="mainnav" id="m3" class="mainnav-radio">
 <input type="radio" name="mainnav" id="m4" class="mainnav-radio">
 
+<div class="auth-gate" id="auth-gate">
+  <div class="auth-card">
+    <img class="auth-icon" src="/icon.png" alt="">
+    <h1 class="auth-title"><em>Plan</em> Triathlon</h1>
+    <p class="auth-sub">Connexion requise pour continuer.</p>
+    <form id="auth-form">
+      <label for="auth-email">Email</label>
+      <input id="auth-email" type="email" autocomplete="username" required>
+      <label for="auth-password">Mot de passe</label>
+      <input id="auth-password" type="password" autocomplete="current-password" required>
+      <p class="auth-error" id="auth-error" hidden></p>
+      <button type="submit">Se connecter</button>
+    </form>
+  </div>
+</div>
+
 <div class="wrap">
 
 <div class="mainpanel" id="mp-home">
@@ -1240,6 +1301,10 @@ details[open] .chevron{transform:rotate(180deg);}
   <button type="button" class="settings-row" id="strava-settings-row" style="margin-top:12px;">
     <span class="settings-row-label">Applications connectées</span>
     <svg class="chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+  </button>
+
+  <button type="button" class="settings-row" id="sign-out-btn" style="margin-top:12px;">
+    <span class="settings-row-label">Se déconnecter</span>
   </button>
 
 </div>

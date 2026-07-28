@@ -401,14 +401,57 @@ document.getElementById('timeline-overlay').addEventListener('click', (e) => {
   if (e.target.id === 'timeline-overlay') closeTimelineOverlay();
 });
 
-loadAndRenderSessions();
-loadAndRenderExercises();
-loadAndRenderGoals();
+function initApp(){
+  loadAndRenderSessions();
+  loadAndRenderExercises();
+  loadAndRenderGoals();
 
-if (new URLSearchParams(location.search).has('strava')) {
-  history.replaceState(null, '', location.pathname);
-  openStravaSettings();
+  if (new URLSearchParams(location.search).has('strava')) {
+    history.replaceState(null, '', location.pathname);
+    openStravaSettings();
+  }
 }
+
+const authGate = document.getElementById('auth-gate');
+const authForm = document.getElementById('auth-form');
+const authError = document.getElementById('auth-error');
+
+authForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const submitBtn = authForm.querySelector('button');
+
+  submitBtn.disabled = true;
+  authError.hidden = true;
+
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+  submitBtn.disabled = false;
+  if (error) {
+    authError.textContent = 'Email ou mot de passe incorrect.';
+    authError.hidden = false;
+  }
+  // On success, onAuthStateChange below hides the gate and starts the app.
+});
+
+let appStarted = false;
+
+document.getElementById('sign-out-btn').addEventListener('click', () => {
+  supabase.auth.signOut();
+});
+
+supabase.auth.onAuthStateChange((_event, session) => {
+  if (session) {
+    authGate.hidden = true;
+    if (!appStarted) {
+      appStarted = true;
+      initApp();
+    }
+  } else {
+    authGate.hidden = false;
+  }
+});
 
 function formatMMSS(totalSec){
   const m = Math.floor(totalSec / 60);

@@ -16,12 +16,11 @@ create table plan_session_completions (
   updated_at timestamptz not null default now()
 );
 
--- No auth in this app (single personal user) — RLS is enabled with a
--- permissive policy purely so the table isn't wide open by default;
--- real protection here is that the publishable key is only used by this app.
+-- Single personal user, but a real Supabase Auth login gates this now:
+-- only authenticated requests (a valid session) can read or write.
 alter table plan_session_completions enable row level security;
 
-create policy "Public read/write access"
+create policy "Authenticated read/write access"
   on plan_session_completions for all
-  using (true)
-  with check (true);
+  using (auth.role() = 'authenticated')
+  with check (auth.role() = 'authenticated');
