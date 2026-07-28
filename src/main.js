@@ -2,8 +2,7 @@ import { supabase } from './supabaseClient.js';
 
 // Calendar date range covered by each plan week: real Monday-Sunday weeks,
 // starting from the Monday on/before the plan's first training day (Jul 21,
-// a Tuesday, so week 1 is Jul 20-26). Week 11 extends to race day (Oct 11)
-// as an intentionally longer taper block, matching the original plan.
+// a Tuesday, so week 1 is Jul 20-26). Week 12 ends on race day (Oct 11).
 const WEEK_DATE_RANGES = {
   1: ['2026-07-20', '2026-07-26'],
   2: ['2026-07-27', '2026-08-02'],
@@ -15,7 +14,8 @@ const WEEK_DATE_RANGES = {
   8: ['2026-09-07', '2026-09-13'],
   9: ['2026-09-14', '2026-09-20'],
   10: ['2026-09-21', '2026-09-27'],
-  11: ['2026-09-28', '2026-10-11'],
+  11: ['2026-09-28', '2026-10-04'],
+  12: ['2026-10-05', '2026-10-11'],
 };
 
 function weekCreditFraction(weekNumber, now){
