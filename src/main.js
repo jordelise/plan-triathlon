@@ -339,18 +339,22 @@ function reRenderWeekDayList(phase, weekNumber){
   });
 }
 
-// Opening/closing toggles both 'open' and 'sheet-bottom' in one go in a
-// few places; if the browser never paints an intermediate frame with only
-// 'sheet-bottom' applied, the transition animates from whatever the
-// previous drawer's transform function was (translateX) to the new one
-// (translateY), producing a diagonal slide instead of a clean one.
-// Forcing a layout read between the two class changes fixes the open
-// side; closing waits for the transition to finish before dropping
-// 'sheet-bottom' so the close animation uses the same axis it opened with.
+// Toggling 'sheet-bottom' changes the panel's resting transform axis
+// (translateX -> translateY or back), and since `transition:transform`
+// is always active on .detail-panel, that switch itself gets animated —
+// a reflow in between isn't enough to stop it, since the transition
+// engine latches onto any transform change regardless. So the resting
+// axis is swapped with transitions forced off, flushed, then transitions
+// are restored before animating 'open' — that way only the actual
+// open/close motion is ever animated, always along a single axis.
 function openDetailOverlay(sheetBottom){
   const overlay = document.getElementById('detail-overlay');
+  const panel = overlay.querySelector('.detail-panel');
+  panel.classList.add('no-transition');
   overlay.classList.toggle('sheet-bottom', sheetBottom);
-  void overlay.offsetWidth;
+  void panel.offsetWidth;
+  panel.classList.remove('no-transition');
+  void panel.offsetWidth;
   overlay.classList.add('open');
 }
 
