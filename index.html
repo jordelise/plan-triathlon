@@ -136,7 +136,6 @@ body{font-size:16px;}
   margin:4px 0 0;
   letter-spacing:.01em;
 }
-.bib-title em{font-style:normal;color:var(--coral);}
 .bib-date{
   text-align:right;
   font-family:'Oswald',sans-serif;
@@ -144,6 +143,17 @@ body{font-size:16px;}
 }
 .bib-date .d{font-size:38px;font-weight:700;color:var(--coral);line-height:1;}
 .bib-date .m{font-size:13px;letter-spacing:.14em;text-transform:uppercase;opacity:.75;}
+.race-badge{
+  display:inline-block;
+  margin-top:6px;
+  padding:2px 8px;
+  border-radius:20px;
+  background:var(--paper-2);
+  color:var(--tarmac);
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10.5px;
+  letter-spacing:.04em;
+}
 .bib-countdown{
   margin-top:2px;
   font-family:'IBM Plex Mono',monospace;
@@ -921,6 +931,26 @@ details[open] .chevron{transform:rotate(180deg);}
   margin-bottom:8px;
 }
 .goal-field input:last-child{margin-bottom:0;}
+.race-size-options{display:flex;gap:6px;}
+.race-size-btn{
+  flex:1;
+  cursor:pointer;
+  text-align:center;
+  padding:10px 6px;
+  border-radius:8px;
+  background:var(--paper-2);
+  border:1px solid transparent;
+  font-family:'Oswald',sans-serif;
+  font-size:12px;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  color:var(--tarmac);
+  transition:all .15s ease;
+}
+.race-size-btn.active{
+  background:var(--ink);
+  color:var(--paper);
+}
 .goal-save-btn{
   margin-top:8px;
   padding:10px 16px;
@@ -1004,10 +1034,11 @@ details[open] .chevron{transform:rotate(180deg);}
 
   <!-- HOME HEADER -->
   <div class="home-header">
-    <div class="bib-title home-title">Triathlon <em>de la Baie</em></div>
+    <div class="bib-title home-title" id="home-race-name">Triathlon de la Baie</div>
     <div class="bib-date">
-      <div class="d">11</div>
-      <div class="m">Octobre</div>
+      <div class="d" id="home-race-day">11</div>
+      <div class="m" id="home-race-month">Octobre</div>
+      <span class="race-badge" id="home-race-badge">M</span>
     </div>
   </div>
 
@@ -1028,7 +1059,7 @@ details[open] .chevron{transform:rotate(180deg);}
     <div class="splits">
       <button type="button" class="split editable" data-goal="swim">
         <div class="icon swim-c">🏊‍♀️</div>
-        <div class="label">1500 m</div>
+        <div class="label" id="split-swim-label">1500 m</div>
         <div class="val swim-c" id="split-swim-duration">~32:00</div>
         <div class="label pace-label" id="split-swim-pace">2'08/100m</div>
       </button>
@@ -1040,7 +1071,7 @@ details[open] .chevron{transform:rotate(180deg);}
       </button>
       <button type="button" class="split editable" data-goal="bike">
         <div class="icon bike-c">🚴‍♀️</div>
-        <div class="label">40 km</div>
+        <div class="label" id="split-bike-label">40 km</div>
         <div class="val bike-c" id="split-bike-duration">~1:25</div>
         <div class="label pace-label" id="split-bike-speed">28 km/h</div>
       </button>
@@ -1052,7 +1083,7 @@ details[open] .chevron{transform:rotate(180deg);}
       </button>
       <button type="button" class="split editable" data-goal="run">
         <div class="icon run-c">🏃‍♀️</div>
-        <div class="label">10 km</div>
+        <div class="label" id="split-run-label">10 km</div>
         <div class="val run-c" id="split-run-duration">~55:00</div>
         <div class="label pace-label" id="split-run-pace">5'30/km</div>
       </button>
@@ -1212,7 +1243,12 @@ details[open] .chevron{transform:rotate(180deg);}
 
   <div class="page-title">Réglages</div>
 
-  <button type="button" class="settings-row" id="strava-settings-row">
+  <button type="button" class="settings-row" id="race-info-settings-row">
+    <span class="settings-row-label">Mon triathlon</span>
+    <svg class="chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+  </button>
+
+  <button type="button" class="settings-row" id="strava-settings-row" style="margin-top:12px;">
     <span class="settings-row-label">Applications connectées</span>
     <svg class="chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
   </button>

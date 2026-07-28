@@ -59,6 +59,7 @@ function escapeHtml(str){
 }
 
 let sessionsByKey = new Map();
+let raceTargetDate = new Date('2026-10-11T10:00:00');
 
 const CHECK_ICON_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square" stroke-linejoin="miter"><polyline points="4 12 9 17 20 6"/></svg>';
 
@@ -403,6 +404,7 @@ document.getElementById('timeline-overlay').addEventListener('click', (e) => {
 loadAndRenderSessions();
 loadAndRenderExercises();
 loadAndRenderGoals();
+loadAndRenderRaceInfo();
 
 if (new URLSearchParams(location.search).has('strava')) {
   history.replaceState(null, '', location.pathname);
@@ -490,6 +492,12 @@ function renderGoals(goals){
   document.getElementById('split-total').textContent = `≈ ${h}h${String(m).padStart(2, '0')}`;
 }
 
+function updateSplitLabels(goals){
+  document.getElementById('split-swim-label').textContent = `${goals.swim_distance_m} m`;
+  document.getElementById('split-bike-label').textContent = `${goals.bike_distance_km} km`;
+  document.getElementById('split-run-label').textContent = `${goals.run_distance_km} km`;
+}
+
 async function loadAndRenderGoals(){
   const { data, error } = await supabase.from('plan_race_goals').select('*').eq('id', 1).single();
   if (error) {
@@ -498,7 +506,104 @@ async function loadAndRenderGoals(){
   }
   currentGoals = data;
   renderGoals(currentGoals);
+  updateSplitLabels(currentGoals);
 }
+
+const RACE_SIZE_LABELS = { S: 'Sprint', M: 'M', L: 'L (70.3)', IRONMAN: 'Iron Man' };
+
+const RACE_SIZE_DISTANCES = {
+  S: { swim_distance_m: 750, bike_distance_km: 20, run_distance_km: 5 },
+  M: { swim_distance_m: 1500, bike_distance_km: 40, run_distance_km: 10 },
+  L: { swim_distance_m: 1900, bike_distance_km: 90, run_distance_km: 21.1 },
+  IRONMAN: { swim_distance_m: 3800, bike_distance_km: 180, run_distance_km: 42.2 },
+};
+
+let currentRaceInfo = null;
+
+function renderRaceInfo(info){
+  document.getElementById('home-race-name').textContent = info.name;
+  const d = new Date(info.race_date + 'T00:00:00');
+  document.getElementById('home-race-day').textContent = d.getDate();
+  document.getElementById('home-race-month').textContent = FR_MONTHS[d.getMonth()];
+  document.getElementById('home-race-badge').textContent = RACE_SIZE_LABELS[info.size] || info.size;
+  document.title = `Plan Triathlon ${info.size} — ${d.getDate()} ${FR_MONTHS[d.getMonth()]}`;
+  raceTargetDate = new Date(info.race_date + 'T10:00:00');
+}
+
+async function loadAndRenderRaceInfo(){
+  const { data, error } = await supabase.from('plan_race_info').select('*').eq('id', 1).single();
+  if (error) {
+    console.error('Erreur de chargement des infos de course', error);
+    return;
+  }
+  currentRaceInfo = data;
+  renderRaceInfo(currentRaceInfo);
+}
+
+function raceInfoEditorHtml(info){
+  return `<div class="detail-title" style="margin-bottom:16px;">Mon triathlon</div>
+    <div class="goal-field">
+      <label>Nom</label>
+      <input type="text" id="race-info-name" value="${escapeHtml(info.name)}">
+    </div>
+    <div class="goal-field">
+      <label>Date</label>
+      <input type="date" id="race-info-date" value="${info.race_date}">
+    </div>
+    <div class="goal-field">
+      <label>Format</label>
+      <div class="race-size-options">${['S', 'M', 'L', 'IRONMAN']
+        .map(sz => `<button type="button" class="race-size-btn${info.size === sz ? ' active' : ''}" data-size="${sz}">${RACE_SIZE_LABELS[sz]}</button>`)
+        .join('')}</div>
+    </div>
+    <button type="button" class="goal-save-btn" id="save-race-info-btn">Enregistrer</button>`;
+}
+
+function openRaceInfoEditor(){
+  if (!currentRaceInfo) return;
+  let selectedSize = currentRaceInfo.size;
+
+  document.getElementById('detail-content').innerHTML = raceInfoEditorHtml(currentRaceInfo);
+
+  document.querySelectorAll('.race-size-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selectedSize = btn.dataset.size;
+      document.querySelectorAll('.race-size-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
+  document.getElementById('save-race-info-btn').addEventListener('click', async () => {
+    const name = document.getElementById('race-info-name').value.trim() || currentRaceInfo.name;
+    const raceDate = document.getElementById('race-info-date').value || currentRaceInfo.race_date;
+    const sizeChanged = selectedSize !== currentRaceInfo.size;
+
+    const updatedInfo = { ...currentRaceInfo, name, race_date: raceDate, size: selectedSize, updated_at: new Date().toISOString() };
+    const { error } = await supabase.from('plan_race_info').upsert(updatedInfo);
+    if (error) {
+      console.error('Erreur de sauvegarde des infos de course', error);
+      return;
+    }
+    currentRaceInfo = updatedInfo;
+    renderRaceInfo(currentRaceInfo);
+
+    if (sizeChanged && currentGoals) {
+      const updatedGoals = { ...currentGoals, ...RACE_SIZE_DISTANCES[selectedSize], updated_at: new Date().toISOString() };
+      const { error: goalsError } = await supabase.from('plan_race_goals').upsert(updatedGoals);
+      if (!goalsError) {
+        currentGoals = updatedGoals;
+        renderGoals(currentGoals);
+        updateSplitLabels(currentGoals);
+      }
+    }
+
+    closeDetail();
+  });
+
+  document.getElementById('detail-overlay').classList.add('open');
+}
+
+document.getElementById('race-info-settings-row').addEventListener('click', openRaceInfoEditor);
 
 const GOAL_SEGMENTS = {
   swim: { title: 'Natation', durationField: 'swim_duration_sec', durationFormat: 'mmss', pace: {
@@ -687,9 +792,8 @@ document.querySelectorAll('.exo-filter-btn').forEach(btn => {
 });
 
 function updateCountdown(){
-  const target = new Date('2026-10-11T10:00:00');
   const now = new Date();
-  let diff = Math.max(0, target - now);
+  let diff = Math.max(0, raceTargetDate - now);
 
   const days = Math.floor(diff / 86400000); diff -= days * 86400000;
   const hours = Math.floor(diff / 3600000); diff -= hours * 3600000;
