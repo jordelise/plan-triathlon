@@ -11,7 +11,6 @@ create table plan_session_completions (
   tag text,
   duration_min numeric,
   segments jsonb not null default '[]'::jsonb,
-  alt_note text,
   session_date date,
   done boolean not null default false,
   updated_at timestamptz not null default now()
