@@ -259,15 +259,17 @@ async function loadAndRenderSessions(){
     .order('week_number', { ascending: true })
     .order('order_index', { ascending: true });
 
-  if (error) {
-    console.error('Erreur de chargement', error);
-    return;
-  }
+  // On error, still fall through with an empty session set instead of
+  // bailing out — otherwise whichever account's sessions were on screen
+  // before (a previous account switched from, in the same page session)
+  // stay there indefinitely instead of clearing.
+  if (error) console.error('Erreur de chargement', error);
+  const rows = error ? [] : data;
 
-  sessionsByKey = new Map(data.map(s => [s.session_key, { ...s }]));
+  sessionsByKey = new Map(rows.map(s => [s.session_key, { ...s }]));
 
   const byPhase = new Map();
-  for (const row of data) {
+  for (const row of rows) {
     if (!byPhase.has(row.phase)) byPhase.set(row.phase, new Map());
     const weeks = byPhase.get(row.phase);
     if (!weeks.has(row.week_number)) weeks.set(row.week_number, []);
@@ -1060,13 +1062,11 @@ async function loadAndRenderExercises(){
     .select('*')
     .order('order_index', { ascending: true });
 
-  if (error) {
-    console.error('Erreur de chargement des exercices', error);
-    return;
-  }
+  if (error) console.error('Erreur de chargement des exercices', error);
+  const rows = error ? [] : data;
 
   exercisesByCategory = new Map();
-  for (const ex of data) {
+  for (const ex of rows) {
     if (!exercisesByCategory.has(ex.category)) exercisesByCategory.set(ex.category, []);
     exercisesByCategory.get(ex.category).push(ex);
   }
