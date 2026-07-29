@@ -893,8 +893,7 @@ function prefsFieldsHtml(preferences){
 }
 
 function contraintesSectionHtml(constraints){
-  return `<div class="detail-title" style="margin:24px 0 12px;">Contraintes</div>
-    <div class="constraint-list" id="constraint-list">${constraints.map(constraintRowHtml).join('') || '<p class="settings-sub">Aucune contrainte enregistrée.</p>'}</div>
+  return `<div class="constraint-list" id="constraint-list">${constraints.map(constraintRowHtml).join('') || '<p class="settings-sub">Aucune contrainte enregistrée.</p>'}</div>
 
     <button type="button" class="constraint-add-toggle-btn" id="constraint-add-toggle-btn">
       <span class="constraint-add-toggle-icon">+</span>
@@ -944,11 +943,25 @@ function trainingPrefsStep2Html(constraints){
   </div>`;
 }
 
+function prefsCardHtml(icon, title, subtitle, bodyHtml){
+  return `<div class="prefs-card">
+    <div class="prefs-card-header">
+      <span class="prefs-card-icon">${icon}</span>
+      <div>
+        <div class="prefs-card-title">${title}</div>
+        <p class="prefs-card-subtitle">${subtitle}</p>
+      </div>
+    </div>
+    ${bodyHtml}
+  </div>`;
+}
+
 function trainingPrefsFullFormHtml(preferences, constraints){
-  return `<div class="detail-title" style="margin-bottom:16px;">Préférences d'entraînement</div>
-    ${prefsFieldsHtml(preferences)}
-    ${contraintesSectionHtml(constraints)}
-    <button type="button" class="goal-save-btn" id="save-training-prefs-btn" style="margin-top:24px;">Enregistrer</button>`;
+  return prefsCardHtml('🎯', 'Tes habitudes', "Jours d'entraînement et sports pratiqués.",
+    `${prefsFieldsHtml(preferences)}
+    <button type="button" class="goal-save-btn" id="save-training-prefs-btn" style="margin-top:8px;">Enregistrer</button>`)
+    + prefsCardHtml('🗓️', 'Contraintes', 'Vacances, blessures, périodes particulières.',
+    contraintesSectionHtml(constraints));
 }
 
 function renderConstraintList(){
