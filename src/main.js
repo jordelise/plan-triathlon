@@ -819,30 +819,34 @@ function trainingPrefsEditorHtml(preferences, constraints){
         .map(d => `<button type="button" class="discipline-check-btn pref-discipline-btn${preferences.preferred_disciplines.includes(d) ? ' active' : ''}" data-discipline="${d}">${DISCIPLINE_LABELS[d]}</button>`)
         .join('')}</div>
     </div>
-    <button type="button" class="goal-save-btn" id="save-training-prefs-btn">Enregistrer</button>
 
     <div class="detail-title" style="margin:24px 0 12px;">Périodes particulières</div>
     <div class="constraint-list" id="constraint-list">${constraints.map(constraintRowHtml).join('') || '<p class="settings-sub">Aucune période enregistrée.</p>'}</div>
 
-    <div class="goal-field">
-      <label>Début</label>
-      <input type="date" id="new-constraint-start">
-    </div>
-    <div class="goal-field">
-      <label>Fin</label>
-      <input type="date" id="new-constraint-end">
-    </div>
-    <div class="goal-field">
-      <label>Disciplines autorisées</label>
-      <div class="discipline-check-options">${DISCIPLINE_OPTIONS
-        .map(d => `<button type="button" class="discipline-check-btn constraint-discipline-btn" data-discipline="${d}">${DISCIPLINE_LABELS[d]}</button>`)
-        .join('')}</div>
-    </div>
-    <div class="goal-field">
-      <label>Note (optionnel)</label>
-      <input type="text" id="new-constraint-note">
-    </div>
-    <button type="button" class="goal-save-btn" id="add-constraint-btn">Ajouter</button>`;
+    <details class="constraint-add-details">
+      <summary class="constraint-add-summary">+ Ajouter une période</summary>
+      <div class="goal-field">
+        <label>Début</label>
+        <input type="date" id="new-constraint-start">
+      </div>
+      <div class="goal-field">
+        <label>Fin</label>
+        <input type="date" id="new-constraint-end">
+      </div>
+      <div class="goal-field">
+        <label>Disciplines autorisées</label>
+        <div class="discipline-check-options">${DISCIPLINE_OPTIONS
+          .map(d => `<button type="button" class="discipline-check-btn constraint-discipline-btn" data-discipline="${d}">${DISCIPLINE_LABELS[d]}</button>`)
+          .join('')}</div>
+      </div>
+      <div class="goal-field">
+        <label>Note (optionnel)</label>
+        <input type="text" id="new-constraint-note">
+      </div>
+      <button type="button" class="goal-save-btn" id="add-constraint-btn">Ajouter</button>
+    </details>
+
+    <button type="button" class="goal-save-btn" id="save-training-prefs-btn" style="margin-top:24px;">Enregistrer</button>`;
 }
 
 function renderConstraintList(){

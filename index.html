@@ -962,6 +962,21 @@ details[open] .chevron{transform:rotate(180deg);}
 }
 
 .constraint-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
+.constraint-add-details{margin-bottom:8px;}
+.constraint-add-summary{
+  cursor:pointer;
+  padding:10px 12px;
+  border:1px dashed var(--line);
+  border-radius:8px;
+  font-family:'Oswald',sans-serif;
+  font-size:13px;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  color:var(--coral);
+  list-style:none;
+}
+.constraint-add-summary::-webkit-details-marker{display:none;}
+.constraint-add-details[open] .constraint-add-summary{margin-bottom:12px;border-style:solid;}
 .constraint-row{
   display:flex;
   align-items:center;
