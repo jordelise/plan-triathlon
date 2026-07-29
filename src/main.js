@@ -990,6 +990,11 @@ function isPrefsConfigured(){
 }
 
 let trainingPrefsStep = 1;
+// Whether the user has completed the wizard at least once. Tracked
+// separately from isPrefsConfigured() so that saving step 1 (which fills in
+// training_days/preferred_disciplines) doesn't make the wizard immediately
+// think onboarding is done and skip straight past step 2.
+let trainingPrefsOnboardingDone = null;
 
 function wireContraintesSection(){
   const selectedConstraintDisciplines = new Set();
@@ -1094,7 +1099,9 @@ function renderTrainingPrefsPanel(){
   if (!currentPreferences) return;
   const container = document.getElementById('training-prefs-container');
 
-  if (!isPrefsConfigured()) {
+  if (trainingPrefsOnboardingDone === null) trainingPrefsOnboardingDone = isPrefsConfigured();
+
+  if (!trainingPrefsOnboardingDone) {
     if (trainingPrefsStep === 2) {
       container.innerHTML = trainingPrefsStep2Html(currentConstraints);
       renderConstraintList();
@@ -1104,6 +1111,7 @@ function renderTrainingPrefsPanel(){
         renderTrainingPrefsPanel();
       });
       document.getElementById('prefs-finish-btn').addEventListener('click', () => {
+        trainingPrefsOnboardingDone = true;
         trainingPrefsStep = 1;
         renderTrainingPrefsPanel();
       });
