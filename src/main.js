@@ -853,9 +853,8 @@ function constraintRowHtml(constraint){
   </div>`;
 }
 
-function trainingPrefsEditorHtml(preferences, constraints){
-  return `<div class="detail-title" style="margin-bottom:16px;">Préférences d'entraînement</div>
-    <div class="goal-field">
+function prefsFieldsHtml(preferences){
+  return `<div class="goal-field">
       <label>Jours d'entraînement</label>
       <div class="discipline-check-options">${DAY_OPTIONS
         .map(d => `<button type="button" class="discipline-check-btn day-check-btn${preferences.training_days.includes(d) ? ' active' : ''}" data-day="${d}">${DAY_LABELS[d]}</button>`)
@@ -866,9 +865,11 @@ function trainingPrefsEditorHtml(preferences, constraints){
       <div class="discipline-check-options">${DISCIPLINE_OPTIONS
         .map(d => `<button type="button" class="discipline-check-btn pref-discipline-btn${preferences.preferred_disciplines.includes(d) ? ' active' : ''}" data-discipline="${d}">${DISCIPLINE_LABELS[d]}</button>`)
         .join('')}</div>
-    </div>
+    </div>`;
+}
 
-    <div class="detail-title" style="margin:24px 0 12px;">Contraintes</div>
+function contraintesSectionHtml(constraints){
+  return `<div class="detail-title" style="margin:24px 0 12px;">Contraintes</div>
     <div class="constraint-list" id="constraint-list">${constraints.map(constraintRowHtml).join('') || '<p class="settings-sub">Aucune contrainte enregistrée.</p>'}</div>
 
     <button type="button" class="constraint-add-toggle-btn" id="constraint-add-toggle-btn">+ Ajouter une contrainte</button>
@@ -892,8 +893,30 @@ function trainingPrefsEditorHtml(preferences, constraints){
         <button type="button" class="goal-save-btn" id="add-constraint-btn">Ajouter</button>
         <button type="button" class="constraint-cancel-btn" id="cancel-constraint-btn">Annuler</button>
       </div>
-    </div>
+    </div>`;
+}
 
+function trainingPrefsStep1Html(preferences){
+  return `<div class="detail-title" style="margin-bottom:4px;">Configurer ton plan</div>
+    <p class="settings-sub">Étape 1/2 — tes habitudes</p>
+    ${prefsFieldsHtml(preferences)}
+    <button type="button" class="goal-save-btn" id="prefs-next-btn" style="margin-top:24px;">Suivant</button>`;
+}
+
+function trainingPrefsStep2Html(constraints){
+  return `<div class="detail-title" style="margin-bottom:4px;">Configurer ton plan</div>
+    <p class="settings-sub">Étape 2/2 — tes contraintes</p>
+    ${contraintesSectionHtml(constraints)}
+    <div class="constraint-add-actions" style="margin-top:24px;">
+      <button type="button" class="constraint-cancel-btn" id="prefs-back-btn">Précédent</button>
+      <button type="button" class="goal-save-btn" id="prefs-finish-btn">Terminer</button>
+    </div>`;
+}
+
+function trainingPrefsFullFormHtml(preferences, constraints){
+  return `<div class="detail-title" style="margin-bottom:16px;">Préférences d'entraînement</div>
+    ${prefsFieldsHtml(preferences)}
+    ${contraintesSectionHtml(constraints)}
     <button type="button" class="goal-save-btn" id="save-training-prefs-btn" style="margin-top:24px;">Enregistrer</button>`;
 }
 
@@ -931,24 +954,21 @@ function toggleChipGroup(selector, selectedSet, datasetKey){
   });
 }
 
-function renderTrainingPrefsPanel(){
-  if (!currentPreferences) return;
-  const selectedDays = new Set(currentPreferences.training_days);
-  const selectedPreferredDisciplines = new Set(currentPreferences.preferred_disciplines);
+function isPrefsConfigured(){
+  return currentPreferences.training_days.length > 0 && currentPreferences.preferred_disciplines.length > 0;
+}
+
+let trainingPrefsStep = 1;
+
+function wireContraintesSection(){
   const selectedConstraintDisciplines = new Set();
+  toggleChipGroup('.constraint-discipline-btn', selectedConstraintDisciplines, 'discipline');
 
   let constraintStart = null;
   let constraintEnd = null;
   const today = new Date();
   let calendarViewYear = today.getFullYear();
   let calendarViewMonth = today.getMonth();
-
-  document.getElementById('training-prefs-container').innerHTML = trainingPrefsEditorHtml(currentPreferences, currentConstraints);
-  renderConstraintList();
-
-  toggleChipGroup('.day-check-btn', selectedDays, 'day');
-  toggleChipGroup('.pref-discipline-btn', selectedPreferredDisciplines, 'discipline');
-  toggleChipGroup('.constraint-discipline-btn', selectedConstraintDisciplines, 'discipline');
 
   function updateDatesButtonLabel(){
     const btn = document.getElementById('constraint-dates-btn');
@@ -1016,21 +1036,6 @@ function renderTrainingPrefsPanel(){
 
   document.getElementById('cancel-constraint-btn').addEventListener('click', resetConstraintForm);
 
-  document.getElementById('save-training-prefs-btn').addEventListener('click', async () => {
-    const updated = {
-      ...currentPreferences,
-      training_days: DAY_OPTIONS.filter(d => selectedDays.has(d)),
-      preferred_disciplines: DISCIPLINE_OPTIONS.filter(d => selectedPreferredDisciplines.has(d)),
-      updated_at: new Date().toISOString(),
-    };
-    const { error } = await supabase.from('plan_preferences').upsert(updated);
-    if (error) {
-      console.error('Erreur de sauvegarde des préférences', error);
-      return;
-    }
-    currentPreferences = updated;
-  });
-
   document.getElementById('add-constraint-btn').addEventListener('click', async () => {
     if (!constraintStart || !constraintEnd || selectedConstraintDisciplines.size === 0) return;
 
@@ -1054,10 +1059,78 @@ function renderTrainingPrefsPanel(){
   });
 }
 
-function maybeShowPreferencesReminder(){
+function renderTrainingPrefsPanel(){
   if (!currentPreferences) return;
-  const unset = currentPreferences.training_days.length === 0 && currentPreferences.preferred_disciplines.length === 0;
-  if (!unset) return;
+  const container = document.getElementById('training-prefs-container');
+
+  if (!isPrefsConfigured()) {
+    if (trainingPrefsStep === 2) {
+      container.innerHTML = trainingPrefsStep2Html(currentConstraints);
+      renderConstraintList();
+      wireContraintesSection();
+      document.getElementById('prefs-back-btn').addEventListener('click', () => {
+        trainingPrefsStep = 1;
+        renderTrainingPrefsPanel();
+      });
+      document.getElementById('prefs-finish-btn').addEventListener('click', () => {
+        trainingPrefsStep = 1;
+        renderTrainingPrefsPanel();
+      });
+    } else {
+      container.innerHTML = trainingPrefsStep1Html(currentPreferences);
+      const selectedDays = new Set(currentPreferences.training_days);
+      const selectedPreferredDisciplines = new Set(currentPreferences.preferred_disciplines);
+      toggleChipGroup('.day-check-btn', selectedDays, 'day');
+      toggleChipGroup('.pref-discipline-btn', selectedPreferredDisciplines, 'discipline');
+
+      document.getElementById('prefs-next-btn').addEventListener('click', async () => {
+        if (selectedDays.size === 0 || selectedPreferredDisciplines.size === 0) return;
+        const updated = {
+          ...currentPreferences,
+          training_days: DAY_OPTIONS.filter(d => selectedDays.has(d)),
+          preferred_disciplines: DISCIPLINE_OPTIONS.filter(d => selectedPreferredDisciplines.has(d)),
+          updated_at: new Date().toISOString(),
+        };
+        const { error } = await supabase.from('plan_preferences').upsert(updated);
+        if (error) {
+          console.error('Erreur de sauvegarde des préférences', error);
+          return;
+        }
+        currentPreferences = updated;
+        trainingPrefsStep = 2;
+        renderTrainingPrefsPanel();
+      });
+    }
+    return;
+  }
+
+  container.innerHTML = trainingPrefsFullFormHtml(currentPreferences, currentConstraints);
+  renderConstraintList();
+  wireContraintesSection();
+
+  const selectedDays = new Set(currentPreferences.training_days);
+  const selectedPreferredDisciplines = new Set(currentPreferences.preferred_disciplines);
+  toggleChipGroup('.day-check-btn', selectedDays, 'day');
+  toggleChipGroup('.pref-discipline-btn', selectedPreferredDisciplines, 'discipline');
+
+  document.getElementById('save-training-prefs-btn').addEventListener('click', async () => {
+    const updated = {
+      ...currentPreferences,
+      training_days: DAY_OPTIONS.filter(d => selectedDays.has(d)),
+      preferred_disciplines: DISCIPLINE_OPTIONS.filter(d => selectedPreferredDisciplines.has(d)),
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await supabase.from('plan_preferences').upsert(updated);
+    if (error) {
+      console.error('Erreur de sauvegarde des préférences', error);
+      return;
+    }
+    currentPreferences = updated;
+  });
+}
+
+function maybeShowPreferencesReminder(){
+  if (!currentPreferences || isPrefsConfigured()) return;
 
   showOnboardingPopup({
     title: 'Configure tes préférences',
