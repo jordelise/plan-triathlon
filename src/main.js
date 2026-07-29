@@ -944,16 +944,17 @@ function trainingPrefsStep2Html(constraints){
 }
 
 function prefsCardHtml(icon, title, subtitle, bodyHtml){
-  return `<div class="prefs-card">
-    <div class="prefs-card-header">
+  return `<details class="prefs-card" open>
+    <summary class="prefs-card-header">
       <span class="prefs-card-icon">${icon}</span>
-      <div>
+      <div class="prefs-card-header-text">
         <div class="prefs-card-title">${title}</div>
         <p class="prefs-card-subtitle">${subtitle}</p>
       </div>
-    </div>
-    ${bodyHtml}
-  </div>`;
+      <svg class="chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+    </summary>
+    <div class="prefs-card-body">${bodyHtml}</div>
+  </details>`;
 }
 
 function trainingPrefsFullFormHtml(preferences, constraints){

@@ -1161,7 +1161,18 @@ details[open] .chevron{transform:rotate(180deg);}
   animation:wizardFadeIn .35s ease;
   margin-bottom:16px;
 }
-.prefs-card-header{display:flex;align-items:flex-start;gap:12px;margin-bottom:18px;}
+.prefs-card-header{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  cursor:pointer;
+  list-style:none;
+}
+.prefs-card-header::-webkit-details-marker{display:none;}
+.prefs-card-header::marker{content:"";}
+.prefs-card[open] .prefs-card-header{margin-bottom:18px;}
+.prefs-card-header-text{flex:1;min-width:0;}
+.prefs-card-header .chevron{align-self:center;flex-shrink:0;}
 .prefs-card-icon{
   font-size:22px;
   width:40px;height:40px;
