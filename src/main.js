@@ -839,7 +839,7 @@ async function loadAndRenderPreferences(){
   if (prefsError) {
     console.error('Erreur de chargement des préférences', prefsError);
     const { data: { session } } = await supabase.auth.getSession();
-    currentPreferences = { user_id: session?.user?.id, training_days: [], preferred_disciplines: [] };
+    currentPreferences = { user_id: session?.user?.id, training_days: [], preferred_disciplines: [], plan_start_date: null };
   } else {
     currentPreferences = prefsData;
   }
@@ -947,8 +947,15 @@ function prefsFieldsHtml(preferences){
     </div>`;
 }
 
-function contraintesSectionHtml(constraints, centerToggle = false){
-  return `<div class="constraint-list" id="constraint-list">${constraints.map(constraintRowHtml).join('')}</div>
+function contraintesSectionHtml(preferences, constraints, centerToggle = false){
+  const startLabel = preferences.plan_start_date ? formatDateShort(preferences.plan_start_date) : 'Demain (par défaut)';
+  return `<div class="goal-field">
+      <label>Début du plan</label>
+      <button type="button" class="calendar-trigger-btn" id="plan-start-date-btn">📅 ${startLabel}</button>
+      <div class="calendar-panel" id="plan-start-calendar-panel" hidden></div>
+    </div>
+
+    <div class="constraint-list" id="constraint-list">${constraints.map(constraintRowHtml).join('')}</div>
 
     <button type="button" class="constraint-add-toggle-btn${centerToggle ? ' centered' : ''}" id="constraint-add-toggle-btn">
       <span class="constraint-add-toggle-icon">+</span>
@@ -986,14 +993,14 @@ function trainingPrefsStep1Html(preferences){
   </div>`;
 }
 
-function trainingPrefsStep2Html(constraints){
+function trainingPrefsStep2Html(preferences, constraints){
   return `<div class="wizard-card">
     <button type="button" class="wizard-back-link" id="prefs-back-btn">← Précédent</button>
     <div class="wizard-hero">🗓️</div>
     <div class="detail-title" style="margin-bottom:4px;text-align:center;">Des périodes particulières ?</div>
     <p class="settings-sub" style="text-align:center;">Vacances, blessure... ajoute des contraintes si besoin.</p>
     ${wizardStepsHtml(2)}
-    ${contraintesSectionHtml(constraints, true)}
+    ${contraintesSectionHtml(preferences, constraints, true)}
     <button type="button" class="goal-save-btn wizard-next-btn" id="prefs-step2-next-btn" style="margin-top:24px;">Suivant →</button>
   </div>`;
 }
@@ -1043,7 +1050,7 @@ function trainingPrefsFullFormHtml(preferences, constraints){
   return prefsCardHtml('🎯', 'Habitudes', "Jours d'entraînement et sports pratiqués.",
     prefsFieldsHtml(preferences))
     + prefsCardHtml('🗓️', 'Contraintes', 'Vacances, blessures, périodes particulières.',
-    contraintesSectionHtml(constraints))
+    contraintesSectionHtml(preferences, constraints))
     + betaPlanSectionHtml();
 }
 
@@ -1093,7 +1100,55 @@ let trainingPrefsStep = 1;
 // think onboarding is done and skip straight past step 2.
 let trainingPrefsOnboardingDone = null;
 
+function wirePlanStartDatePicker(){
+  const btn = document.getElementById('plan-start-date-btn');
+  const panel = document.getElementById('plan-start-calendar-panel');
+  if (!btn || !panel) return;
+
+  let selectedDate = currentPreferences.plan_start_date;
+  const today = new Date();
+  let viewYear = today.getFullYear();
+  let viewMonth = today.getMonth();
+
+  function render(){
+    panel.innerHTML = calendarPanelHtml(viewYear, viewMonth, selectedDate, null);
+
+    document.getElementById('calendar-prev-month').addEventListener('click', () => {
+      viewMonth--;
+      if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+      render();
+    });
+    document.getElementById('calendar-next-month').addEventListener('click', () => {
+      viewMonth++;
+      if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+      render();
+    });
+    panel.querySelectorAll('.calendar-day:not(.empty)').forEach(cell => {
+      cell.addEventListener('click', async () => {
+        selectedDate = cell.dataset.date;
+        btn.textContent = `📅 ${formatDateShort(selectedDate)}`;
+        panel.hidden = true;
+
+        const updated = { ...currentPreferences, plan_start_date: selectedDate, updated_at: new Date().toISOString() };
+        const { error } = await supabase.from('plan_preferences').upsert(updated);
+        if (error) {
+          console.error('Erreur de sauvegarde du début du plan', error);
+          return;
+        }
+        currentPreferences = updated;
+      });
+    });
+  }
+
+  btn.addEventListener('click', () => {
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) render();
+  });
+}
+
 function wireContraintesSection(){
+  wirePlanStartDatePicker();
+
   const selectedConstraintDisciplines = new Set();
   toggleChipGroup('.constraint-discipline-btn', selectedConstraintDisciplines, 'discipline');
 
@@ -1248,14 +1303,23 @@ function buildGeneratedPlan(){
   if (trainingDays.length === 0 || disciplines.length === 0) return [];
 
   const today = new Date();
-  const nextMonday = new Date(today);
-  const todayDow = (today.getDay() + 6) % 7; // 0 = Monday, ..., 6 = Sunday
-  nextMonday.setDate(today.getDate() + (todayDow === 0 ? 0 : 7 - todayDow));
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  const planStart = currentPreferences.plan_start_date
+    ? new Date(currentPreferences.plan_start_date + 'T00:00:00')
+    : tomorrow;
+  const planStartStr = ymd(planStart.getFullYear(), planStart.getMonth(), planStart.getDate());
+
+  // Weeks are still Monday-aligned for phase/week-number bookkeeping, but any
+  // day before planStart (i.e. the start of its week) is skipped below.
+  const firstWeekMonday = new Date(planStart);
+  const planStartDow = (planStart.getDay() + 6) % 7; // 0 = Monday, ..., 6 = Sunday
+  firstWeekMonday.setDate(planStart.getDate() - planStartDow);
 
   const raceDate = currentGoals?.race_date ? new Date(currentGoals.race_date + 'T00:00:00') : null;
   let weeksTotal = 8;
-  if (raceDate && raceDate > nextMonday) {
-    weeksTotal = Math.round((raceDate - nextMonday) / (7 * 86400000));
+  if (raceDate && raceDate > planStart) {
+    weeksTotal = Math.round((raceDate - planStart) / (7 * 86400000));
     weeksTotal = Math.max(4, Math.min(20, weeksTotal));
   }
 
@@ -1282,14 +1346,15 @@ function buildGeneratedPlan(){
   const rows = [];
 
   for (let week = 1; week <= weeksTotal; week++) {
-    const weekMonday = new Date(nextMonday);
-    weekMonday.setDate(nextMonday.getDate() + (week - 1) * 7);
+    const weekMonday = new Date(firstWeekMonday);
+    weekMonday.setDate(firstWeekMonday.getDate() + (week - 1) * 7);
 
     trainingDays.forEach((day, orderIndex) => {
       const dayOffset = DAY_OPTIONS.indexOf(day);
       const date = new Date(weekMonday);
       date.setDate(weekMonday.getDate() + dayOffset);
       const dateStr = ymd(date.getFullYear(), date.getMonth(), date.getDate());
+      if (dateStr < planStartStr) return; // before the plan's actual start date
 
       const constraint = constraintForDate(dateStr);
       let discipline = null;
@@ -1381,7 +1446,7 @@ function renderTrainingPrefsPanel(){
         finishOnboarding(document.getElementById('prefs-finish-btn'));
       });
     } else if (trainingPrefsStep === 2) {
-      container.innerHTML = trainingPrefsStep2Html(currentConstraints);
+      container.innerHTML = trainingPrefsStep2Html(currentPreferences, currentConstraints);
       renderConstraintList();
       wireContraintesSection();
       document.getElementById('prefs-back-btn').addEventListener('click', () => {
