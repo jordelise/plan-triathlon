@@ -679,19 +679,18 @@ function updateSplitLabels(goals){
 }
 
 function renderRaceInfo(goals){
-  const countdownBlock = document.getElementById('countdown-block');
-
   if (!goals.race_date) {
     document.getElementById('home-race-name').innerHTML = `<em>Configurer</em> ma course`;
     document.getElementById('home-race-day').textContent = '–';
     document.getElementById('home-race-month').textContent = '';
     document.title = 'Plan Triathlon';
-    countdownBlock.hidden = true;
     raceTargetDate = null;
+    ['cd-days', 'cd-hours', 'cd-mins', 'cd-secs'].forEach(id => {
+      document.getElementById(id).textContent = '--';
+    });
     return;
   }
 
-  countdownBlock.hidden = false;
   if (goals.name) {
     const [firstWord, ...rest] = goals.name.split(' ');
     document.getElementById('home-race-name').innerHTML = `<em>${escapeHtml(firstWord)}</em>${rest.length ? ' ' + escapeHtml(rest.join(' ')) : ''}`;
