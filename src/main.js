@@ -1036,15 +1036,15 @@ function betaPlanSectionHtml(){
   const weekNumbers = Array.from(weeks.keys()).sort((a, b) => a - b);
   const body = weekNumbers.map(wn => weekBlockHtml(wn, weeks.get(wn), wn === activeWeek)).join('');
 
-  return prefsCardHtml('📅', 'Ton plan', 'Ta séance générée, semaine par semaine.', body, true);
+  return `<div class="detail-title" style="margin:24px 0 12px;">Ton plan</div>${body}`;
 }
 
 function trainingPrefsFullFormHtml(preferences, constraints){
-  return betaPlanSectionHtml()
-    + prefsCardHtml('🎯', 'Habitudes', "Jours d'entraînement et sports pratiqués.",
+  return prefsCardHtml('🎯', 'Habitudes', "Jours d'entraînement et sports pratiqués.",
     prefsFieldsHtml(preferences))
     + prefsCardHtml('🗓️', 'Contraintes', 'Vacances, blessures, périodes particulières.',
-    contraintesSectionHtml(constraints));
+    contraintesSectionHtml(constraints))
+    + betaPlanSectionHtml();
 }
 
 function renderConstraintList(){
