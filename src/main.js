@@ -621,9 +621,23 @@ function formatMMSS(totalSec){
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+// Mobile numeric keypads (inputmode="numeric") have no ':' or "'" key, so
+// digit-only input (e.g. "530") must still parse — treat the last two
+// digits as the minor unit (seconds/minutes) and the rest as the major
+// unit (minutes/hours), the same convention stopwatch/timer keypads use.
+function splitDigitPair(str){
+  const digits = str.replace(/\D/g, '');
+  if (!digits) return { major: 0, minor: 0 };
+  return { major: Number(digits.slice(0, -2)) || 0, minor: Number(digits.slice(-2)) };
+}
+
 function parseMMSS(str){
-  const [m, s] = str.split(':').map(Number);
-  return (m || 0) * 60 + (s || 0);
+  if (str.includes(':')) {
+    const [m, s] = str.split(':').map(Number);
+    return (m || 0) * 60 + (s || 0);
+  }
+  const { major, minor } = splitDigitPair(str);
+  return major * 60 + minor;
 }
 
 function formatHMM(totalSec){
@@ -633,8 +647,12 @@ function formatHMM(totalSec){
 }
 
 function parseHMM(str){
-  const [h, m] = str.split(':').map(Number);
-  return (h || 0) * 3600 + (m || 0) * 60;
+  if (str.includes(':')) {
+    const [h, m] = str.split(':').map(Number);
+    return (h || 0) * 3600 + (m || 0) * 60;
+  }
+  const { major, minor } = splitDigitPair(str);
+  return major * 3600 + minor * 60;
 }
 
 function formatPacePer100(durationSec, distanceM){
@@ -646,8 +664,14 @@ function formatPacePer100(durationSec, distanceM){
 
 function parsePacePer100(str, distanceM){
   const match = str.match(/(\d+)['’](\d+)/);
-  if (!match) return null;
-  const per100Sec = Number(match[1]) * 60 + Number(match[2]);
+  let per100Sec;
+  if (match) {
+    per100Sec = Number(match[1]) * 60 + Number(match[2]);
+  } else {
+    const { major, minor } = splitDigitPair(str);
+    if (!major && !minor) return null;
+    per100Sec = major * 60 + minor;
+  }
   return per100Sec * (distanceM / 100);
 }
 
@@ -660,8 +684,14 @@ function formatPacePerKm(durationSec, distanceKm){
 
 function parsePacePerKm(str, distanceKm){
   const match = str.match(/(\d+)['’](\d+)/);
-  if (!match) return null;
-  const perKmSec = Number(match[1]) * 60 + Number(match[2]);
+  let perKmSec;
+  if (match) {
+    perKmSec = Number(match[1]) * 60 + Number(match[2]);
+  } else {
+    const { major, minor } = splitDigitPair(str);
+    if (!major && !minor) return null;
+    perKmSec = major * 60 + minor;
+  }
   return perKmSec * distanceKm;
 }
 
