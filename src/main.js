@@ -845,10 +845,11 @@ function constraintRowHtml(constraint){
   const dates = `${formatDateShort(constraint.start_date)} → ${formatDateShort(constraint.end_date)}`;
   const disciplines = constraint.allowed_disciplines.map(d => `${DISCIPLINE_EMOJI[d] || ''} ${DISCIPLINE_LABELS[d] || d}`).join('  ');
   return `<div class="constraint-row" data-id="${constraint.id}">
+    <div class="constraint-row-icon">🗓️</div>
     <div class="constraint-row-info">
+      ${constraint.title ? `<div class="constraint-row-title">${escapeHtml(constraint.title)}</div>` : ''}
       <div class="constraint-row-dates">${escapeHtml(dates)}</div>
       <div class="constraint-row-disciplines">${escapeHtml(disciplines)}</div>
-      ${constraint.title ? `<div class="constraint-row-title">${escapeHtml(constraint.title)}</div>` : ''}
     </div>
     <button type="button" class="constraint-delete-btn" data-id="${constraint.id}" aria-label="Supprimer">✕</button>
   </div>`;
@@ -896,15 +897,18 @@ function contraintesSectionHtml(constraints){
   return `<div class="detail-title" style="margin:24px 0 12px;">Contraintes</div>
     <div class="constraint-list" id="constraint-list">${constraints.map(constraintRowHtml).join('') || '<p class="settings-sub">Aucune contrainte enregistrée.</p>'}</div>
 
-    <button type="button" class="constraint-add-toggle-btn" id="constraint-add-toggle-btn">+ Ajouter une contrainte</button>
+    <button type="button" class="constraint-add-toggle-btn" id="constraint-add-toggle-btn">
+      <span class="constraint-add-toggle-icon">+</span>
+      <span>Ajouter une contrainte</span>
+    </button>
     <div class="constraint-add-form" id="constraint-add-form" hidden>
       <div class="goal-field">
         <label>Titre</label>
-        <input type="text" id="new-constraint-title">
+        <input type="text" id="new-constraint-title" placeholder="Vacances, blessure...">
       </div>
       <div class="goal-field">
         <label>Dates</label>
-        <button type="button" class="calendar-trigger-btn" id="constraint-dates-btn">Choisir les dates</button>
+        <button type="button" class="calendar-trigger-btn" id="constraint-dates-btn">📅 Choisir les dates</button>
         <div class="calendar-panel" id="constraint-calendar-panel" hidden></div>
       </div>
       <div class="goal-field">
