@@ -934,15 +934,13 @@ function trainingPrefsStep1Html(preferences){
 
 function trainingPrefsStep2Html(constraints){
   return `<div class="wizard-card">
+    <button type="button" class="wizard-back-link" id="prefs-back-btn">← Précédent</button>
     <div class="wizard-hero">🗓️</div>
     <div class="detail-title" style="margin-bottom:4px;text-align:center;">Des périodes particulières ?</div>
     <p class="settings-sub" style="text-align:center;">Vacances, blessure... ajoute des contraintes si besoin.</p>
     ${wizardStepsHtml(2)}
     ${contraintesSectionHtml(constraints)}
-    <div class="constraint-add-actions" style="margin-top:24px;">
-      <button type="button" class="constraint-cancel-btn" id="prefs-back-btn">← Précédent</button>
-      <button type="button" class="goal-save-btn wizard-next-btn" id="prefs-finish-btn">Terminer ✓</button>
-    </div>
+    <button type="button" class="goal-save-btn wizard-next-btn" id="prefs-finish-btn" style="margin-top:24px;">Terminer ✓</button>
   </div>`;
 }
 
