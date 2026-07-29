@@ -959,8 +959,7 @@ function prefsCardHtml(icon, title, subtitle, bodyHtml){
 
 function trainingPrefsFullFormHtml(preferences, constraints){
   return prefsCardHtml('🎯', 'Habitudes', "Jours d'entraînement et sports pratiqués.",
-    `${prefsFieldsHtml(preferences)}
-    <button type="button" class="goal-save-btn btn-compact" id="save-training-prefs-btn" style="margin-top:8px;">Enregistrer</button>`)
+    prefsFieldsHtml(preferences))
     + prefsCardHtml('🗓️', 'Contraintes', 'Vacances, blessures, périodes particulières.',
     contraintesSectionHtml(constraints));
 }
@@ -984,7 +983,7 @@ async function deleteConstraint(id){
   renderConstraintList();
 }
 
-function toggleChipGroup(selector, selectedSet, datasetKey){
+function toggleChipGroup(selector, selectedSet, datasetKey, onChange){
   document.querySelectorAll(selector).forEach(btn => {
     btn.addEventListener('click', () => {
       const value = btn.dataset[datasetKey];
@@ -995,6 +994,7 @@ function toggleChipGroup(selector, selectedSet, datasetKey){
         selectedSet.add(value);
         btn.classList.add('active');
       }
+      if (onChange) onChange();
     });
   });
 }
@@ -1163,10 +1163,8 @@ function renderTrainingPrefsPanel(){
 
   const selectedDays = new Set(currentPreferences.training_days);
   const selectedPreferredDisciplines = new Set(currentPreferences.preferred_disciplines);
-  toggleChipGroup('.day-check-btn', selectedDays, 'day');
-  toggleChipGroup('.pref-discipline-btn', selectedPreferredDisciplines, 'discipline');
 
-  document.getElementById('save-training-prefs-btn').addEventListener('click', async () => {
+  async function autoSavePrefs(){
     const updated = {
       ...currentPreferences,
       training_days: DAY_OPTIONS.filter(d => selectedDays.has(d)),
@@ -1179,7 +1177,10 @@ function renderTrainingPrefsPanel(){
       return;
     }
     currentPreferences = updated;
-  });
+  }
+
+  toggleChipGroup('.day-check-btn', selectedDays, 'day', autoSavePrefs);
+  toggleChipGroup('.pref-discipline-btn', selectedPreferredDisciplines, 'discipline', autoSavePrefs);
 }
 
 let onboardingPrimaryHandler = null;
