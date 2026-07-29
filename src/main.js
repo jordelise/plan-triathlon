@@ -700,6 +700,10 @@ function renderRaceInfo(goals){
   document.getElementById('home-race-month').textContent = FR_MONTHS[d.getMonth()];
   document.title = `Plan Triathlon ${goals.size} — ${d.getDate()} ${FR_MONTHS[d.getMonth()]}`;
   raceTargetDate = new Date(goals.race_date + 'T10:00:00');
+  // Refresh the displayed digits immediately — otherwise they keep
+  // showing whichever account's countdown was on screen before (or the
+  // initial "--") until the next 1s setInterval tick fires.
+  updateCountdown();
 }
 
 async function loadAndRenderGoals(){
