@@ -712,10 +712,23 @@ function renderRaceInfo(goals){
 async function loadAndRenderGoals(){
   const { data, error } = await supabase.from('plan_race_goals').select('*').single();
   if (error) {
-    console.error('Erreur de chargement des objectifs', error);
-    return;
+    // No row for this account (e.g. it was never created, or got deleted) —
+    // PostgREST's .single() 406s on zero rows. Fall back to a blank goals
+    // object instead of just logging and bailing: otherwise every render
+    // function below never runs, leaving whichever account's data was on
+    // screen before (name, countdown, splits) stuck there indefinitely.
+    console.error('Erreur de chargement des objectifs (compte sans ligne plan_race_goals ?)', error);
+    const { data: { session } } = await supabase.auth.getSession();
+    currentGoals = {
+      user_id: session?.user?.id,
+      name: null, race_date: null, size: 'M',
+      swim_distance_m: null, swim_duration_sec: null, t1_duration_sec: null,
+      bike_distance_km: null, bike_duration_sec: null, t2_duration_sec: null,
+      run_distance_km: null, run_duration_sec: null,
+    };
+  } else {
+    currentGoals = data;
   }
-  currentGoals = data;
   renderGoals(currentGoals);
   updateSplitLabels(currentGoals);
   renderRaceInfo(currentGoals);
