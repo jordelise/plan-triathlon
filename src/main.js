@@ -571,6 +571,16 @@ document.getElementById('sign-out-btn').addEventListener('click', () => {
   supabase.auth.signOut();
 });
 
+const FULL_ACCESS_EMAIL = 'elisejord@gmail.com';
+
+function updatePlanTabVisibility(email){
+  const hasFullAccess = email === FULL_ACCESS_EMAIL;
+  document.getElementById('plan-nav-item').hidden = !hasFullAccess;
+  if (!hasFullAccess && document.getElementById('m2').checked) {
+    document.getElementById('m1').checked = true;
+  }
+}
+
 supabase.auth.onAuthStateChange(async (event, session) => {
   if (event === 'PASSWORD_RECOVERY') {
     inRecovery = true;
@@ -592,6 +602,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
       initializedUserId = session.user.id;
       await initApp();
     }
+    updatePlanTabVisibility(session.user.email);
     authGate.hidden = true;
   } else {
     authGate.hidden = false;
