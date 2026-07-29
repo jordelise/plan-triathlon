@@ -1,6 +1,6 @@
-drop table if exists plan_session_completions;
+drop table if exists plan_sessions;
 
-create table plan_session_completions (
+create table plan_sessions (
   user_id uuid not null references auth.users(id) on delete cascade,
   session_key text not null,
   week_number int not null,
@@ -19,9 +19,9 @@ create table plan_session_completions (
 );
 
 -- Each account only ever sees and edits its own rows.
-alter table plan_session_completions enable row level security;
+alter table plan_sessions enable row level security;
 
 create policy "Owner read/write access"
-  on plan_session_completions for all
+  on plan_sessions for all
   using (user_id = auth.uid())
   with check (user_id = auth.uid());

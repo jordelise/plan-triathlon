@@ -254,7 +254,7 @@ function weekBlockHtml(weekNumber, sessions, isOpen){
 
 async function loadAndRenderSessions(){
   const { data, error } = await supabase
-    .from('plan_session_completions')
+    .from('plan_sessions')
     .select('*')
     .order('week_number', { ascending: true })
     .order('order_index', { ascending: true });
@@ -323,7 +323,7 @@ function openDetail(sessionKey){
 
 async function saveSessionDate(sessionKey, dateStr){
   const { error } = await supabase
-    .from('plan_session_completions')
+    .from('plan_sessions')
     .update({ session_date: dateStr, updated_at: new Date().toISOString() })
     .eq('session_key', sessionKey);
 
@@ -423,7 +423,7 @@ function refreshProgress(){
 
 async function saveCompletion(sessionKey, done){
   const { error } = await supabase
-    .from('plan_session_completions')
+    .from('plan_sessions')
     .update({ done, updated_at: new Date().toISOString() })
     .eq('session_key', sessionKey);
 
