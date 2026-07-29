@@ -678,6 +678,11 @@ function updateSplitLabels(goals){
   document.getElementById('split-run-label').textContent = goals.run_distance_km == null ? '–' : `${goals.run_distance_km} km`;
 }
 
+function setHomeRaceConfigurable(configurable){
+  document.querySelector('.home-header').classList.toggle('configurable', configurable);
+  document.getElementById('countdown-block').classList.toggle('configurable', configurable);
+}
+
 function renderRaceInfo(goals){
   if (!goals.race_date) {
     document.getElementById('home-race-name').innerHTML = `<em>Mon</em> triathlon`;
@@ -688,6 +693,7 @@ function renderRaceInfo(goals){
     ['cd-days', 'cd-hours', 'cd-mins', 'cd-secs'].forEach(id => {
       document.getElementById(id).textContent = '--';
     });
+    setHomeRaceConfigurable(true);
     return;
   }
 
@@ -706,7 +712,15 @@ function renderRaceInfo(goals){
   // showing whichever account's countdown was on screen before (or the
   // initial "--") until the next 1s setInterval tick fires.
   updateCountdown();
+  setHomeRaceConfigurable(false);
 }
+
+function openRaceInfoEditorIfUnconfigured(){
+  if (currentGoals && !currentGoals.race_date) openRaceInfoEditor();
+}
+
+document.querySelector('.home-header').addEventListener('click', openRaceInfoEditorIfUnconfigured);
+document.getElementById('countdown-block').addEventListener('click', openRaceInfoEditorIfUnconfigured);
 
 async function loadAndRenderGoals(){
   const { data, error } = await supabase.from('plan_race_goals').select('*').single();
