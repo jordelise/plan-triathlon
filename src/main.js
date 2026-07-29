@@ -226,7 +226,7 @@ async function renderStravaSettingsContent(){
 
 function openStravaSettings(){
   document.getElementById('detail-content').innerHTML = `<div class="detail-title" style="margin-bottom:16px;">Applications connectées</div><p class="settings-status">Chargement de Strava…</p>`;
-  openDetailOverlay(false);
+  openDetailOverlay();
   renderStravaSettingsContent();
 }
 
@@ -305,7 +305,7 @@ function openDetail(sessionKey){
     if (dateInput.value) saveSessionDate(key, dateInput.value);
   });
 
-  openDetailOverlay(false);
+  openDetailOverlay();
 }
 
 async function saveSessionDate(sessionKey, dateStr){
@@ -339,36 +339,26 @@ function reRenderWeekDayList(phase, weekNumber){
   });
 }
 
-// Toggling 'sheet-bottom' changes the panel's resting transform axis
-// (translateX -> translateY or back), and since `transition:transform`
-// is always active on .detail-panel, that switch itself gets animated —
-// a reflow in between isn't enough to stop it, since the transition
-// engine latches onto any transform change regardless. So the resting
-// axis is swapped with transitions forced off, flushed, then transitions
-// are restored before animating 'open' — that way only the actual
-// open/close motion is ever animated, always along a single axis.
-function openDetailOverlay(sheetBottom){
-  const overlay = document.getElementById('detail-overlay');
-  const panel = overlay.querySelector('.detail-panel');
-  panel.classList.add('no-transition');
-  overlay.classList.toggle('sheet-bottom', sheetBottom);
-  void panel.offsetWidth;
-  panel.classList.remove('no-transition');
-  void panel.offsetWidth;
-  overlay.classList.add('open');
+function openDetailOverlay(){
+  document.getElementById('detail-overlay').classList.add('open');
 }
 
 function closeDetail(){
-  const overlay = document.getElementById('detail-overlay');
-  overlay.classList.remove('open');
-  // Fixed delay instead of transitionend: rapid class toggles around this
-  // transition make transitionend fire unreliably (sometimes immediately),
-  // which was stripping 'sheet-bottom' mid-slide and finishing the close
-  // along the wrong axis. 280ms matches the panel's transition duration.
-  setTimeout(() => {
-    overlay.classList.remove('sheet-bottom');
-  }, 280);
+  document.getElementById('detail-overlay').classList.remove('open');
 }
+
+function openGoalSheet(){
+  document.getElementById('goal-sheet-overlay').classList.add('open');
+}
+
+function closeGoalSheet(){
+  document.getElementById('goal-sheet-overlay').classList.remove('open');
+}
+
+document.getElementById('goal-sheet-close').addEventListener('click', closeGoalSheet);
+document.getElementById('goal-sheet-overlay').addEventListener('click', (e) => {
+  if (e.target.id === 'goal-sheet-overlay') closeGoalSheet();
+});
 
 function updateDayCardDone(key, done){
   const card = document.querySelector(`.day-card[data-key="${key}"]`);
@@ -827,7 +817,7 @@ function openRaceInfoEditor(){
     maybeShowOnboardingPopup(currentGoals);
   });
 
-  openDetailOverlay(false);
+  openDetailOverlay();
 }
 
 document.getElementById('race-info-settings-row').addEventListener('click', openRaceInfoEditor);
@@ -877,7 +867,7 @@ function openGoalsEditor(goalKey){
   const segment = GOAL_SEGMENTS[goalKey];
   if (!segment) return;
 
-  document.getElementById('detail-content').innerHTML = goalSegmentEditorHtml(segment, currentGoals);
+  document.getElementById('goal-sheet-content').innerHTML = goalSegmentEditorHtml(segment, currentGoals);
 
   const durationInput = document.getElementById('edit-goal-duration');
   const parseDuration = segment.durationFormat === 'hmm' ? parseHMM : parseMMSS;
@@ -907,10 +897,10 @@ function openGoalsEditor(goalKey){
 
     currentGoals = updated;
     renderGoals(currentGoals);
-    closeDetail();
+    closeGoalSheet();
   });
 
-  openDetailOverlay(true);
+  openGoalSheet();
 }
 
 document.querySelectorAll('.split.editable').forEach(el => {
@@ -978,7 +968,7 @@ function openExerciseTagFilter(){
     });
   });
 
-  openDetailOverlay(false);
+  openDetailOverlay();
 }
 
 document.getElementById('exo-filter-icon-btn').addEventListener('click', openExerciseTagFilter);
