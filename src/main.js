@@ -680,7 +680,7 @@ function updateSplitLabels(goals){
 
 function renderRaceInfo(goals){
   if (!goals.race_date) {
-    document.getElementById('home-race-name').innerHTML = `<em>Configurer</em> ma course`;
+    document.getElementById('home-race-name').innerHTML = `<em>Mon</em> triathlon`;
     document.getElementById('home-race-day').textContent = '–';
     document.getElementById('home-race-month').textContent = '';
     document.title = 'Plan Triathlon';
