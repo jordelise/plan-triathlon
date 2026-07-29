@@ -269,7 +269,10 @@ async function loadAndRenderSessions(){
   document.querySelectorAll('.week-list').forEach(container => {
     const phase = Number(container.dataset.phase);
     const weeks = byPhase.get(phase);
-    if (!weeks) return;
+    if (!weeks) {
+      container.innerHTML = '';
+      return;
+    }
     const weekNumbers = Array.from(weeks.keys()).sort((a, b) => a - b);
     container.innerHTML = weekNumbers
       .map(wn => weekBlockHtml(wn, weeks.get(wn), wn === activeWeek))
