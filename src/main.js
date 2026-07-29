@@ -764,6 +764,7 @@ function showOnboardingPopup({ title, text, primaryLabel, onPrimary, onDismiss }
   const primaryBtn = document.getElementById('onboarding-primary-btn');
   primaryBtn.textContent = primaryLabel;
   const dismissBtn = document.getElementById('onboarding-dismiss-btn');
+  dismissBtn.hidden = !onDismiss;
 
   // Swap the handlers directly instead of cloning/replacing the buttons —
   // simpler to reason about, especially since this popup can re-open
