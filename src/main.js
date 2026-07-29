@@ -801,6 +801,7 @@ async function loadAndRenderPreferences(){
 }
 
 const DISCIPLINE_LABELS = { swim: 'Natation', bike: 'Vélo', run: 'Course', strength: 'Renfo' };
+const DISCIPLINE_EMOJI = { swim: '🏊', bike: '🚴', run: '🏃', strength: '💪' };
 const DISCIPLINE_OPTIONS = ['swim', 'bike', 'run', 'strength'];
 
 const DAY_LABELS = { mon: 'Lun', tue: 'Mar', wed: 'Mer', thu: 'Jeu', fri: 'Ven', sat: 'Sam', sun: 'Dim' };
@@ -842,7 +843,7 @@ function calendarPanelHtml(viewYear, viewMonth, startDate, endDate){
 
 function constraintRowHtml(constraint){
   const dates = `${formatDateShort(constraint.start_date)} → ${formatDateShort(constraint.end_date)}`;
-  const disciplines = constraint.allowed_disciplines.map(d => DISCIPLINE_LABELS[d] || d).join(', ');
+  const disciplines = constraint.allowed_disciplines.map(d => `${DISCIPLINE_EMOJI[d] || ''} ${DISCIPLINE_LABELS[d] || d}`).join('  ');
   return `<div class="constraint-row" data-id="${constraint.id}">
     <div class="constraint-row-info">
       <div class="constraint-row-dates">${escapeHtml(dates)}</div>
@@ -853,18 +854,41 @@ function constraintRowHtml(constraint){
   </div>`;
 }
 
+function wizardStepsHtml(step){
+  return `<div class="wizard-steps">
+    <div class="wizard-step${step >= 1 ? ' active' : ''}${step > 1 ? ' done' : ''}">
+      <span class="wizard-step-num">${step > 1 ? '✓' : '1'}</span>
+      <span class="wizard-step-label">Habitudes</span>
+    </div>
+    <div class="wizard-step-line${step > 1 ? ' done' : ''}"></div>
+    <div class="wizard-step${step >= 2 ? ' active' : ''}">
+      <span class="wizard-step-num">2</span>
+      <span class="wizard-step-label">Contraintes</span>
+    </div>
+  </div>`;
+}
+
+function dayPickerHtml(trainingDays){
+  return DAY_OPTIONS.map(d => `<button type="button" class="picker-chip day-check-btn${trainingDays.includes(d) ? ' active' : ''}" data-day="${d}">
+      <span class="picker-chip-label">${DAY_LABELS[d]}</span>
+    </button>`).join('');
+}
+
+function sportPickerHtml(preferredDisciplines, chipClass){
+  return DISCIPLINE_OPTIONS.map(d => `<button type="button" class="picker-chip ${chipClass}${preferredDisciplines.includes(d) ? ' active' : ''}" data-discipline="${d}">
+      <span class="picker-chip-icon">${DISCIPLINE_EMOJI[d]}</span>
+      <span class="picker-chip-label">${DISCIPLINE_LABELS[d]}</span>
+    </button>`).join('');
+}
+
 function prefsFieldsHtml(preferences){
   return `<div class="goal-field">
       <label>Jours d'entraînement</label>
-      <div class="discipline-check-options">${DAY_OPTIONS
-        .map(d => `<button type="button" class="discipline-check-btn day-check-btn${preferences.training_days.includes(d) ? ' active' : ''}" data-day="${d}">${DAY_LABELS[d]}</button>`)
-        .join('')}</div>
+      <div class="picker-grid day-picker-grid">${dayPickerHtml(preferences.training_days)}</div>
     </div>
     <div class="goal-field">
       <label>Sports pratiqués</label>
-      <div class="discipline-check-options">${DISCIPLINE_OPTIONS
-        .map(d => `<button type="button" class="discipline-check-btn pref-discipline-btn${preferences.preferred_disciplines.includes(d) ? ' active' : ''}" data-discipline="${d}">${DISCIPLINE_LABELS[d]}</button>`)
-        .join('')}</div>
+      <div class="picker-grid sport-picker-grid">${sportPickerHtml(preferences.preferred_disciplines, 'pref-discipline-btn')}</div>
     </div>`;
 }
 
@@ -885,9 +909,7 @@ function contraintesSectionHtml(constraints){
       </div>
       <div class="goal-field">
         <label>Disciplines autorisées</label>
-        <div class="discipline-check-options">${DISCIPLINE_OPTIONS
-          .map(d => `<button type="button" class="discipline-check-btn constraint-discipline-btn" data-discipline="${d}">${DISCIPLINE_LABELS[d]}</button>`)
-          .join('')}</div>
+        <div class="picker-grid sport-picker-grid small">${sportPickerHtml([], 'constraint-discipline-btn')}</div>
       </div>
       <div class="constraint-add-actions">
         <button type="button" class="goal-save-btn" id="add-constraint-btn">Ajouter</button>
@@ -897,20 +919,28 @@ function contraintesSectionHtml(constraints){
 }
 
 function trainingPrefsStep1Html(preferences){
-  return `<div class="detail-title" style="margin-bottom:4px;">Configurer ton plan</div>
-    <p class="settings-sub">Étape 1/2 — tes habitudes</p>
+  return `<div class="wizard-card">
+    <div class="wizard-hero">🎯</div>
+    <div class="detail-title" style="margin-bottom:4px;text-align:center;">Configurons ton plan</div>
+    <p class="settings-sub" style="text-align:center;">Dis-nous quand et quoi tu aimes t'entraîner.</p>
+    ${wizardStepsHtml(1)}
     ${prefsFieldsHtml(preferences)}
-    <button type="button" class="goal-save-btn" id="prefs-next-btn" style="margin-top:24px;">Suivant</button>`;
+    <button type="button" class="goal-save-btn wizard-next-btn" id="prefs-next-btn">Suivant →</button>
+  </div>`;
 }
 
 function trainingPrefsStep2Html(constraints){
-  return `<div class="detail-title" style="margin-bottom:4px;">Configurer ton plan</div>
-    <p class="settings-sub">Étape 2/2 — tes contraintes</p>
+  return `<div class="wizard-card">
+    <div class="wizard-hero">🗓️</div>
+    <div class="detail-title" style="margin-bottom:4px;text-align:center;">Des périodes particulières ?</div>
+    <p class="settings-sub" style="text-align:center;">Vacances, blessure... ajoute des contraintes si besoin.</p>
+    ${wizardStepsHtml(2)}
     ${contraintesSectionHtml(constraints)}
     <div class="constraint-add-actions" style="margin-top:24px;">
-      <button type="button" class="constraint-cancel-btn" id="prefs-back-btn">Précédent</button>
-      <button type="button" class="goal-save-btn" id="prefs-finish-btn">Terminer</button>
-    </div>`;
+      <button type="button" class="constraint-cancel-btn" id="prefs-back-btn">← Précédent</button>
+      <button type="button" class="goal-save-btn wizard-next-btn" id="prefs-finish-btn">Terminer ✓</button>
+    </div>
+  </div>`;
 }
 
 function trainingPrefsFullFormHtml(preferences, constraints){
