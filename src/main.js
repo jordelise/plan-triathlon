@@ -1345,6 +1345,15 @@ function renderTrainingPrefsPanel(){
 
   if (trainingPrefsOnboardingDone === null) trainingPrefsOnboardingDone = isPrefsConfigured();
 
+  async function finishOnboarding(button){
+    button.disabled = true;
+    button.textContent = 'Génération…';
+    await generatePersonalizedPlan();
+    trainingPrefsOnboardingDone = true;
+    trainingPrefsStep = 1;
+    renderTrainingPrefsPanel();
+  }
+
   if (!trainingPrefsOnboardingDone) {
     if (trainingPrefsStep === 3) {
       container.innerHTML = trainingPrefsStep3Html();
@@ -1353,14 +1362,8 @@ function renderTrainingPrefsPanel(){
         trainingPrefsStep = 2;
         renderTrainingPrefsPanel();
       });
-      document.getElementById('prefs-finish-btn').addEventListener('click', async () => {
-        const finishBtn = document.getElementById('prefs-finish-btn');
-        finishBtn.disabled = true;
-        finishBtn.textContent = 'Génération…';
-        await generatePersonalizedPlan();
-        trainingPrefsOnboardingDone = true;
-        trainingPrefsStep = 1;
-        renderTrainingPrefsPanel();
+      document.getElementById('prefs-finish-btn').addEventListener('click', () => {
+        finishOnboarding(document.getElementById('prefs-finish-btn'));
       });
     } else if (trainingPrefsStep === 2) {
       container.innerHTML = trainingPrefsStep2Html(currentConstraints);
@@ -1371,9 +1374,13 @@ function renderTrainingPrefsPanel(){
         renderTrainingPrefsPanel();
       });
       document.getElementById('prefs-step2-next-btn').addEventListener('click', async () => {
-        trainingPrefsStep = (await isStravaVisible()) ? 3 : 1;
-        if (trainingPrefsStep === 1) trainingPrefsOnboardingDone = true;
-        renderTrainingPrefsPanel();
+        const nextBtn = document.getElementById('prefs-step2-next-btn');
+        if (await isStravaVisible()) {
+          trainingPrefsStep = 3;
+          renderTrainingPrefsPanel();
+        } else {
+          await finishOnboarding(nextBtn);
+        }
       });
     } else {
       container.innerHTML = trainingPrefsStep1Html(currentPreferences);
