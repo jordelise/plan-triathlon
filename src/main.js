@@ -914,7 +914,7 @@ function contraintesSectionHtml(constraints){
         <div class="picker-grid sport-picker-grid small">${sportPickerHtml([], 'constraint-discipline-btn')}</div>
       </div>
       <div class="constraint-add-actions">
-        <button type="button" class="goal-save-btn" id="add-constraint-btn">Ajouter</button>
+        <button type="button" class="goal-save-btn btn-compact" id="add-constraint-btn">Ajouter</button>
         <button type="button" class="constraint-cancel-btn" id="cancel-constraint-btn">Annuler</button>
       </div>
     </div>`;
@@ -960,7 +960,7 @@ function prefsCardHtml(icon, title, subtitle, bodyHtml){
 function trainingPrefsFullFormHtml(preferences, constraints){
   return prefsCardHtml('🎯', 'Habitudes', "Jours d'entraînement et sports pratiqués.",
     `${prefsFieldsHtml(preferences)}
-    <button type="button" class="goal-save-btn" id="save-training-prefs-btn" style="margin-top:8px;">Enregistrer</button>`)
+    <button type="button" class="goal-save-btn btn-compact" id="save-training-prefs-btn" style="margin-top:8px;">Enregistrer</button>`)
     + prefsCardHtml('🗓️', 'Contraintes', 'Vacances, blessures, périodes particulières.',
     contraintesSectionHtml(constraints));
 }
