@@ -773,7 +773,7 @@ async function loadAndRenderPreferences(){
   if (prefsError) {
     console.error('Erreur de chargement des préférences', prefsError);
     const { data: { session } } = await supabase.auth.getSession();
-    currentPreferences = { user_id: session?.user?.id, training_days: [] };
+    currentPreferences = { user_id: session?.user?.id, training_days: [], preferred_disciplines: [] };
   } else {
     currentPreferences = prefsData;
   }
@@ -809,11 +809,17 @@ function trainingPrefsEditorHtml(preferences, constraints){
   return `<div class="detail-title" style="margin-bottom:16px;">Préférences d'entraînement</div>
     <div class="goal-field">
       <label>Jours d'entraînement</label>
-      <div class="discipline-check-options" id="edit-training-days">${DAY_OPTIONS
+      <div class="discipline-check-options">${DAY_OPTIONS
         .map(d => `<button type="button" class="discipline-check-btn day-check-btn${preferences.training_days.includes(d) ? ' active' : ''}" data-day="${d}">${DAY_LABELS[d]}</button>`)
         .join('')}</div>
     </div>
-    <button type="button" class="goal-save-btn" id="save-training-days-btn">Enregistrer</button>
+    <div class="goal-field">
+      <label>Sports pratiqués</label>
+      <div class="discipline-check-options">${DISCIPLINE_OPTIONS
+        .map(d => `<button type="button" class="discipline-check-btn pref-discipline-btn${preferences.preferred_disciplines.includes(d) ? ' active' : ''}" data-discipline="${d}">${DISCIPLINE_LABELS[d]}</button>`)
+        .join('')}</div>
+    </div>
+    <button type="button" class="goal-save-btn" id="save-training-prefs-btn">Enregistrer</button>
 
     <div class="detail-title" style="margin:24px 0 12px;">Périodes particulières</div>
     <div class="constraint-list" id="constraint-list">${constraints.map(constraintRowHtml).join('') || '<p class="settings-sub">Aucune période enregistrée.</p>'}</div>
@@ -829,7 +835,7 @@ function trainingPrefsEditorHtml(preferences, constraints){
     <div class="goal-field">
       <label>Disciplines autorisées</label>
       <div class="discipline-check-options">${DISCIPLINE_OPTIONS
-        .map(d => `<button type="button" class="discipline-check-btn" data-discipline="${d}">${DISCIPLINE_LABELS[d]}</button>`)
+        .map(d => `<button type="button" class="discipline-check-btn constraint-discipline-btn" data-discipline="${d}">${DISCIPLINE_LABELS[d]}</button>`)
         .join('')}</div>
     </div>
     <div class="goal-field">
@@ -858,30 +864,41 @@ async function deleteConstraint(id){
   renderConstraintList();
 }
 
-function openTrainingPrefsEditor(){
-  if (!currentPreferences) return;
-  const selectedDays = new Set(currentPreferences.training_days);
-  let selectedDisciplines = new Set();
-
-  document.getElementById('detail-content').innerHTML = trainingPrefsEditorHtml(currentPreferences, currentConstraints);
-  renderConstraintList();
-
-  document.querySelectorAll('.day-check-btn').forEach(btn => {
+function toggleChipGroup(selector, selectedSet, datasetKey){
+  document.querySelectorAll(selector).forEach(btn => {
     btn.addEventListener('click', () => {
-      const d = btn.dataset.day;
-      if (selectedDays.has(d)) {
-        selectedDays.delete(d);
+      const value = btn.dataset[datasetKey];
+      if (selectedSet.has(value)) {
+        selectedSet.delete(value);
         btn.classList.remove('active');
       } else {
-        selectedDays.add(d);
+        selectedSet.add(value);
         btn.classList.add('active');
       }
     });
   });
+}
 
-  document.getElementById('save-training-days-btn').addEventListener('click', async () => {
-    const trainingDays = DAY_OPTIONS.filter(d => selectedDays.has(d));
-    const updated = { ...currentPreferences, training_days: trainingDays, updated_at: new Date().toISOString() };
+function openTrainingPrefsEditor(){
+  if (!currentPreferences) return;
+  const selectedDays = new Set(currentPreferences.training_days);
+  const selectedPreferredDisciplines = new Set(currentPreferences.preferred_disciplines);
+  const selectedConstraintDisciplines = new Set();
+
+  document.getElementById('detail-content').innerHTML = trainingPrefsEditorHtml(currentPreferences, currentConstraints);
+  renderConstraintList();
+
+  toggleChipGroup('.day-check-btn', selectedDays, 'day');
+  toggleChipGroup('.pref-discipline-btn', selectedPreferredDisciplines, 'discipline');
+  toggleChipGroup('.constraint-discipline-btn', selectedConstraintDisciplines, 'discipline');
+
+  document.getElementById('save-training-prefs-btn').addEventListener('click', async () => {
+    const updated = {
+      ...currentPreferences,
+      training_days: DAY_OPTIONS.filter(d => selectedDays.has(d)),
+      preferred_disciplines: DISCIPLINE_OPTIONS.filter(d => selectedPreferredDisciplines.has(d)),
+      updated_at: new Date().toISOString(),
+    };
     const { error } = await supabase.from('plan_preferences').upsert(updated);
     if (error) {
       console.error('Erreur de sauvegarde des préférences', error);
@@ -891,23 +908,10 @@ function openTrainingPrefsEditor(){
     closeDetail();
   });
 
-  document.querySelectorAll('.discipline-check-btn:not(.day-check-btn)').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const d = btn.dataset.discipline;
-      if (selectedDisciplines.has(d)) {
-        selectedDisciplines.delete(d);
-        btn.classList.remove('active');
-      } else {
-        selectedDisciplines.add(d);
-        btn.classList.add('active');
-      }
-    });
-  });
-
   document.getElementById('add-constraint-btn').addEventListener('click', async () => {
     const startDate = document.getElementById('new-constraint-start').value;
     const endDate = document.getElementById('new-constraint-end').value;
-    if (!startDate || !endDate || selectedDisciplines.size === 0) return;
+    if (!startDate || !endDate || selectedConstraintDisciplines.size === 0) return;
 
     const note = document.getElementById('new-constraint-note').value.trim() || null;
     const { data: { session } } = await supabase.auth.getSession();
@@ -915,7 +919,7 @@ function openTrainingPrefsEditor(){
       user_id: session?.user?.id,
       start_date: startDate,
       end_date: endDate,
-      allowed_disciplines: Array.from(selectedDisciplines),
+      allowed_disciplines: Array.from(selectedConstraintDisciplines),
       note,
     }).select().single();
 
@@ -929,8 +933,8 @@ function openTrainingPrefsEditor(){
     document.getElementById('new-constraint-start').value = '';
     document.getElementById('new-constraint-end').value = '';
     document.getElementById('new-constraint-note').value = '';
-    selectedDisciplines.clear();
-    document.querySelectorAll('.discipline-check-btn:not(.day-check-btn)').forEach(btn => btn.classList.remove('active'));
+    selectedConstraintDisciplines.clear();
+    document.querySelectorAll('.constraint-discipline-btn').forEach(btn => btn.classList.remove('active'));
   });
 
   openDetailOverlay();

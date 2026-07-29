@@ -1,12 +1,19 @@
 create table if not exists plan_preferences (
   user_id uuid primary key references auth.users(id) on delete cascade,
   training_days text[] not null default '{}',
+  preferred_disciplines text[] not null default '{}',
   updated_at timestamptz not null default now(),
-  constraint plan_preferences_training_days_check check (training_days <@ array['mon','tue','wed','thu','fri','sat','sun'])
+  constraint plan_preferences_training_days_check check (training_days <@ array['mon','tue','wed','thu','fri','sat','sun']),
+  constraint plan_preferences_preferred_disciplines_check check (preferred_disciplines <@ array['swim','bike','run','strength'])
 );
+
+alter table plan_preferences add column if not exists preferred_disciplines text[] not null default '{}';
+alter table plan_preferences drop constraint if exists plan_preferences_preferred_disciplines_check;
+alter table plan_preferences add constraint plan_preferences_preferred_disciplines_check check (preferred_disciplines <@ array['swim','bike','run','strength']);
 
 alter table plan_preferences enable row level security;
 
+drop policy if exists "Owner read/write access" on plan_preferences;
 create policy "Owner read/write access"
   on plan_preferences for all
   using (user_id = auth.uid())
@@ -42,6 +49,7 @@ create table if not exists plan_constraints (
 
 alter table plan_constraints enable row level security;
 
+drop policy if exists "Owner read/write access" on plan_constraints;
 create policy "Owner read/write access"
   on plan_constraints for all
   using (user_id = auth.uid())
