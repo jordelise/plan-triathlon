@@ -795,6 +795,9 @@ async function loadAndRenderPreferences(){
   } else {
     currentConstraints = constraintsData;
   }
+
+  renderTrainingPrefsPanel();
+  maybeShowPreferencesReminder();
 }
 
 const DISCIPLINE_LABELS = { swim: 'Natation', bike: 'Vélo', run: 'Course', strength: 'Renfo' };
@@ -928,7 +931,7 @@ function toggleChipGroup(selector, selectedSet, datasetKey){
   });
 }
 
-function openTrainingPrefsEditor(){
+function renderTrainingPrefsPanel(){
   if (!currentPreferences) return;
   const selectedDays = new Set(currentPreferences.training_days);
   const selectedPreferredDisciplines = new Set(currentPreferences.preferred_disciplines);
@@ -940,7 +943,7 @@ function openTrainingPrefsEditor(){
   let calendarViewYear = today.getFullYear();
   let calendarViewMonth = today.getMonth();
 
-  document.getElementById('detail-content').innerHTML = trainingPrefsEditorHtml(currentPreferences, currentConstraints);
+  document.getElementById('training-prefs-container').innerHTML = trainingPrefsEditorHtml(currentPreferences, currentConstraints);
   renderConstraintList();
 
   toggleChipGroup('.day-check-btn', selectedDays, 'day');
@@ -1026,7 +1029,6 @@ function openTrainingPrefsEditor(){
       return;
     }
     currentPreferences = updated;
-    closeDetail();
   });
 
   document.getElementById('add-constraint-btn').addEventListener('click', async () => {
@@ -1050,20 +1052,35 @@ function openTrainingPrefsEditor(){
     renderConstraintList();
     resetConstraintForm();
   });
-
-  openDetailOverlay();
 }
 
-document.getElementById('training-prefs-settings-row').addEventListener('click', openTrainingPrefsEditor);
+function maybeShowPreferencesReminder(){
+  if (!currentPreferences) return;
+  const unset = currentPreferences.training_days.length === 0 && currentPreferences.preferred_disciplines.length === 0;
+  if (!unset) return;
+
+  showOnboardingPopup({
+    title: 'Configure tes préférences',
+    text: 'Sur l\'onglet Beta, choisis tes jours d\'entraînement et les sports que tu pratiques pour personnaliser ton plan.',
+    primaryLabel: 'Compris',
+    onPrimary: () => {},
+    tab: 'm5',
+  });
+}
+
+document.getElementById('m5').addEventListener('change', () => {
+  if (document.getElementById('m5').checked) maybeShowPreferencesReminder();
+});
 
 let onboardingPrimaryHandler = null;
 let onboardingDismissHandler = null;
 
-function showOnboardingPopup({ title, text, primaryLabel, onPrimary, onDismiss }){
-  // These popups are about the home page (race info / splits) — only show
+function showOnboardingPopup({ title, text, primaryLabel, onPrimary, onDismiss, tab = 'm1' }){
+  // These popups are tied to whichever tab their subject lives on (home page
+  // race info / splits, or the Beta tab's training preferences) — only show
   // them there. Saving Mon triathlon from Réglages, for instance, should
   // not pop something up on top of Réglages.
-  if (!document.getElementById('m1').checked) return;
+  if (!document.getElementById(tab).checked) return;
 
   const popup = document.getElementById('onboarding-popup');
   document.getElementById('onboarding-title').textContent = title;
