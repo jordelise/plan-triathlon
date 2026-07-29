@@ -1051,6 +1051,7 @@ details[open] .chevron{transform:rotate(180deg);}
   transition:background .15s ease, transform .15s ease;
 }
 .constraint-add-toggle-btn:active{transform:scale(.98);background:rgba(232,80,47,0.06);}
+.constraint-add-toggle-btn.centered{margin-left:auto;margin-right:auto;}
 .constraint-add-toggle-icon{
   width:16px;height:16px;
   border-radius:50%;
@@ -1137,9 +1138,10 @@ details[open] .chevron{transform:rotate(180deg);}
   transform:translateY(-2px);
 }
 .sport-picker-grid.small{grid-template-columns:repeat(4,1fr);margin-bottom:0;}
-.sport-picker-grid.small .picker-chip{padding:8px 4px;}
-.sport-picker-grid.small .picker-chip-icon{font-size:15px;}
-.sport-picker-grid.small .picker-chip-label{font-size:10px;}
+.sport-picker-grid.small .picker-chip{padding:10px 4px;background:#fff;border:1px solid var(--line);}
+.sport-picker-grid.small .picker-chip.active{border-color:var(--coral);}
+.sport-picker-grid.small .picker-chip-icon{font-size:20px;}
+.sport-picker-grid.small .picker-chip-label{font-size:11px;}
 
 @keyframes wizardFadeIn{
   from{opacity:0;transform:translateY(10px);}

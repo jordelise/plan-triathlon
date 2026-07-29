@@ -897,10 +897,10 @@ function prefsFieldsHtml(preferences){
     </div>`;
 }
 
-function contraintesSectionHtml(constraints){
+function contraintesSectionHtml(constraints, centerToggle = false){
   return `<div class="constraint-list" id="constraint-list">${constraints.map(constraintRowHtml).join('')}</div>
 
-    <button type="button" class="constraint-add-toggle-btn" id="constraint-add-toggle-btn">
+    <button type="button" class="constraint-add-toggle-btn${centerToggle ? ' centered' : ''}" id="constraint-add-toggle-btn">
       <span class="constraint-add-toggle-icon">+</span>
       <span>Ajouter une contrainte</span>
     </button>
@@ -943,7 +943,7 @@ function trainingPrefsStep2Html(constraints){
     <div class="detail-title" style="margin-bottom:4px;text-align:center;">Des périodes particulières ?</div>
     <p class="settings-sub" style="text-align:center;">Vacances, blessure... ajoute des contraintes si besoin.</p>
     ${wizardStepsHtml(2)}
-    ${contraintesSectionHtml(constraints)}
+    ${contraintesSectionHtml(constraints, true)}
     <button type="button" class="goal-save-btn wizard-next-btn" id="prefs-step2-next-btn" style="margin-top:24px;">Suivant →</button>
   </div>`;
 }
