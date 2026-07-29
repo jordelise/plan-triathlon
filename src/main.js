@@ -752,6 +752,11 @@ let onboardingPrimaryHandler = null;
 let onboardingDismissHandler = null;
 
 function showOnboardingPopup({ title, text, primaryLabel, onPrimary, onDismiss }){
+  // These popups are about the home page (race info / splits) — only show
+  // them there. Saving Mon triathlon from Réglages, for instance, should
+  // not pop something up on top of Réglages.
+  if (!document.getElementById('m1').checked) return;
+
   const popup = document.getElementById('onboarding-popup');
   document.getElementById('onboarding-title').textContent = title;
   document.getElementById('onboarding-text').textContent = text;
