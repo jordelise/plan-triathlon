@@ -1,0 +1,48 @@
+create table if not exists plan_preferences (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  training_days text[] not null default '{}',
+  updated_at timestamptz not null default now(),
+  constraint plan_preferences_training_days_check check (training_days <@ array['mon','tue','wed','thu','fri','sat','sun'])
+);
+
+alter table plan_preferences enable row level security;
+
+create policy "Owner read/write access"
+  on plan_preferences for all
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+create or replace function public.handle_new_user_preferences()
+returns trigger as $$
+begin
+  insert into public.plan_preferences (user_id) values (new.id);
+  return new;
+end;
+$$ language plpgsql security definer set search_path = public;
+
+drop trigger if exists on_auth_user_created_preferences on auth.users;
+create trigger on_auth_user_created_preferences
+  after insert on auth.users
+  for each row execute function public.handle_new_user_preferences();
+
+insert into plan_preferences (user_id)
+select id from auth.users
+on conflict (user_id) do nothing;
+
+create table if not exists plan_constraints (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  start_date date not null,
+  end_date date not null,
+  allowed_disciplines text[] not null,
+  note text,
+  created_at timestamptz not null default now(),
+  constraint plan_constraints_date_check check (end_date >= start_date)
+);
+
+alter table plan_constraints enable row level security;
+
+create policy "Owner read/write access"
+  on plan_constraints for all
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());

@@ -463,6 +463,7 @@ async function initApp(){
     loadAndRenderSessions(),
     loadAndRenderExercises(),
     loadAndRenderGoals(),
+    loadAndRenderPreferences(),
     refreshStravaRowVisibility(),
   ]);
 
@@ -660,6 +661,8 @@ function parseSpeedKmh(str, distanceKm){
 }
 
 let currentGoals = null;
+let currentPreferences = null;
+let currentConstraints = [];
 
 function renderGoals(goals){
   const durationOrDash = (sec, formatter) => (sec == null ? '–' : '~' + formatter(sec));
@@ -760,6 +763,180 @@ async function loadAndRenderGoals(){
   renderRaceInfo(currentGoals);
   maybeShowOnboardingPopup(currentGoals);
 }
+
+async function loadAndRenderPreferences(){
+  const [{ data: prefsData, error: prefsError }, { data: constraintsData, error: constraintsError }] = await Promise.all([
+    supabase.from('plan_preferences').select('*').single(),
+    supabase.from('plan_constraints').select('*').order('start_date'),
+  ]);
+
+  if (prefsError) {
+    console.error('Erreur de chargement des préférences', prefsError);
+    const { data: { session } } = await supabase.auth.getSession();
+    currentPreferences = { user_id: session?.user?.id, training_days: [] };
+  } else {
+    currentPreferences = prefsData;
+  }
+
+  if (constraintsError) {
+    console.error('Erreur de chargement des contraintes', constraintsError);
+    currentConstraints = [];
+  } else {
+    currentConstraints = constraintsData;
+  }
+}
+
+const DISCIPLINE_LABELS = { swim: 'Natation', bike: 'Vélo', run: 'Course', strength: 'Renfo' };
+const DISCIPLINE_OPTIONS = ['swim', 'bike', 'run', 'strength'];
+
+const DAY_LABELS = { mon: 'Lun', tue: 'Mar', wed: 'Mer', thu: 'Jeu', fri: 'Ven', sat: 'Sam', sun: 'Dim' };
+const DAY_OPTIONS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+
+function constraintRowHtml(constraint){
+  const dates = `${constraint.start_date} → ${constraint.end_date}`;
+  const disciplines = constraint.allowed_disciplines.map(d => DISCIPLINE_LABELS[d] || d).join(', ');
+  return `<div class="constraint-row" data-id="${constraint.id}">
+    <div class="constraint-row-info">
+      <div class="constraint-row-dates">${escapeHtml(dates)}</div>
+      <div class="constraint-row-disciplines">${escapeHtml(disciplines)}</div>
+      ${constraint.note ? `<div class="constraint-row-note">${escapeHtml(constraint.note)}</div>` : ''}
+    </div>
+    <button type="button" class="constraint-delete-btn" data-id="${constraint.id}" aria-label="Supprimer">✕</button>
+  </div>`;
+}
+
+function trainingPrefsEditorHtml(preferences, constraints){
+  return `<div class="detail-title" style="margin-bottom:16px;">Préférences d'entraînement</div>
+    <div class="goal-field">
+      <label>Jours d'entraînement</label>
+      <div class="discipline-check-options" id="edit-training-days">${DAY_OPTIONS
+        .map(d => `<button type="button" class="discipline-check-btn day-check-btn${preferences.training_days.includes(d) ? ' active' : ''}" data-day="${d}">${DAY_LABELS[d]}</button>`)
+        .join('')}</div>
+    </div>
+    <button type="button" class="goal-save-btn" id="save-training-days-btn">Enregistrer</button>
+
+    <div class="detail-title" style="margin:24px 0 12px;">Périodes particulières</div>
+    <div class="constraint-list" id="constraint-list">${constraints.map(constraintRowHtml).join('') || '<p class="settings-sub">Aucune période enregistrée.</p>'}</div>
+
+    <div class="goal-field">
+      <label>Début</label>
+      <input type="date" id="new-constraint-start">
+    </div>
+    <div class="goal-field">
+      <label>Fin</label>
+      <input type="date" id="new-constraint-end">
+    </div>
+    <div class="goal-field">
+      <label>Disciplines autorisées</label>
+      <div class="discipline-check-options">${DISCIPLINE_OPTIONS
+        .map(d => `<button type="button" class="discipline-check-btn" data-discipline="${d}">${DISCIPLINE_LABELS[d]}</button>`)
+        .join('')}</div>
+    </div>
+    <div class="goal-field">
+      <label>Note (optionnel)</label>
+      <input type="text" id="new-constraint-note">
+    </div>
+    <button type="button" class="goal-save-btn" id="add-constraint-btn">Ajouter</button>`;
+}
+
+function renderConstraintList(){
+  const list = document.getElementById('constraint-list');
+  if (!list) return;
+  list.innerHTML = currentConstraints.map(constraintRowHtml).join('') || '<p class="settings-sub">Aucune période enregistrée.</p>';
+  list.querySelectorAll('.constraint-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => deleteConstraint(Number(btn.dataset.id)));
+  });
+}
+
+async function deleteConstraint(id){
+  const { error } = await supabase.from('plan_constraints').delete().eq('id', id);
+  if (error) {
+    console.error('Erreur de suppression de la contrainte', error);
+    return;
+  }
+  currentConstraints = currentConstraints.filter(c => c.id !== id);
+  renderConstraintList();
+}
+
+function openTrainingPrefsEditor(){
+  if (!currentPreferences) return;
+  const selectedDays = new Set(currentPreferences.training_days);
+  let selectedDisciplines = new Set();
+
+  document.getElementById('detail-content').innerHTML = trainingPrefsEditorHtml(currentPreferences, currentConstraints);
+  renderConstraintList();
+
+  document.querySelectorAll('.day-check-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const d = btn.dataset.day;
+      if (selectedDays.has(d)) {
+        selectedDays.delete(d);
+        btn.classList.remove('active');
+      } else {
+        selectedDays.add(d);
+        btn.classList.add('active');
+      }
+    });
+  });
+
+  document.getElementById('save-training-days-btn').addEventListener('click', async () => {
+    const trainingDays = DAY_OPTIONS.filter(d => selectedDays.has(d));
+    const updated = { ...currentPreferences, training_days: trainingDays, updated_at: new Date().toISOString() };
+    const { error } = await supabase.from('plan_preferences').upsert(updated);
+    if (error) {
+      console.error('Erreur de sauvegarde des préférences', error);
+      return;
+    }
+    currentPreferences = updated;
+    closeDetail();
+  });
+
+  document.querySelectorAll('.discipline-check-btn:not(.day-check-btn)').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const d = btn.dataset.discipline;
+      if (selectedDisciplines.has(d)) {
+        selectedDisciplines.delete(d);
+        btn.classList.remove('active');
+      } else {
+        selectedDisciplines.add(d);
+        btn.classList.add('active');
+      }
+    });
+  });
+
+  document.getElementById('add-constraint-btn').addEventListener('click', async () => {
+    const startDate = document.getElementById('new-constraint-start').value;
+    const endDate = document.getElementById('new-constraint-end').value;
+    if (!startDate || !endDate || selectedDisciplines.size === 0) return;
+
+    const note = document.getElementById('new-constraint-note').value.trim() || null;
+    const { data: { session } } = await supabase.auth.getSession();
+    const { data, error } = await supabase.from('plan_constraints').insert({
+      user_id: session?.user?.id,
+      start_date: startDate,
+      end_date: endDate,
+      allowed_disciplines: Array.from(selectedDisciplines),
+      note,
+    }).select().single();
+
+    if (error) {
+      console.error('Erreur d\'ajout de la contrainte', error);
+      return;
+    }
+    currentConstraints = [...currentConstraints, data].sort((a, b) => a.start_date.localeCompare(b.start_date));
+    renderConstraintList();
+
+    document.getElementById('new-constraint-start').value = '';
+    document.getElementById('new-constraint-end').value = '';
+    document.getElementById('new-constraint-note').value = '';
+    selectedDisciplines.clear();
+    document.querySelectorAll('.discipline-check-btn:not(.day-check-btn)').forEach(btn => btn.classList.remove('active'));
+  });
+
+  openDetailOverlay();
+}
+
+document.getElementById('training-prefs-settings-row').addEventListener('click', openTrainingPrefsEditor);
 
 let onboardingPrimaryHandler = null;
 let onboardingDismissHandler = null;

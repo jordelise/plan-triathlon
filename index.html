@@ -961,6 +961,50 @@ details[open] .chevron{transform:rotate(180deg);}
   cursor:pointer;
 }
 
+.constraint-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
+.constraint-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:10px 12px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:var(--paper-2);
+}
+.constraint-row-info{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.constraint-row-dates{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink);}
+.constraint-row-disciplines{font-size:12px;color:var(--tarmac);text-transform:uppercase;letter-spacing:.04em;}
+.constraint-row-note{font-size:12px;color:var(--tarmac);}
+.constraint-delete-btn{
+  border:none;
+  background:none;
+  color:var(--tarmac);
+  font-size:18px;
+  line-height:1;
+  cursor:pointer;
+  padding:4px 6px;
+  flex-shrink:0;
+}
+.discipline-check-options{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
+.discipline-check-btn{
+  cursor:pointer;
+  padding:8px 10px;
+  border-radius:8px;
+  background:var(--paper-2);
+  border:1px solid transparent;
+  font-family:'Oswald',sans-serif;
+  font-size:12px;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  color:var(--tarmac);
+  transition:all .15s ease;
+}
+.discipline-check-btn.active{
+  background:var(--ink);
+  color:var(--paper);
+}
+
 /* ---------- SETTINGS ---------- */
 .settings-row{
   width:100%;
@@ -1258,6 +1302,11 @@ details[open] .chevron{transform:rotate(180deg);}
 
   <button type="button" class="settings-row" id="race-info-settings-row">
     <span class="settings-row-label">Mon triathlon</span>
+    <svg class="chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+  </button>
+
+  <button type="button" class="settings-row" id="training-prefs-settings-row" style="margin-top:12px;">
+    <span class="settings-row-label">Préférences d'entraînement</span>
     <svg class="chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
   </button>
 
