@@ -232,6 +232,16 @@ function openStravaSettings(){
 
 document.getElementById('strava-settings-row').addEventListener('click', openStravaSettings);
 
+async function refreshStravaRowVisibility(){
+  try {
+    const res = await fetch('/api/strava/status', { headers: await stravaAuthHeaders() });
+    const data = await res.json();
+    document.getElementById('strava-settings-row').hidden = !data.visible;
+  } catch {
+    // Leave the row as-is if the check itself fails — non-fatal.
+  }
+}
+
 function weekBlockHtml(weekNumber, sessions, isOpen){
   const label = `Semaine S${weekNumber}`;
   const range = WEEK_DATE_RANGES[weekNumber];
@@ -451,6 +461,7 @@ async function initApp(){
     loadAndRenderSessions(),
     loadAndRenderExercises(),
     loadAndRenderGoals(),
+    refreshStravaRowVisibility(),
   ]);
 
   if (new URLSearchParams(location.search).has('strava')) {

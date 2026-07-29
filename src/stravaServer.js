@@ -126,14 +126,20 @@ export async function handleCallback(request, env) {
 
 export async function handleStatus(request, env) {
   const userId = await getUserId(bearerToken(request), env);
-  if (!userId) return Response.json({ connected: false });
+  if (!userId) return Response.json({ connected: false, visible: false });
 
   const stored = await env.STRAVA_KV.get(tokensKey(userId), 'json');
-  if (!stored) return Response.json({ connected: false });
-  return Response.json({
-    connected: true,
-    athlete_name: stored.athlete_name || null,
-  });
+  if (stored) {
+    return Response.json({ connected: true, athlete_name: stored.athlete_name || null, visible: true });
+  }
+
+  // Strava's app is capped at a single authorized athlete while it's in
+  // dev mode (not published), regardless of how many accounts this app
+  // has — so once any other account has claimed that one slot, hide the
+  // Strava settings from everyone else instead of showing a connect
+  // button that would just fail.
+  const list = await env.STRAVA_KV.list({ prefix: 'strava_tokens:' });
+  return Response.json({ connected: false, visible: list.keys.length === 0 });
 }
 
 export async function handleDisconnect(request, env) {
