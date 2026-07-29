@@ -748,7 +748,7 @@ async function loadAndRenderGoals(){
   maybeShowOnboardingPopup(currentGoals);
 }
 
-function showOnboardingPopup({ title, text, primaryLabel, onPrimary }){
+function showOnboardingPopup({ title, text, primaryLabel, onPrimary, onDismiss }){
   const popup = document.getElementById('onboarding-popup');
   document.getElementById('onboarding-title').textContent = title;
   document.getElementById('onboarding-text').textContent = text;
@@ -768,31 +768,39 @@ function showOnboardingPopup({ title, text, primaryLabel, onPrimary }){
   }, { once: true });
   newDismissBtn.addEventListener('click', () => {
     popup.hidden = true;
+    if (onDismiss) onDismiss();
   }, { once: true });
 
   popup.hidden = false;
 }
 
+function showGoalsReminderPopup(){
+  showOnboardingPopup({
+    title: 'Définis tes objectifs de temps',
+    text: 'Sur la page d\'accueil, tape sur chaque étape (nage, T1, vélo, T2, course) pour indiquer le temps ou l\'allure que tu vises.',
+    primaryLabel: 'Compris',
+    onPrimary: () => {},
+  });
+}
+
 function maybeShowOnboardingPopup(goals){
+  const durations = [goals.swim_duration_sec, goals.t1_duration_sec, goals.bike_duration_sec, goals.t2_duration_sec, goals.run_duration_sec];
+  const goalsMissing = durations.some(v => v == null);
+
   if (!goals.race_date || goals.swim_distance_m == null) {
     showOnboardingPopup({
       title: 'Configure ta course',
       text: 'Renseigne le nom, la date et le format de ton triathlon pour personnaliser ton plan et tes objectifs.',
       primaryLabel: 'Configurer maintenant',
       onPrimary: openRaceInfoEditor,
+      // Dismissing without configuring still shows the goals reminder
+      // right after, if goals are not set either.
+      onDismiss: goalsMissing ? showGoalsReminderPopup : undefined,
     });
     return;
   }
 
-  const durations = [goals.swim_duration_sec, goals.t1_duration_sec, goals.bike_duration_sec, goals.t2_duration_sec, goals.run_duration_sec];
-  if (durations.some(v => v == null)) {
-    showOnboardingPopup({
-      title: 'Définis tes objectifs de temps',
-      text: 'Sur la page d\'accueil, tape sur chaque étape (nage, T1, vélo, T2, course) pour indiquer le temps ou l\'allure que tu vises.',
-      primaryLabel: 'Compris',
-      onPrimary: () => {},
-    });
-  }
+  if (goalsMissing) showGoalsReminderPopup();
 }
 
 const RACE_SIZE_LABELS = { S: 'Sprint', M: 'M', L: 'L (70.3)', IRONMAN: 'Iron Man' };
