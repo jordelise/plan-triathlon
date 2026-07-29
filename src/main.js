@@ -439,10 +439,16 @@ document.getElementById('timeline-overlay').addEventListener('click', (e) => {
   if (e.target.id === 'timeline-overlay') closeTimelineOverlay();
 });
 
-function initApp(){
-  loadAndRenderSessions();
-  loadAndRenderExercises();
-  loadAndRenderGoals();
+async function initApp(){
+  // Awaited so the caller can keep the auth gate up until this account's
+  // real data is loaded and rendered — otherwise whatever was already in
+  // the DOM (a previous account's data, or the static placeholder markup
+  // on first load) stays visible for a moment before being replaced.
+  await Promise.all([
+    loadAndRenderSessions(),
+    loadAndRenderExercises(),
+    loadAndRenderGoals(),
+  ]);
 
   if (new URLSearchParams(location.search).has('strava')) {
     history.replaceState(null, '', location.pathname);
@@ -548,7 +554,7 @@ document.getElementById('sign-out-btn').addEventListener('click', () => {
   supabase.auth.signOut();
 });
 
-supabase.auth.onAuthStateChange((event, session) => {
+supabase.auth.onAuthStateChange(async (event, session) => {
   if (event === 'PASSWORD_RECOVERY') {
     inRecovery = true;
     authGate.hidden = false;
@@ -560,14 +566,16 @@ supabase.auth.onAuthStateChange((event, session) => {
   if (inRecovery) return; // stay on the recovery form until it is submitted
 
   if (session) {
-    authGate.hidden = true;
     // Re-run on first login and whenever a different account signs in
     // within the same page session (sign out then back in as someone
-    // else) — not on every token refresh for the same user.
+    // else) — not on every token refresh for the same user. The gate
+    // stays up until the fetch resolves, so the previous account's (or
+    // the static placeholder's) data is never revealed even briefly.
     if (session.user.id !== initializedUserId) {
       initializedUserId = session.user.id;
-      initApp();
+      await initApp();
     }
+    authGate.hidden = true;
   } else {
     authGate.hidden = false;
     initializedUserId = null;
