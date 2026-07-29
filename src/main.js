@@ -1575,11 +1575,11 @@ function openGoalsEditor(goalKey){
 
   const paceInput = document.getElementById('edit-goal-pace');
   if (paceInput) {
-    durationInput.addEventListener('change', () => {
+    durationInput.addEventListener('input', () => {
       const sec = parseDuration(durationInput.value);
       paceInput.value = segment.pace.format({ ...currentGoals, [segment.durationField]: sec });
     });
-    paceInput.addEventListener('change', () => {
+    paceInput.addEventListener('input', () => {
       const sec = segment.pace.parse(paceInput.value, currentGoals);
       if (sec) durationInput.value = formatDuration(sec);
     });
