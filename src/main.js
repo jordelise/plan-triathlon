@@ -944,7 +944,7 @@ function trainingPrefsStep2Html(constraints){
 }
 
 function prefsCardHtml(icon, title, subtitle, bodyHtml){
-  return `<details class="prefs-card" open>
+  return `<details class="prefs-card">
     <summary class="prefs-card-header">
       <span class="prefs-card-icon">${icon}</span>
       <div class="prefs-card-header-text">
@@ -958,7 +958,7 @@ function prefsCardHtml(icon, title, subtitle, bodyHtml){
 }
 
 function trainingPrefsFullFormHtml(preferences, constraints){
-  return prefsCardHtml('🎯', 'Tes habitudes', "Jours d'entraînement et sports pratiqués.",
+  return prefsCardHtml('🎯', 'Habitudes', "Jours d'entraînement et sports pratiqués.",
     `${prefsFieldsHtml(preferences)}
     <button type="button" class="goal-save-btn" id="save-training-prefs-btn" style="margin-top:8px;">Enregistrer</button>`)
     + prefsCardHtml('🗓️', 'Contraintes', 'Vacances, blessures, périodes particulières.',
