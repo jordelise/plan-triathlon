@@ -200,27 +200,28 @@ async function loadStravaForSession(s){
   }
 }
 
-async function renderStravaSettingsContent(){
-  const el = document.getElementById('detail-content');
+async function renderStravaSettingsContent(containerId = 'detail-content', showHeading = true){
+  const el = document.getElementById(containerId);
+  const heading = showHeading ? '<div class="detail-title" style="margin-bottom:16px;">Applications connectées</div>' : '';
   try {
     const res = await fetch('/api/strava/status', { headers: await stravaAuthHeaders() });
     const data = await res.json();
     if (data.connected) {
       const who = data.athlete_name ? `Connecté à <b>Strava</b> en tant que <b>${escapeHtml(data.athlete_name)}</b>.` : 'Connecté à <b>Strava</b>.';
-      el.innerHTML = `<div class="detail-title" style="margin-bottom:16px;">Applications connectées</div><p class="settings-status">${who}</p><button type="button" class="settings-btn disconnect" id="strava-disconnect-btn">Déconnecter</button>`;
+      el.innerHTML = `${heading}<p class="settings-status">${who}</p><button type="button" class="settings-btn disconnect" id="strava-disconnect-btn">Déconnecter</button>`;
       document.getElementById('strava-disconnect-btn').addEventListener('click', async () => {
         await fetch('/api/strava/disconnect', { headers: await stravaAuthHeaders() });
-        renderStravaSettingsContent();
+        renderStravaSettingsContent(containerId, showHeading);
       });
     } else {
-      el.innerHTML = `<div class="detail-title" style="margin-bottom:16px;">Applications connectées</div><p class="settings-status">Non connecté à <b>Strava</b>.</p><p class="settings-sub">Connecte ton compte Strava pour voir les vraies stats de tes séances.</p><a href="#" class="settings-btn connect" id="strava-connect-link">Connecter Strava</a>`;
+      el.innerHTML = `${heading}<p class="settings-status">Non connecté à <b>Strava</b>.</p><p class="settings-sub">Connecte ton compte Strava pour voir les vraies stats de tes séances.</p><a href="#" class="settings-btn connect" id="strava-connect-link">Connecter Strava</a>`;
       document.getElementById('strava-connect-link').addEventListener('click', (e) => {
         e.preventDefault();
         goToStravaConnect();
       });
     }
   } catch {
-    el.innerHTML = `<div class="detail-title" style="margin-bottom:16px;">Applications connectées</div><p class="settings-status">Impossible de vérifier la connexion Strava.</p>`;
+    el.innerHTML = `${heading}<p class="settings-status">Impossible de vérifier la connexion Strava.</p>`;
   }
 }
 
@@ -232,14 +233,18 @@ function openStravaSettings(){
 
 document.getElementById('strava-settings-row').addEventListener('click', openStravaSettings);
 
-async function refreshStravaRowVisibility(){
+async function isStravaVisible(){
   try {
     const res = await fetch('/api/strava/status', { headers: await stravaAuthHeaders() });
     const data = await res.json();
-    document.getElementById('strava-settings-row').hidden = !data.visible;
+    return !!data.visible;
   } catch {
-    // Leave the row as-is if the check itself fails — non-fatal.
+    return false;
   }
+}
+
+async function refreshStravaRowVisibility(){
+  document.getElementById('strava-settings-row').hidden = !(await isStravaVisible());
 }
 
 function weekBlockHtml(weekNumber, sessions, isOpen){
@@ -854,18 +859,18 @@ function constraintRowHtml(constraint){
   </div>`;
 }
 
+const WIZARD_STEP_LABELS = ['Habitudes', 'Contraintes', 'Strava'];
+
 function wizardStepsHtml(step){
-  return `<div class="wizard-steps">
-    <div class="wizard-step${step >= 1 ? ' active' : ''}${step > 1 ? ' done' : ''}">
-      <span class="wizard-step-num">${step > 1 ? '✓' : '1'}</span>
-      <span class="wizard-step-label">Habitudes</span>
-    </div>
-    <div class="wizard-step-line${step > 1 ? ' done' : ''}"></div>
-    <div class="wizard-step${step >= 2 ? ' active' : ''}">
-      <span class="wizard-step-num">2</span>
-      <span class="wizard-step-label">Contraintes</span>
-    </div>
-  </div>`;
+  return `<div class="wizard-steps">${WIZARD_STEP_LABELS.map((label, i) => {
+    const n = i + 1;
+    const stepHtml = `<div class="wizard-step${step >= n ? ' active' : ''}${step > n ? ' done' : ''}">
+      <span class="wizard-step-num">${step > n ? '✓' : n}</span>
+      <span class="wizard-step-label">${label}</span>
+    </div>`;
+    const lineHtml = n < WIZARD_STEP_LABELS.length ? `<div class="wizard-step-line${step > n ? ' done' : ''}"></div>` : '';
+    return stepHtml + lineHtml;
+  }).join('')}</div>`;
 }
 
 function dayPickerHtml(trainingDays){
@@ -939,6 +944,18 @@ function trainingPrefsStep2Html(constraints){
     <p class="settings-sub" style="text-align:center;">Vacances, blessure... ajoute des contraintes si besoin.</p>
     ${wizardStepsHtml(2)}
     ${contraintesSectionHtml(constraints)}
+    <button type="button" class="goal-save-btn wizard-next-btn" id="prefs-step2-next-btn" style="margin-top:24px;">Suivant →</button>
+  </div>`;
+}
+
+function trainingPrefsStep3Html(){
+  return `<div class="wizard-card">
+    <button type="button" class="wizard-back-link" id="prefs-back-btn">← Précédent</button>
+    <div class="wizard-hero">🔗</div>
+    <div class="detail-title" style="margin-bottom:4px;text-align:center;">Connecte Strava</div>
+    <p class="settings-sub" style="text-align:center;">Pour comparer tes séances planifiées à tes vraies activités (facultatif).</p>
+    ${wizardStepsHtml(3)}
+    <div id="wizard-strava-status"><p class="settings-status">Chargement de Strava…</p></div>
     <button type="button" class="goal-save-btn wizard-next-btn" id="prefs-finish-btn" style="margin-top:24px;">Terminer ✓</button>
   </div>`;
 }
@@ -1116,7 +1133,19 @@ function renderTrainingPrefsPanel(){
   if (trainingPrefsOnboardingDone === null) trainingPrefsOnboardingDone = isPrefsConfigured();
 
   if (!trainingPrefsOnboardingDone) {
-    if (trainingPrefsStep === 2) {
+    if (trainingPrefsStep === 3) {
+      container.innerHTML = trainingPrefsStep3Html();
+      renderStravaSettingsContent('wizard-strava-status', false);
+      document.getElementById('prefs-back-btn').addEventListener('click', () => {
+        trainingPrefsStep = 2;
+        renderTrainingPrefsPanel();
+      });
+      document.getElementById('prefs-finish-btn').addEventListener('click', () => {
+        trainingPrefsOnboardingDone = true;
+        trainingPrefsStep = 1;
+        renderTrainingPrefsPanel();
+      });
+    } else if (trainingPrefsStep === 2) {
       container.innerHTML = trainingPrefsStep2Html(currentConstraints);
       renderConstraintList();
       wireContraintesSection();
@@ -1124,9 +1153,9 @@ function renderTrainingPrefsPanel(){
         trainingPrefsStep = 1;
         renderTrainingPrefsPanel();
       });
-      document.getElementById('prefs-finish-btn').addEventListener('click', () => {
-        trainingPrefsOnboardingDone = true;
-        trainingPrefsStep = 1;
+      document.getElementById('prefs-step2-next-btn').addEventListener('click', async () => {
+        trainingPrefsStep = (await isStravaVisible()) ? 3 : 1;
+        if (trainingPrefsStep === 1) trainingPrefsOnboardingDone = true;
         renderTrainingPrefsPanel();
       });
     } else {
