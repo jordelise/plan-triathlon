@@ -579,7 +579,7 @@ document.getElementById('sign-out-btn').addEventListener('click', () => {
 const FULL_ACCESS_EMAIL = 'elisejord@gmail.com';
 
 function updatePlanTabVisibility(email){
-  const hasFullAccess = email === FULL_ACCESS_EMAIL || sessionsByKey.size > 0;
+  const hasFullAccess = email === FULL_ACCESS_EMAIL;
   document.getElementById('plan-nav-item').hidden = !hasFullAccess;
   if (!hasFullAccess && document.getElementById('m2').checked) {
     document.getElementById('m1').checked = true;
@@ -1010,8 +1010,8 @@ function trainingPrefsStep3Html(){
   </div>`;
 }
 
-function prefsCardHtml(icon, title, subtitle, bodyHtml){
-  return `<details class="prefs-card">
+function prefsCardHtml(icon, title, subtitle, bodyHtml, openByDefault = false){
+  return `<details class="prefs-card"${openByDefault ? ' open' : ''}>
     <summary class="prefs-card-header">
       <span class="prefs-card-icon">${icon}</span>
       <div class="prefs-card-header-text">
@@ -1024,8 +1024,24 @@ function prefsCardHtml(icon, title, subtitle, bodyHtml){
   </details>`;
 }
 
+function betaPlanSectionHtml(){
+  if (sessionsByKey.size === 0) return '';
+
+  const weeks = new Map();
+  for (const s of sessionsByKey.values()) {
+    if (!weeks.has(s.week_number)) weeks.set(s.week_number, []);
+    weeks.get(s.week_number).push(s);
+  }
+  const activeWeek = currentWeekNumber(new Date());
+  const weekNumbers = Array.from(weeks.keys()).sort((a, b) => a - b);
+  const body = weekNumbers.map(wn => weekBlockHtml(wn, weeks.get(wn), wn === activeWeek)).join('');
+
+  return prefsCardHtml('📅', 'Ton plan', 'Ta séance générée, semaine par semaine.', body, true);
+}
+
 function trainingPrefsFullFormHtml(preferences, constraints){
-  return prefsCardHtml('🎯', 'Habitudes', "Jours d'entraînement et sports pratiqués.",
+  return betaPlanSectionHtml()
+    + prefsCardHtml('🎯', 'Habitudes', "Jours d'entraînement et sports pratiqués.",
     prefsFieldsHtml(preferences))
     + prefsCardHtml('🗓️', 'Contraintes', 'Vacances, blessures, périodes particulières.',
     contraintesSectionHtml(constraints));
@@ -1336,7 +1352,6 @@ async function generatePersonalizedPlan(){
   }
 
   await loadAndRenderSessions();
-  updatePlanTabVisibility(session?.user?.email);
 }
 
 function renderTrainingPrefsPanel(){
@@ -1413,6 +1428,7 @@ function renderTrainingPrefsPanel(){
   container.innerHTML = trainingPrefsFullFormHtml(currentPreferences, currentConstraints);
   renderConstraintList();
   wireContraintesSection();
+  attachDayCardHandlers();
 
   const selectedDays = new Set(currentPreferences.training_days);
   const selectedPreferredDisciplines = new Set(currentPreferences.preferred_disciplines);
