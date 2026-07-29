@@ -42,10 +42,17 @@ create table if not exists plan_constraints (
   start_date date not null,
   end_date date not null,
   allowed_disciplines text[] not null,
-  note text,
+  title text,
   created_at timestamptz not null default now(),
   constraint plan_constraints_date_check check (end_date >= start_date)
 );
+
+do $$
+begin
+  if exists (select 1 from information_schema.columns where table_name = 'plan_constraints' and column_name = 'note') then
+    alter table plan_constraints rename column note to title;
+  end if;
+end $$;
 
 alter table plan_constraints enable row level security;
 

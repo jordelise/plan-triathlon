@@ -833,7 +833,7 @@ function constraintRowHtml(constraint){
     <div class="constraint-row-info">
       <div class="constraint-row-dates">${escapeHtml(dates)}</div>
       <div class="constraint-row-disciplines">${escapeHtml(disciplines)}</div>
-      ${constraint.note ? `<div class="constraint-row-note">${escapeHtml(constraint.note)}</div>` : ''}
+      ${constraint.title ? `<div class="constraint-row-title">${escapeHtml(constraint.title)}</div>` : ''}
     </div>
     <button type="button" class="constraint-delete-btn" data-id="${constraint.id}" aria-label="Supprimer">✕</button>
   </div>`;
@@ -857,8 +857,12 @@ function trainingPrefsEditorHtml(preferences, constraints){
     <div class="detail-title" style="margin:24px 0 12px;">Contraintes</div>
     <div class="constraint-list" id="constraint-list">${constraints.map(constraintRowHtml).join('') || '<p class="settings-sub">Aucune contrainte enregistrée.</p>'}</div>
 
-    <details class="constraint-add-details">
-      <summary class="constraint-add-summary">+ Ajouter une contrainte</summary>
+    <button type="button" class="constraint-add-toggle-btn" id="constraint-add-toggle-btn">+ Ajouter une contrainte</button>
+    <div class="constraint-add-form" id="constraint-add-form" hidden>
+      <div class="goal-field">
+        <label>Titre</label>
+        <input type="text" id="new-constraint-title">
+      </div>
       <div class="goal-field">
         <label>Dates</label>
         <button type="button" class="calendar-trigger-btn" id="constraint-dates-btn">Choisir les dates</button>
@@ -870,12 +874,11 @@ function trainingPrefsEditorHtml(preferences, constraints){
           .map(d => `<button type="button" class="discipline-check-btn constraint-discipline-btn" data-discipline="${d}">${DISCIPLINE_LABELS[d]}</button>`)
           .join('')}</div>
       </div>
-      <div class="goal-field">
-        <label>Note (optionnel)</label>
-        <input type="text" id="new-constraint-note">
+      <div class="constraint-add-actions">
+        <button type="button" class="goal-save-btn" id="add-constraint-btn">Ajouter</button>
+        <button type="button" class="constraint-cancel-btn" id="cancel-constraint-btn">Annuler</button>
       </div>
-      <button type="button" class="goal-save-btn" id="add-constraint-btn">Ajouter</button>
-    </details>
+    </div>
 
     <button type="button" class="goal-save-btn" id="save-training-prefs-btn" style="margin-top:24px;">Enregistrer</button>`;
 }
@@ -980,6 +983,25 @@ function openTrainingPrefsEditor(){
     if (!panel.hidden) renderCalendar();
   });
 
+  function resetConstraintForm(){
+    constraintStart = null;
+    constraintEnd = null;
+    updateDatesButtonLabel();
+    document.getElementById('constraint-calendar-panel').hidden = true;
+    document.getElementById('new-constraint-title').value = '';
+    selectedConstraintDisciplines.clear();
+    document.querySelectorAll('.constraint-discipline-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById('constraint-add-form').hidden = true;
+    document.getElementById('constraint-add-toggle-btn').hidden = false;
+  }
+
+  document.getElementById('constraint-add-toggle-btn').addEventListener('click', () => {
+    document.getElementById('constraint-add-toggle-btn').hidden = true;
+    document.getElementById('constraint-add-form').hidden = false;
+  });
+
+  document.getElementById('cancel-constraint-btn').addEventListener('click', resetConstraintForm);
+
   document.getElementById('save-training-prefs-btn').addEventListener('click', async () => {
     const updated = {
       ...currentPreferences,
@@ -999,14 +1021,14 @@ function openTrainingPrefsEditor(){
   document.getElementById('add-constraint-btn').addEventListener('click', async () => {
     if (!constraintStart || !constraintEnd || selectedConstraintDisciplines.size === 0) return;
 
-    const note = document.getElementById('new-constraint-note').value.trim() || null;
+    const title = document.getElementById('new-constraint-title').value.trim() || null;
     const { data: { session } } = await supabase.auth.getSession();
     const { data, error } = await supabase.from('plan_constraints').insert({
       user_id: session?.user?.id,
       start_date: constraintStart,
       end_date: constraintEnd,
       allowed_disciplines: Array.from(selectedConstraintDisciplines),
-      note,
+      title,
     }).select().single();
 
     if (error) {
@@ -1015,14 +1037,7 @@ function openTrainingPrefsEditor(){
     }
     currentConstraints = [...currentConstraints, data].sort((a, b) => a.start_date.localeCompare(b.start_date));
     renderConstraintList();
-
-    constraintStart = null;
-    constraintEnd = null;
-    updateDatesButtonLabel();
-    document.getElementById('constraint-calendar-panel').hidden = true;
-    document.getElementById('new-constraint-note').value = '';
-    selectedConstraintDisciplines.clear();
-    document.querySelectorAll('.constraint-discipline-btn').forEach(btn => btn.classList.remove('active'));
+    resetConstraintForm();
   });
 
   openDetailOverlay();
