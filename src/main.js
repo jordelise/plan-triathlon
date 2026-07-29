@@ -631,6 +631,20 @@ function splitDigitPair(str){
   return { major: Number(digits.slice(0, -2)) || 0, minor: Number(digits.slice(-2)) };
 }
 
+// Live-inserts the separator as digits are typed (e.g. "530" -> "5:30"),
+// so the field itself shows what's being entered even on a numeric keypad
+// that has no ':' or "'" key to type.
+function maskDigitInput(input, separator){
+  input.addEventListener('input', () => {
+    const digits = input.value.replace(/\D/g, '');
+    if (!digits) return;
+    const minor = digits.slice(-2).padStart(2, '0');
+    const major = digits.slice(0, -2) || '0';
+    input.value = `${Number(major)}${separator}${minor}`;
+    input.setSelectionRange(input.value.length, input.value.length);
+  });
+}
+
 function parseMMSS(str){
   if (str.includes(':')) {
     const [m, s] = str.split(':').map(Number);
@@ -1603,8 +1617,12 @@ function openGoalsEditor(goalKey){
   const parseDuration = segment.durationFormat === 'hmm' ? parseHMM : parseMMSS;
   const formatDuration = segment.durationFormat === 'hmm' ? formatHMM : formatMMSS;
 
+  maskDigitInput(durationInput, ':');
+
   const paceInput = document.getElementById('edit-goal-pace');
   if (paceInput) {
+    if (segment.pace.inputMode !== 'decimal') maskDigitInput(paceInput, "'");
+
     durationInput.addEventListener('input', () => {
       const sec = parseDuration(durationInput.value);
       paceInput.value = segment.pace.format({ ...currentGoals, [segment.durationField]: sec });
