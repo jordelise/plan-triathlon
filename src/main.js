@@ -893,7 +893,7 @@ function prefsFieldsHtml(preferences){
 }
 
 function contraintesSectionHtml(constraints){
-  return `<div class="constraint-list" id="constraint-list">${constraints.map(constraintRowHtml).join('') || '<p class="settings-sub">Aucune contrainte enregistrée.</p>'}</div>
+  return `<div class="constraint-list" id="constraint-list">${constraints.map(constraintRowHtml).join('')}</div>
 
     <button type="button" class="constraint-add-toggle-btn" id="constraint-add-toggle-btn">
       <span class="constraint-add-toggle-icon">+</span>
@@ -968,7 +968,7 @@ function trainingPrefsFullFormHtml(preferences, constraints){
 function renderConstraintList(){
   const list = document.getElementById('constraint-list');
   if (!list) return;
-  list.innerHTML = currentConstraints.map(constraintRowHtml).join('') || '<p class="settings-sub">Aucune contrainte enregistrée.</p>';
+  list.innerHTML = currentConstraints.map(constraintRowHtml).join('');
   list.querySelectorAll('.constraint-delete-btn').forEach(btn => {
     btn.addEventListener('click', () => deleteConstraint(Number(btn.dataset.id)));
   });
