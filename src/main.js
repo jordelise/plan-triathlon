@@ -781,6 +781,12 @@ async function loadAndRenderGoals(){
 }
 
 async function loadAndRenderPreferences(){
+  // Reset wizard state so switching accounts within the same page session
+  // (no full reload) re-evaluates onboarding status for whichever account
+  // just signed in, instead of carrying over the previous account's state.
+  trainingPrefsOnboardingDone = null;
+  trainingPrefsStep = 1;
+
   const [{ data: prefsData, error: prefsError }, { data: constraintsData, error: constraintsError }] = await Promise.all([
     supabase.from('plan_preferences').select('*').single(),
     supabase.from('plan_constraints').select('*').order('start_date'),
