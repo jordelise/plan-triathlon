@@ -579,7 +579,7 @@ document.getElementById('sign-out-btn').addEventListener('click', () => {
 const FULL_ACCESS_EMAIL = 'elisejord@gmail.com';
 
 function updatePlanTabVisibility(email){
-  const hasFullAccess = email === FULL_ACCESS_EMAIL;
+  const hasFullAccess = email === FULL_ACCESS_EMAIL || sessionsByKey.size > 0;
   document.getElementById('plan-nav-item').hidden = !hasFullAccess;
   if (!hasFullAccess && document.getElementById('m2').checked) {
     document.getElementById('m1').checked = true;
@@ -1126,6 +1126,169 @@ function wireContraintesSection(){
   });
 }
 
+// Generic workout templates adapted from supabase/seed.sql's recurring
+// patterns (échauffement/corps/retour au calme), stripped of numeric paces
+// since we don't have per-user pace data yet. Strength's "Circuit" segment
+// is already generic in seed.sql, so it's reused verbatim.
+const GENERATED_SESSION_TEMPLATES = {
+  swim: [
+    { title: 'Natation', tag: 'Endurance', duration_min: 45, segments: [
+      { label: 'Échauffement', text: '400 m souple + 8×50 m éducatifs (attrape-rattrape, poing fermé, 6 temps).' },
+      { label: 'Corps', text: 'Séance continue à allure confortable, environ 1500-2000 m.' },
+      { label: 'Retour au calme', text: '200 m souple.' },
+    ] },
+    { title: 'Natation', tag: 'Fractionné', duration_min: 45, segments: [
+      { label: 'Échauffement', text: '400 m souple.' },
+      { label: 'Corps', text: '8×100 m à allure soutenue, récup 15-20".' },
+      { label: 'Retour au calme', text: '200 m souple.' },
+    ] },
+  ],
+  bike: [
+    { title: 'Fractionné', tag: '≈28 km', duration_min: 75, segments: [
+      { label: 'Échauffement', text: '20 min à allure facile.' },
+      { label: 'Corps', text: '4×8 min à allure soutenue, récup 4 min facile.' },
+      { label: 'Retour au calme', text: '15 min.' },
+    ] },
+    { title: 'Vélo long', tag: '≈45-60 km', duration_min: 150, segments: [
+      { label: 'Vélo', text: 'Sortie longue à allure tranquille, 45-60 km.' },
+    ] },
+  ],
+  run: [
+    { title: 'Fractionné', tag: '≈6 km', duration_min: 50, segments: [
+      { label: 'Échauffement', text: '15 min de footing.' },
+      { label: 'Intervalles', text: '6×1000 m à allure soutenue, récup 2 min.' },
+      { label: 'Retour au calme', text: '5 min de footing souple.' },
+    ] },
+    { title: 'Sortie longue', tag: '≈10-12 km', duration_min: 75, segments: [
+      { label: 'Sortie longue', text: '1h à 1h10 à allure confortable.' },
+      { label: 'Retour au calme', text: '5 min de footing souple.' },
+    ] },
+    { title: 'Course tranquille', tag: '≈5-7 km', duration_min: 50, segments: [
+      { label: 'Échauffement', text: '15 min de footing.' },
+      { label: 'Footing', text: '30 min à allure facile.' },
+      { label: 'Retour au calme', text: '5 min de footing souple.' },
+    ] },
+  ],
+  strength: [
+    { title: 'Renforcement', tag: null, duration_min: null, segments: [
+      { label: 'Circuit', text: 'fessiers, gainage, mollets, tibial antérieur, dos.' },
+    ] },
+  ],
+};
+
+function buildGeneratedPlan(){
+  const trainingDays = DAY_OPTIONS.filter(d => currentPreferences.training_days.includes(d));
+  const disciplines = DISCIPLINE_OPTIONS.filter(d => currentPreferences.preferred_disciplines.includes(d));
+  if (trainingDays.length === 0 || disciplines.length === 0) return [];
+
+  const today = new Date();
+  const nextMonday = new Date(today);
+  const todayDow = (today.getDay() + 6) % 7; // 0 = Monday, ..., 6 = Sunday
+  nextMonday.setDate(today.getDate() + (todayDow === 0 ? 0 : 7 - todayDow));
+
+  const raceDate = currentGoals?.race_date ? new Date(currentGoals.race_date + 'T00:00:00') : null;
+  let weeksTotal = 8;
+  if (raceDate && raceDate > nextMonday) {
+    weeksTotal = Math.round((raceDate - nextMonday) / (7 * 86400000));
+    weeksTotal = Math.max(4, Math.min(20, weeksTotal));
+  }
+
+  const phase4Weeks = Math.min(2, weeksTotal);
+  const remaining = weeksTotal - phase4Weeks;
+  const phase1Weeks = Math.ceil(remaining * 0.45);
+  const phase2Weeks = Math.ceil(remaining * 0.30);
+  const phase3Weeks = Math.max(0, remaining - phase1Weeks - phase2Weeks);
+
+  function phaseForWeek(weekNumber){
+    if (weekNumber <= phase1Weeks) return 1;
+    if (weekNumber <= phase1Weeks + phase2Weeks) return 2;
+    if (weekNumber <= phase1Weeks + phase2Weeks + phase3Weeks) return 3;
+    return 4;
+  }
+
+  function constraintForDate(dateStr){
+    return currentConstraints.find(c => dateStr >= c.start_date && dateStr <= c.end_date);
+  }
+
+  let disciplinePointer = 0;
+  const templateCounters = Object.fromEntries(DISCIPLINE_OPTIONS.map(d => [d, 0]));
+  let sessionCounter = 0;
+  const rows = [];
+
+  for (let week = 1; week <= weeksTotal; week++) {
+    const weekMonday = new Date(nextMonday);
+    weekMonday.setDate(nextMonday.getDate() + (week - 1) * 7);
+
+    trainingDays.forEach((day, orderIndex) => {
+      const dayOffset = DAY_OPTIONS.indexOf(day);
+      const date = new Date(weekMonday);
+      date.setDate(weekMonday.getDate() + dayOffset);
+      const dateStr = ymd(date.getFullYear(), date.getMonth(), date.getDate());
+
+      const constraint = constraintForDate(dateStr);
+      let discipline = null;
+      for (let attempt = 0; attempt < disciplines.length; attempt++) {
+        const candidate = disciplines[(disciplinePointer + attempt) % disciplines.length];
+        if (!constraint || constraint.allowed_disciplines.includes(candidate)) {
+          discipline = candidate;
+          disciplinePointer = (disciplinePointer + attempt + 1) % disciplines.length;
+          break;
+        }
+      }
+      if (!discipline) return; // no allowed discipline available this day — skip it
+
+      const pool = GENERATED_SESSION_TEMPLATES[discipline];
+      const template = pool[templateCounters[discipline] % pool.length];
+      templateCounters[discipline]++;
+      sessionCounter++;
+
+      rows.push({
+        session_key: `gen-${sessionCounter}`,
+        week_number: week,
+        phase: phaseForWeek(week),
+        order_index: orderIndex,
+        discipline,
+        icon: DISCIPLINE_EMOJI[discipline],
+        title: template.title,
+        tag: template.tag,
+        duration_min: template.duration_min,
+        segments: template.segments,
+        session_date: dateStr,
+      });
+    });
+  }
+
+  return rows;
+}
+
+async function generatePersonalizedPlan(){
+  const { count, error: countError } = await supabase
+    .from('plan_sessions')
+    .select('*', { count: 'exact', head: true });
+
+  if (countError) {
+    console.error('Erreur de vérification du plan existant', countError);
+    return;
+  }
+  if (count > 0) return; // never touch an account that already has a plan
+
+  const rows = buildGeneratedPlan();
+  if (rows.length === 0) return;
+
+  const { data: { session } } = await supabase.auth.getSession();
+  const { error } = await supabase
+    .from('plan_sessions')
+    .insert(rows.map(row => ({ ...row, user_id: session?.user?.id })));
+
+  if (error) {
+    console.error('Erreur de génération du plan', error);
+    return;
+  }
+
+  await loadAndRenderSessions();
+  updatePlanTabVisibility(session?.user?.email);
+}
+
 function renderTrainingPrefsPanel(){
   if (!currentPreferences) return;
   const container = document.getElementById('training-prefs-container');
@@ -1140,7 +1303,11 @@ function renderTrainingPrefsPanel(){
         trainingPrefsStep = 2;
         renderTrainingPrefsPanel();
       });
-      document.getElementById('prefs-finish-btn').addEventListener('click', () => {
+      document.getElementById('prefs-finish-btn').addEventListener('click', async () => {
+        const finishBtn = document.getElementById('prefs-finish-btn');
+        finishBtn.disabled = true;
+        finishBtn.textContent = 'Génération…';
+        await generatePersonalizedPlan();
         trainingPrefsOnboardingDone = true;
         trainingPrefsStep = 1;
         renderTrainingPrefsPanel();
