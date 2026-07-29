@@ -679,8 +679,6 @@ function updateSplitLabels(goals){
 }
 
 function renderRaceInfo(goals){
-  document.getElementById('countdown-block').hidden = false;
-
   if (!goals.race_date) {
     document.getElementById('home-race-name').innerHTML = `<em>Configurer</em> ma course`;
     document.getElementById('home-race-day').textContent = '–';
