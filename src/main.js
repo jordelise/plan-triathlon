@@ -748,6 +748,9 @@ async function loadAndRenderGoals(){
   maybeShowOnboardingPopup(currentGoals);
 }
 
+let onboardingPrimaryHandler = null;
+let onboardingDismissHandler = null;
+
 function showOnboardingPopup({ title, text, primaryLabel, onPrimary, onDismiss }){
   const popup = document.getElementById('onboarding-popup');
   document.getElementById('onboarding-title').textContent = title;
@@ -757,19 +760,24 @@ function showOnboardingPopup({ title, text, primaryLabel, onPrimary, onDismiss }
   primaryBtn.textContent = primaryLabel;
   const dismissBtn = document.getElementById('onboarding-dismiss-btn');
 
-  const newPrimaryBtn = primaryBtn.cloneNode(true);
-  primaryBtn.replaceWith(newPrimaryBtn);
-  const newDismissBtn = dismissBtn.cloneNode(true);
-  dismissBtn.replaceWith(newDismissBtn);
+  // Swap the handlers directly instead of cloning/replacing the buttons —
+  // simpler to reason about, especially since this popup can re-open
+  // itself from inside its own dismiss handler (the "show the next popup"
+  // chaining below).
+  if (onboardingPrimaryHandler) primaryBtn.removeEventListener('click', onboardingPrimaryHandler);
+  if (onboardingDismissHandler) dismissBtn.removeEventListener('click', onboardingDismissHandler);
 
-  newPrimaryBtn.addEventListener('click', () => {
+  onboardingPrimaryHandler = () => {
     popup.hidden = true;
     onPrimary();
-  }, { once: true });
-  newDismissBtn.addEventListener('click', () => {
+  };
+  onboardingDismissHandler = () => {
     popup.hidden = true;
     if (onDismiss) onDismiss();
-  }, { once: true });
+  };
+
+  primaryBtn.addEventListener('click', onboardingPrimaryHandler);
+  dismissBtn.addEventListener('click', onboardingDismissHandler);
 
   popup.hidden = false;
 }
