@@ -791,9 +791,43 @@ const DISCIPLINE_OPTIONS = ['swim', 'bike', 'run', 'strength'];
 
 const DAY_LABELS = { mon: 'Lun', tue: 'Mar', wed: 'Mer', thu: 'Jeu', fri: 'Ven', sat: 'Sam', sun: 'Dim' };
 const DAY_OPTIONS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const DAY_LABEL_LIST = DAY_OPTIONS.map(d => DAY_LABELS[d]);
+
+function pad2(n){ return String(n).padStart(2, '0'); }
+function ymd(year, month, day){ return `${year}-${pad2(month + 1)}-${pad2(day)}`; }
+function formatDateShort(dateStr){
+  const d = new Date(dateStr + 'T00:00:00');
+  return `${d.getDate()} ${FR_MONTHS[d.getMonth()].slice(0, 3)}`;
+}
+
+function calendarPanelHtml(viewYear, viewMonth, startDate, endDate){
+  const firstWeekday = (new Date(viewYear, viewMonth, 1).getDay() + 6) % 7;
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+  const cells = [];
+  for (let i = 0; i < firstWeekday; i++) cells.push('<span class="calendar-day empty"></span>');
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = ymd(viewYear, viewMonth, day);
+    const isStart = dateStr === startDate;
+    const isEnd = dateStr === endDate;
+    const inRange = startDate && endDate && dateStr > startDate && dateStr < endDate;
+    const classes = ['calendar-day'];
+    if (isStart || isEnd) classes.push('selected');
+    if (inRange) classes.push('in-range');
+    cells.push(`<button type="button" class="${classes.join(' ')}" data-date="${dateStr}">${day}</button>`);
+  }
+
+  return `<div class="calendar-header">
+      <button type="button" class="calendar-nav-btn" id="calendar-prev-month" aria-label="Mois précédent">‹</button>
+      <span class="calendar-month-label">${FR_MONTHS[viewMonth]} ${viewYear}</span>
+      <button type="button" class="calendar-nav-btn" id="calendar-next-month" aria-label="Mois suivant">›</button>
+    </div>
+    <div class="calendar-weekdays">${DAY_LABEL_LIST.map(l => `<span>${l}</span>`).join('')}</div>
+    <div class="calendar-grid">${cells.join('')}</div>`;
+}
 
 function constraintRowHtml(constraint){
-  const dates = `${constraint.start_date} → ${constraint.end_date}`;
+  const dates = `${formatDateShort(constraint.start_date)} → ${formatDateShort(constraint.end_date)}`;
   const disciplines = constraint.allowed_disciplines.map(d => DISCIPLINE_LABELS[d] || d).join(', ');
   return `<div class="constraint-row" data-id="${constraint.id}">
     <div class="constraint-row-info">
@@ -820,18 +854,15 @@ function trainingPrefsEditorHtml(preferences, constraints){
         .join('')}</div>
     </div>
 
-    <div class="detail-title" style="margin:24px 0 12px;">Périodes particulières</div>
-    <div class="constraint-list" id="constraint-list">${constraints.map(constraintRowHtml).join('') || '<p class="settings-sub">Aucune période enregistrée.</p>'}</div>
+    <div class="detail-title" style="margin:24px 0 12px;">Contraintes</div>
+    <div class="constraint-list" id="constraint-list">${constraints.map(constraintRowHtml).join('') || '<p class="settings-sub">Aucune contrainte enregistrée.</p>'}</div>
 
     <details class="constraint-add-details">
-      <summary class="constraint-add-summary">+ Ajouter une période</summary>
+      <summary class="constraint-add-summary">+ Ajouter une contrainte</summary>
       <div class="goal-field">
-        <label>Début</label>
-        <input type="date" id="new-constraint-start">
-      </div>
-      <div class="goal-field">
-        <label>Fin</label>
-        <input type="date" id="new-constraint-end">
+        <label>Dates</label>
+        <button type="button" class="calendar-trigger-btn" id="constraint-dates-btn">Choisir les dates</button>
+        <div class="calendar-panel" id="constraint-calendar-panel" hidden></div>
       </div>
       <div class="goal-field">
         <label>Disciplines autorisées</label>
@@ -852,7 +883,7 @@ function trainingPrefsEditorHtml(preferences, constraints){
 function renderConstraintList(){
   const list = document.getElementById('constraint-list');
   if (!list) return;
-  list.innerHTML = currentConstraints.map(constraintRowHtml).join('') || '<p class="settings-sub">Aucune période enregistrée.</p>';
+  list.innerHTML = currentConstraints.map(constraintRowHtml).join('') || '<p class="settings-sub">Aucune contrainte enregistrée.</p>';
   list.querySelectorAll('.constraint-delete-btn').forEach(btn => {
     btn.addEventListener('click', () => deleteConstraint(Number(btn.dataset.id)));
   });
@@ -889,12 +920,65 @@ function openTrainingPrefsEditor(){
   const selectedPreferredDisciplines = new Set(currentPreferences.preferred_disciplines);
   const selectedConstraintDisciplines = new Set();
 
+  let constraintStart = null;
+  let constraintEnd = null;
+  const today = new Date();
+  let calendarViewYear = today.getFullYear();
+  let calendarViewMonth = today.getMonth();
+
   document.getElementById('detail-content').innerHTML = trainingPrefsEditorHtml(currentPreferences, currentConstraints);
   renderConstraintList();
 
   toggleChipGroup('.day-check-btn', selectedDays, 'day');
   toggleChipGroup('.pref-discipline-btn', selectedPreferredDisciplines, 'discipline');
   toggleChipGroup('.constraint-discipline-btn', selectedConstraintDisciplines, 'discipline');
+
+  function updateDatesButtonLabel(){
+    const btn = document.getElementById('constraint-dates-btn');
+    if (constraintStart && constraintEnd) {
+      btn.textContent = `${formatDateShort(constraintStart)} → ${formatDateShort(constraintEnd)}`;
+    } else if (constraintStart) {
+      btn.textContent = `${formatDateShort(constraintStart)} → …`;
+    } else {
+      btn.textContent = 'Choisir les dates';
+    }
+  }
+
+  function renderCalendar(){
+    const panel = document.getElementById('constraint-calendar-panel');
+    panel.innerHTML = calendarPanelHtml(calendarViewYear, calendarViewMonth, constraintStart, constraintEnd);
+
+    document.getElementById('calendar-prev-month').addEventListener('click', () => {
+      calendarViewMonth--;
+      if (calendarViewMonth < 0) { calendarViewMonth = 11; calendarViewYear--; }
+      renderCalendar();
+    });
+    document.getElementById('calendar-next-month').addEventListener('click', () => {
+      calendarViewMonth++;
+      if (calendarViewMonth > 11) { calendarViewMonth = 0; calendarViewYear++; }
+      renderCalendar();
+    });
+    panel.querySelectorAll('.calendar-day:not(.empty)').forEach(cell => {
+      cell.addEventListener('click', () => {
+        const dateStr = cell.dataset.date;
+        if (!constraintStart || constraintEnd || dateStr < constraintStart) {
+          constraintStart = dateStr;
+          constraintEnd = null;
+        } else {
+          constraintEnd = dateStr;
+        }
+        updateDatesButtonLabel();
+        renderCalendar();
+        if (constraintStart && constraintEnd) panel.hidden = true;
+      });
+    });
+  }
+
+  document.getElementById('constraint-dates-btn').addEventListener('click', () => {
+    const panel = document.getElementById('constraint-calendar-panel');
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) renderCalendar();
+  });
 
   document.getElementById('save-training-prefs-btn').addEventListener('click', async () => {
     const updated = {
@@ -913,16 +997,14 @@ function openTrainingPrefsEditor(){
   });
 
   document.getElementById('add-constraint-btn').addEventListener('click', async () => {
-    const startDate = document.getElementById('new-constraint-start').value;
-    const endDate = document.getElementById('new-constraint-end').value;
-    if (!startDate || !endDate || selectedConstraintDisciplines.size === 0) return;
+    if (!constraintStart || !constraintEnd || selectedConstraintDisciplines.size === 0) return;
 
     const note = document.getElementById('new-constraint-note').value.trim() || null;
     const { data: { session } } = await supabase.auth.getSession();
     const { data, error } = await supabase.from('plan_constraints').insert({
       user_id: session?.user?.id,
-      start_date: startDate,
-      end_date: endDate,
+      start_date: constraintStart,
+      end_date: constraintEnd,
       allowed_disciplines: Array.from(selectedConstraintDisciplines),
       note,
     }).select().single();
@@ -934,8 +1016,10 @@ function openTrainingPrefsEditor(){
     currentConstraints = [...currentConstraints, data].sort((a, b) => a.start_date.localeCompare(b.start_date));
     renderConstraintList();
 
-    document.getElementById('new-constraint-start').value = '';
-    document.getElementById('new-constraint-end').value = '';
+    constraintStart = null;
+    constraintEnd = null;
+    updateDatesButtonLabel();
+    document.getElementById('constraint-calendar-panel').hidden = true;
     document.getElementById('new-constraint-note').value = '';
     selectedConstraintDisciplines.clear();
     document.querySelectorAll('.constraint-discipline-btn').forEach(btn => btn.classList.remove('active'));

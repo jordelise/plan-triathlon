@@ -927,6 +927,70 @@ details[open] .chevron{transform:rotate(180deg);}
   margin-bottom:8px;
 }
 .goal-field input:last-child{margin-bottom:0;}
+.calendar-trigger-btn{
+  width:100%;
+  text-align:left;
+  padding:8px 10px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  font-size:15px;
+  font-family:inherit;
+  color:var(--ink);
+  background:#fff;
+  cursor:pointer;
+}
+.calendar-panel{
+  margin-top:8px;
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:#fff;
+}
+.calendar-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.calendar-month-label{
+  font-family:'Oswald',sans-serif;
+  font-size:13px;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  color:var(--ink);
+}
+.calendar-nav-btn{
+  border:none;
+  background:var(--paper-2);
+  border-radius:6px;
+  width:28px;
+  height:28px;
+  font-size:16px;
+  line-height:1;
+  cursor:pointer;
+  color:var(--ink);
+}
+.calendar-weekdays{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  margin-bottom:4px;
+}
+.calendar-weekdays span{
+  text-align:center;
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  color:var(--tarmac);
+}
+.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+.calendar-day{
+  aspect-ratio:1;
+  border:none;
+  border-radius:6px;
+  background:none;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:13px;
+  color:var(--ink);
+  cursor:pointer;
+}
+.calendar-day.empty{visibility:hidden;cursor:default;}
+.calendar-day.in-range{background:var(--paper-2);}
+.calendar-day.selected{background:var(--coral);color:#fff;}
 .race-size-options{display:flex;gap:6px;}
 .race-size-btn{
   flex:1;
