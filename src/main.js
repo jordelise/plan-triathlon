@@ -1387,7 +1387,7 @@ function buildGeneratedPlan(){
   let weeksTotal = 8;
   if (raceDate && raceDate > planStart) {
     weeksTotal = Math.round((raceDate - planStart) / (7 * 86400000));
-    weeksTotal = Math.max(4, Math.min(20, weeksTotal));
+    weeksTotal = Math.max(8, Math.min(20, weeksTotal));
   }
 
   const phase4Weeks = Math.min(2, weeksTotal);
