@@ -1110,8 +1110,41 @@ details[open] .chevron{transform:rotate(180deg);}
 .picker-grid{display:grid;gap:8px;margin-bottom:8px;}
 .day-picker-grid{grid-template-columns:repeat(7,1fr);}
 .sport-picker-grid{grid-template-columns:repeat(3,1fr);}
-.strength-toggle-grid{grid-template-columns:repeat(2,1fr);}
-.strength-freq-grid{grid-template-columns:repeat(5,1fr);margin-top:12px;}
+.strength-slider-row{display:flex;align-items:center;gap:12px;}
+.strength-slider{
+  flex:1;
+  -webkit-appearance:none;
+  appearance:none;
+  height:4px;
+  border-radius:2px;
+  background:var(--line);
+  outline:none;
+}
+.strength-slider::-webkit-slider-thumb{
+  -webkit-appearance:none;
+  appearance:none;
+  width:22px;height:22px;
+  border-radius:50%;
+  background:var(--coral);
+  box-shadow:0 2px 8px rgba(232,80,47,0.4);
+  cursor:pointer;
+}
+.strength-slider::-moz-range-thumb{
+  width:22px;height:22px;
+  border:none;
+  border-radius:50%;
+  background:var(--coral);
+  box-shadow:0 2px 8px rgba(232,80,47,0.4);
+  cursor:pointer;
+}
+.strength-slider-label{
+  min-width:92px;
+  text-align:right;
+  font-family:'Oswald',sans-serif;
+  font-size:13px;
+  color:var(--ink);
+  flex-shrink:0;
+}
 .picker-chip{
   cursor:pointer;
   display:flex;

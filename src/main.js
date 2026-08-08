@@ -945,25 +945,13 @@ function sportPickerHtml(preferredDisciplines, chipClass, options = CARDIO_DISCI
     </button>`).join('');
 }
 
-function strengthEnabledHtml(enabled){
-  return `<button type="button" class="picker-chip strength-enabled-btn${enabled ? ' active' : ''}" data-enabled="true">
-      <span class="picker-chip-label">Oui</span>
-    </button>
-    <button type="button" class="picker-chip strength-enabled-btn${!enabled ? ' active' : ''}" data-enabled="false">
-      <span class="picker-chip-label">Non</span>
-    </button>`;
+function strengthSliderLabel(count){
+  return count === 0 ? 'Non' : `${count} fois / semaine`;
 }
 
-function strengthFrequencyHtml(count){
-  return [1, 2, 3, 4, 5].map(n => `<button type="button" class="picker-chip strength-freq-btn${count === n ? ' active' : ''}" data-count="${n}">
-      <span class="picker-chip-label">${n}</span>
-    </button>`).join('');
-}
-
-function strengthFreqContainerHtml(count){
-  return count > 0
-    ? `<p class="priority-hint">Combien de fois par semaine ?</p><div class="picker-grid strength-freq-grid">${strengthFrequencyHtml(count)}</div>`
-    : '';
+function strengthSliderHtml(count){
+  return `<input type="range" min="0" max="5" step="1" value="${count}" class="strength-slider" id="strength-slider">
+    <div class="strength-slider-label" id="strength-slider-label">${strengthSliderLabel(count)}</div>`;
 }
 
 function priorityListHtml(order){
@@ -990,8 +978,7 @@ function prefsFieldsHtml(preferences){
     </div>
     <div class="goal-field">
       <label>Renforcement</label>
-      <div class="picker-grid strength-toggle-grid">${strengthEnabledHtml((preferences.strength_sessions_per_week || 0) > 0)}</div>
-      <div id="strength-freq-container">${strengthFreqContainerHtml(preferences.strength_sessions_per_week || 0)}</div>
+      <div class="strength-slider-row">${strengthSliderHtml(preferences.strength_sessions_per_week || 0)}</div>
     </div>`;
 }
 
@@ -1180,33 +1167,20 @@ function wirePreferredDisciplines(order, onChange){
   renderPriorityList();
 }
 
-// Single-select frequency chips (0-5x/week) for Renfo — a separate question
-// from the sport priority ranking, not another entry competing in it.
+// A single 0-5 slider for Renfo frequency — a separate question from the
+// sport priority ranking, not another entry competing in it.
 function wireStrengthFrequency(state, onChange){
-  function renderFreqRow(){
-    const container = document.getElementById('strength-freq-container');
-    if (!container) return;
-    container.innerHTML = strengthFreqContainerHtml(state.value);
-    container.querySelectorAll('.strength-freq-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        state.value = Number(btn.dataset.count);
-        renderFreqRow();
-        if (onChange) onChange();
-      });
-    });
-  }
+  const slider = document.getElementById('strength-slider');
+  const label = document.getElementById('strength-slider-label');
+  if (!slider) return;
 
-  document.querySelectorAll('.strength-enabled-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const enabled = btn.dataset.enabled === 'true';
-      document.querySelectorAll('.strength-enabled-btn').forEach(b => b.classList.toggle('active', b === btn));
-      state.value = enabled ? (state.value || 2) : 0;
-      renderFreqRow();
-      if (onChange) onChange();
-    });
+  slider.addEventListener('input', () => {
+    label.textContent = strengthSliderLabel(Number(slider.value));
   });
-
-  renderFreqRow();
+  slider.addEventListener('change', () => {
+    state.value = Number(slider.value);
+    if (onChange) onChange();
+  });
 }
 
 function isPrefsConfigured(){
