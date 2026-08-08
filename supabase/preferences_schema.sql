@@ -3,15 +3,20 @@ create table if not exists plan_preferences (
   training_days text[] not null default '{}',
   preferred_disciplines text[] not null default '{}',
   plan_start_date date,
+  strength_sessions_per_week int not null default 0,
   updated_at timestamptz not null default now(),
   constraint plan_preferences_training_days_check check (training_days <@ array['mon','tue','wed','thu','fri','sat','sun']),
-  constraint plan_preferences_preferred_disciplines_check check (preferred_disciplines <@ array['swim','bike','run','strength'])
+  constraint plan_preferences_preferred_disciplines_check check (preferred_disciplines <@ array['swim','bike','run','strength']),
+  constraint plan_preferences_strength_check check (strength_sessions_per_week between 0 and 7)
 );
 
 alter table plan_preferences add column if not exists preferred_disciplines text[] not null default '{}';
 alter table plan_preferences drop constraint if exists plan_preferences_preferred_disciplines_check;
 alter table plan_preferences add constraint plan_preferences_preferred_disciplines_check check (preferred_disciplines <@ array['swim','bike','run','strength']);
 alter table plan_preferences add column if not exists plan_start_date date;
+alter table plan_preferences add column if not exists strength_sessions_per_week int not null default 0;
+alter table plan_preferences drop constraint if exists plan_preferences_strength_check;
+alter table plan_preferences add constraint plan_preferences_strength_check check (strength_sessions_per_week between 0 and 7);
 
 alter table plan_preferences enable row level security;
 

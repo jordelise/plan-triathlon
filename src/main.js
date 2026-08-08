@@ -844,7 +844,7 @@ async function loadAndRenderPreferences(){
   if (prefsError) {
     console.error('Erreur de chargement des préférences', prefsError);
     const { data: { session } } = await supabase.auth.getSession();
-    currentPreferences = { user_id: session?.user?.id, training_days: [], preferred_disciplines: [], plan_start_date: null };
+    currentPreferences = { user_id: session?.user?.id, training_days: [], preferred_disciplines: [], plan_start_date: null, strength_sessions_per_week: 0 };
   } else {
     currentPreferences = prefsData;
   }
@@ -862,6 +862,10 @@ async function loadAndRenderPreferences(){
 const DISCIPLINE_LABELS = { swim: 'Natation', bike: 'Vélo', run: 'Course', strength: 'Renfo' };
 const DISCIPLINE_EMOJI = { swim: '🏊', bike: '🚴', run: '🏃', strength: '💪' };
 const DISCIPLINE_OPTIONS = ['swim', 'bike', 'run', 'strength'];
+// Renfo is deliberately excluded from the sport-priority ranking and from
+// contrainte discipline pickers — it doesn't compete for rotation weight
+// like swim/bike/run, it's a separate fixed-frequency question instead.
+const CARDIO_DISCIPLINES = DISCIPLINE_OPTIONS.filter(d => d !== 'strength');
 
 const DAY_LABELS = { mon: 'Lun', tue: 'Mar', wed: 'Mer', thu: 'Jeu', fri: 'Ven', sat: 'Sam', sun: 'Dim' };
 const DAY_OPTIONS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -934,10 +938,16 @@ function dayPickerHtml(trainingDays){
     </button>`).join('');
 }
 
-function sportPickerHtml(preferredDisciplines, chipClass){
-  return DISCIPLINE_OPTIONS.map(d => `<button type="button" class="picker-chip ${chipClass}${preferredDisciplines.includes(d) ? ' active' : ''}" data-discipline="${d}">
+function sportPickerHtml(preferredDisciplines, chipClass, options = CARDIO_DISCIPLINES){
+  return options.map(d => `<button type="button" class="picker-chip ${chipClass}${preferredDisciplines.includes(d) ? ' active' : ''}" data-discipline="${d}">
       <span class="picker-chip-icon">${DISCIPLINE_EMOJI[d]}</span>
       <span class="picker-chip-label">${DISCIPLINE_LABELS[d]}</span>
+    </button>`).join('');
+}
+
+function strengthFrequencyHtml(count){
+  return [0, 1, 2, 3, 4, 5].map(n => `<button type="button" class="picker-chip strength-freq-btn${count === n ? ' active' : ''}" data-count="${n}">
+      <span class="picker-chip-label">${n === 0 ? 'Non' : n}</span>
     </button>`).join('');
 }
 
@@ -962,6 +972,10 @@ function prefsFieldsHtml(preferences){
       <label>Sports pratiqués</label>
       <div class="picker-grid sport-picker-grid">${sportPickerHtml(preferences.preferred_disciplines, 'pref-discipline-btn')}</div>
       <div id="pref-priority-container"></div>
+    </div>
+    <div class="goal-field">
+      <label>Renforcement — combien de fois par semaine ?</label>
+      <div class="picker-grid strength-freq-grid">${strengthFrequencyHtml(preferences.strength_sessions_per_week || 0)}</div>
     </div>`;
 }
 
@@ -1150,6 +1164,18 @@ function wirePreferredDisciplines(order, onChange){
   renderPriorityList();
 }
 
+// Single-select frequency chips (0-5x/week) for Renfo — a separate question
+// from the sport priority ranking, not another entry competing in it.
+function wireStrengthFrequency(state, onChange){
+  document.querySelectorAll('.strength-freq-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.value = Number(btn.dataset.count);
+      document.querySelectorAll('.strength-freq-btn').forEach(b => b.classList.toggle('active', b === btn));
+      if (onChange) onChange();
+    });
+  });
+}
+
 function isPrefsConfigured(){
   return currentPreferences.training_days.length > 0 && currentPreferences.preferred_disciplines.length > 0;
 }
@@ -1312,7 +1338,9 @@ function buildGeneratedPlan(){
   const trainingDays = DAY_OPTIONS.filter(d => currentPreferences.training_days.includes(d));
   // Order matters here: preferred_disciplines is saved in priority order
   // (highest priority first), used below to weight who gets more sessions.
-  const disciplines = currentPreferences.preferred_disciplines.filter(d => DISCIPLINE_OPTIONS.includes(d));
+  // Renfo never participates in this rotation — it's scheduled separately
+  // below, by fixed weekly frequency rather than competing for priority.
+  const disciplines = currentPreferences.preferred_disciplines.filter(d => CARDIO_DISCIPLINES.includes(d));
   if (trainingDays.length === 0 || disciplines.length === 0) return [];
 
   const today = new Date();
@@ -1382,7 +1410,6 @@ function buildGeneratedPlan(){
   // with one of the easy slots flagged as the week's long session.
   const disciplineOccurrence = Object.fromEntries(disciplines.map(d => [d, 0]));
   function workoutTypeFor(discipline){
-    if (discipline === 'strength') return 'Renforcement';
     const slot = disciplineOccurrence[discipline] % 5;
     disciplineOccurrence[discipline]++;
     if (slot === 4) return 'Sortie longue';
@@ -1426,6 +1453,9 @@ function buildGeneratedPlan(){
   let orderIndexInWeek = 0;
   let lastWeekNumber = 0;
   const rows = [];
+  // Every training-day date, grouped by week — used below to place Renfo
+  // sessions, independent of whether a cardio session landed that day.
+  const weekDates = new Map();
 
   const totalDays = weeksTotal * 7;
   for (let dayIndex = 0; dayIndex < totalDays; dayIndex++) {
@@ -1446,6 +1476,9 @@ function buildGeneratedPlan(){
     }
 
     const dateStr = ymd(date.getFullYear(), date.getMonth(), date.getDate());
+    if (!weekDates.has(weekNumber)) weekDates.set(weekNumber, []);
+    weekDates.get(weekNumber).push(dateStr);
+
     const constraint = constraintForDate(dateStr);
     const discipline = pickDiscipline(candidate => !constraint || constraint.allowed_disciplines.includes(candidate));
     if (!discipline) continue; // no allowed discipline available this day — skip it
@@ -1453,14 +1486,10 @@ function buildGeneratedPlan(){
     sessionCounter++;
 
     const tag = workoutTypeFor(discipline);
-    // Strength stays constant — no long/interval/easy variants, no weekly
-    // progression, matching seed.sql's always-the-same "Circuit" session.
-    const duration_min = discipline === 'strength'
-      ? peakMinutesFor('strength')
-      : Math.max(
-          MIN_SESSION_DURATION[discipline],
-          Math.round((peakMinutesFor(discipline) * TYPE_DURATION_FRACTION[tag] * loadFractionForWeek(weekNumber)) / 5) * 5
-        );
+    const duration_min = Math.max(
+      MIN_SESSION_DURATION[discipline],
+      Math.round((peakMinutesFor(discipline) * TYPE_DURATION_FRACTION[tag] * loadFractionForWeek(weekNumber)) / 5) * 5
+    );
 
     rows.push({
       session_key: `gen-${sessionCounter}`,
@@ -1476,6 +1505,33 @@ function buildGeneratedPlan(){
       session_date: dateStr,
     });
     orderIndexInWeek++;
+  }
+
+  // Renfo: fixed frequency per week, placed on that week's first N training
+  // days (chronologically) rather than competing in the cardio rotation.
+  // Not filtered by contraintes — those only ever restrict cardio disciplines
+  // in the UI (the contrainte discipline picker no longer offers Renfo).
+  const strengthPerWeek = Math.min(currentPreferences.strength_sessions_per_week || 0, trainingDays.length);
+  if (strengthPerWeek > 0) {
+    const strengthDuration = peakMinutesFor('strength');
+    for (const [weekNumber, dates] of weekDates) {
+      dates.slice(0, strengthPerWeek).forEach((dateStr, i) => {
+        sessionCounter++;
+        rows.push({
+          session_key: `gen-${sessionCounter}`,
+          week_number: weekNumber,
+          phase: phaseForWeek(weekNumber),
+          order_index: 1000 + i, // after that week's cardio sessions; exact value isn't meaningful, rendering sorts by date
+          discipline: 'strength',
+          icon: DISCIPLINE_EMOJI.strength,
+          title: DISCIPLINE_LABELS.strength,
+          tag: 'Renforcement',
+          duration_min: strengthDuration,
+          segments: [],
+          session_date: dateStr,
+        });
+      });
+    }
   }
 
   return rows;
@@ -1572,8 +1628,10 @@ function renderTrainingPrefsPanel(){
       container.innerHTML = trainingPrefsStep1Html(currentPreferences);
       const selectedDays = new Set(currentPreferences.training_days);
       const preferredOrder = [...currentPreferences.preferred_disciplines];
+      const strengthState = { value: currentPreferences.strength_sessions_per_week || 0 };
       toggleChipGroup('.day-check-btn', selectedDays, 'day');
       wirePreferredDisciplines(preferredOrder);
+      wireStrengthFrequency(strengthState);
 
       document.getElementById('prefs-next-btn').addEventListener('click', async () => {
         if (selectedDays.size === 0 || preferredOrder.length === 0) return;
@@ -1581,6 +1639,7 @@ function renderTrainingPrefsPanel(){
           ...currentPreferences,
           training_days: DAY_OPTIONS.filter(d => selectedDays.has(d)),
           preferred_disciplines: [...preferredOrder],
+          strength_sessions_per_week: strengthState.value,
           updated_at: new Date().toISOString(),
         };
         const { error } = await supabase.from('plan_preferences').upsert(updated);
@@ -1603,12 +1662,14 @@ function renderTrainingPrefsPanel(){
 
   const selectedDays = new Set(currentPreferences.training_days);
   const preferredOrder = [...currentPreferences.preferred_disciplines];
+  const strengthState = { value: currentPreferences.strength_sessions_per_week || 0 };
 
   async function autoSavePrefs(){
     const updated = {
       ...currentPreferences,
       training_days: DAY_OPTIONS.filter(d => selectedDays.has(d)),
       preferred_disciplines: [...preferredOrder],
+      strength_sessions_per_week: strengthState.value,
       updated_at: new Date().toISOString(),
     };
     const { error } = await supabase.from('plan_preferences').upsert(updated);
@@ -1621,6 +1682,7 @@ function renderTrainingPrefsPanel(){
 
   toggleChipGroup('.day-check-btn', selectedDays, 'day', autoSavePrefs);
   wirePreferredDisciplines(preferredOrder, autoSavePrefs);
+  wireStrengthFrequency(strengthState, autoSavePrefs);
 }
 
 let onboardingPrimaryHandler = null;
