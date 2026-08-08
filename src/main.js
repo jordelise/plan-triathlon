@@ -1346,6 +1346,44 @@ function buildGeneratedPlan(){
     return currentConstraints.find(c => dateStr >= c.start_date && dateStr <= c.end_date);
   }
 
+  // Peak (best-week) session duration per discipline, derived from the
+  // user's own race goal when set (a full race-split duration is
+  // unrealistic as a regular training session, so it's scaled down and
+  // clamped to a sane range), otherwise a generic fallback.
+  const PEAK_DURATION_FALLBACK_MIN = { swim: 30, bike: 45, run: 35, strength: 30 };
+  const PEAK_DURATION_CLAMP_MIN = { swim: [20, 60], bike: [30, 120], run: [20, 90] };
+  function peakMinutesFor(discipline){
+    if (discipline === 'strength') return PEAK_DURATION_FALLBACK_MIN.strength;
+    const goalSec = currentGoals?.[`${discipline}_duration_sec`];
+    if (!goalSec) return PEAK_DURATION_FALLBACK_MIN[discipline];
+    const [floor, ceiling] = PEAK_DURATION_CLAMP_MIN[discipline];
+    return Math.max(floor, Math.min(ceiling, (goalSec / 60) * 0.6));
+  }
+
+  // Weekly load fraction of peak duration: ramps 0.5 -> 1.0 across the
+  // base/build/specific phases (3-weeks-up, 1-week-down recovery pattern),
+  // then a flat deload for the taper phase.
+  const loadWeeks = phase1Weeks + phase2Weeks + phase3Weeks;
+  function loadFractionForWeek(weekNumber){
+    if (weekNumber > loadWeeks) return 0.5; // taper
+    let fraction = 0.5 + 0.5 * (weekNumber / loadWeeks);
+    if (weekNumber % 4 === 0) fraction *= 0.7; // recovery week
+    return fraction;
+  }
+
+  // 80/20 polarized intensity: a repeating 5-slot cycle per discipline
+  // (tracked continuously, not reset weekly) gives 1-in-5 hard sessions,
+  // with one of the easy slots flagged as the week's long session.
+  const disciplineOccurrence = Object.fromEntries(disciplines.map(d => [d, 0]));
+  function workoutTypeFor(discipline){
+    if (discipline === 'strength') return { tag: 'Renforcement', long: false };
+    const slot = disciplineOccurrence[discipline] % 5;
+    disciplineOccurrence[discipline]++;
+    if (slot === 4) return { tag: 'Sortie longue', long: true };
+    if (slot === 2) return { tag: 'Fractionné', long: false };
+    return { tag: 'Endurance', long: false };
+  }
+
   const trainingDaySet = new Set(trainingDays);
 
   // Smooth weighted round-robin: higher-priority sports (earlier in
@@ -1398,6 +1436,10 @@ function buildGeneratedPlan(){
 
     sessionCounter++;
 
+    const { tag, long } = workoutTypeFor(discipline);
+    const rawDuration = peakMinutesFor(discipline) * loadFractionForWeek(weekNumber) * (long ? 1.3 : 1);
+    const duration_min = Math.max(15, Math.round(rawDuration / 5) * 5);
+
     rows.push({
       session_key: `gen-${sessionCounter}`,
       week_number: weekNumber,
@@ -1406,8 +1448,8 @@ function buildGeneratedPlan(){
       discipline,
       icon: DISCIPLINE_EMOJI[discipline],
       title: DISCIPLINE_LABELS[discipline],
-      tag: null,
-      duration_min: null,
+      tag,
+      duration_min,
       segments: [],
       session_date: dateStr,
     });
