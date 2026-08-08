@@ -1405,18 +1405,21 @@ function buildGeneratedPlan(){
   // outnumber training days, instead of splitting evenly.
   const disciplineWeights = disciplines.map((_, i) => disciplines.length - i);
   const disciplineCredit = new Array(disciplines.length).fill(0);
-  const totalDisciplineWeight = disciplineWeights.reduce((a, b) => a + b, 0);
 
   function pickDiscipline(isAllowed){
-    for (let i = 0; i < disciplines.length; i++) disciplineCredit[i] += disciplineWeights[i];
-    const order = disciplines.map((_, i) => i).sort((a, b) => disciplineCredit[b] - disciplineCredit[a]);
-    for (const idx of order) {
-      if (isAllowed(disciplines[idx])) {
-        disciplineCredit[idx] -= totalDisciplineWeight;
-        return disciplines[idx];
-      }
-    }
-    return null;
+    // Only accrue credit for disciplines eligible *today* — otherwise a
+    // multi-week contrainte (e.g. "run only") lets every blocked discipline
+    // pile up unspent credit for weeks, which then dominates picks for a
+    // long stretch after the contrainte ends, effectively suppressing
+    // whatever was constrained instead of resuming normally.
+    const eligible = disciplines.map((_, i) => i).filter(i => isAllowed(disciplines[i]));
+    if (eligible.length === 0) return null;
+
+    eligible.forEach(i => { disciplineCredit[i] += disciplineWeights[i]; });
+    const chosen = eligible.reduce((best, i) => disciplineCredit[i] > disciplineCredit[best] ? i : best, eligible[0]);
+    const eligibleWeightTotal = eligible.reduce((sum, i) => sum + disciplineWeights[i], 0);
+    disciplineCredit[chosen] -= eligibleWeightTotal;
+    return disciplines[chosen];
   }
 
   let sessionCounter = 0;
