@@ -1263,13 +1263,6 @@ function buildGeneratedPlan(){
   const planStart = currentPreferences.plan_start_date
     ? new Date(currentPreferences.plan_start_date + 'T00:00:00')
     : tomorrow;
-  const planStartStr = ymd(planStart.getFullYear(), planStart.getMonth(), planStart.getDate());
-
-  // Weeks are still Monday-aligned for phase/week-number bookkeeping, but any
-  // day before planStart (i.e. the start of its week) is skipped below.
-  const firstWeekMonday = new Date(planStart);
-  const planStartDow = (planStart.getDay() + 6) % 7; // 0 = Monday, ..., 6 = Sunday
-  firstWeekMonday.setDate(planStart.getDate() - planStartDow);
 
   const raceDate = currentGoals?.race_date ? new Date(currentGoals.race_date + 'T00:00:00') : null;
   let weeksTotal = 8;
@@ -1295,49 +1288,60 @@ function buildGeneratedPlan(){
     return currentConstraints.find(c => dateStr >= c.start_date && dateStr <= c.end_date);
   }
 
+  const trainingDaySet = new Set(trainingDays);
   let disciplinePointer = 0;
   let sessionCounter = 0;
+  let orderIndexInWeek = 0;
+  let lastWeekNumber = 0;
   const rows = [];
 
-  for (let week = 1; week <= weeksTotal; week++) {
-    const weekMonday = new Date(firstWeekMonday);
-    weekMonday.setDate(firstWeekMonday.getDate() + (week - 1) * 7);
+  const totalDays = weeksTotal * 7;
+  for (let dayIndex = 0; dayIndex < totalDays; dayIndex++) {
+    const date = new Date(planStart);
+    date.setDate(planStart.getDate() + dayIndex);
+    const dow = DAY_OPTIONS[(date.getDay() + 6) % 7];
+    if (!trainingDaySet.has(dow)) continue;
 
-    trainingDays.forEach((day, orderIndex) => {
-      const dayOffset = DAY_OPTIONS.indexOf(day);
-      const date = new Date(weekMonday);
-      date.setDate(weekMonday.getDate() + dayOffset);
-      const dateStr = ymd(date.getFullYear(), date.getMonth(), date.getDate());
-      if (dateStr < planStartStr) return; // before the plan's actual start date
+    // Weeks are rolling 7-day periods from planStart itself, not calendar
+    // Monday-Sunday weeks — otherwise, when planStart isn't a Monday, week 1
+    // could end up entirely empty (all chosen weekdays falling earlier in
+    // that calendar week than planStart) and the plan would appear to start
+    // at "week 2".
+    const weekNumber = Math.floor(dayIndex / 7) + 1;
+    if (weekNumber !== lastWeekNumber) {
+      orderIndexInWeek = 0;
+      lastWeekNumber = weekNumber;
+    }
 
-      const constraint = constraintForDate(dateStr);
-      let discipline = null;
-      for (let attempt = 0; attempt < disciplines.length; attempt++) {
-        const candidate = disciplines[(disciplinePointer + attempt) % disciplines.length];
-        if (!constraint || constraint.allowed_disciplines.includes(candidate)) {
-          discipline = candidate;
-          disciplinePointer = (disciplinePointer + attempt + 1) % disciplines.length;
-          break;
-        }
+    const dateStr = ymd(date.getFullYear(), date.getMonth(), date.getDate());
+    const constraint = constraintForDate(dateStr);
+    let discipline = null;
+    for (let attempt = 0; attempt < disciplines.length; attempt++) {
+      const candidate = disciplines[(disciplinePointer + attempt) % disciplines.length];
+      if (!constraint || constraint.allowed_disciplines.includes(candidate)) {
+        discipline = candidate;
+        disciplinePointer = (disciplinePointer + attempt + 1) % disciplines.length;
+        break;
       }
-      if (!discipline) return; // no allowed discipline available this day — skip it
+    }
+    if (!discipline) continue; // no allowed discipline available this day — skip it
 
-      sessionCounter++;
+    sessionCounter++;
 
-      rows.push({
-        session_key: `gen-${sessionCounter}`,
-        week_number: week,
-        phase: phaseForWeek(week),
-        order_index: orderIndex,
-        discipline,
-        icon: DISCIPLINE_EMOJI[discipline],
-        title: DISCIPLINE_LABELS[discipline],
-        tag: null,
-        duration_min: null,
-        segments: [],
-        session_date: dateStr,
-      });
+    rows.push({
+      session_key: `gen-${sessionCounter}`,
+      week_number: weekNumber,
+      phase: phaseForWeek(weekNumber),
+      order_index: orderIndexInWeek,
+      discipline,
+      icon: DISCIPLINE_EMOJI[discipline],
+      title: DISCIPLINE_LABELS[discipline],
+      tag: null,
+      duration_min: null,
+      segments: [],
+      session_date: dateStr,
     });
+    orderIndexInWeek++;
   }
 
   return rows;
