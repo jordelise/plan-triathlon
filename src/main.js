@@ -887,9 +887,9 @@ function calendarPanelHtml(viewYear, viewMonth, startDate, endDate){
   }
 
   return `<div class="calendar-header">
-      <button type="button" class="calendar-nav-btn" id="calendar-prev-month" aria-label="Mois précédent">‹</button>
+      <button type="button" class="calendar-nav-btn" data-nav="prev" aria-label="Mois précédent">‹</button>
       <span class="calendar-month-label">${FR_MONTHS[viewMonth]} ${viewYear}</span>
-      <button type="button" class="calendar-nav-btn" id="calendar-next-month" aria-label="Mois suivant">›</button>
+      <button type="button" class="calendar-nav-btn" data-nav="next" aria-label="Mois suivant">›</button>
     </div>
     <div class="calendar-weekdays">${DAY_LABEL_LIST.map(l => `<span>${l}</span>`).join('')}</div>
     <div class="calendar-grid">${cells.join('')}</div>`;
@@ -1113,12 +1113,12 @@ function wirePlanStartDatePicker(){
   function render(){
     panel.innerHTML = calendarPanelHtml(viewYear, viewMonth, selectedDate, null);
 
-    document.getElementById('calendar-prev-month').addEventListener('click', () => {
+    panel.querySelector('[data-nav="prev"]').addEventListener('click', () => {
       viewMonth--;
       if (viewMonth < 0) { viewMonth = 11; viewYear--; }
       render();
     });
-    document.getElementById('calendar-next-month').addEventListener('click', () => {
+    panel.querySelector('[data-nav="next"]').addEventListener('click', () => {
       viewMonth++;
       if (viewMonth > 11) { viewMonth = 0; viewYear++; }
       render();
@@ -1173,12 +1173,12 @@ function wireContraintesSection(){
     const panel = document.getElementById('constraint-calendar-panel');
     panel.innerHTML = calendarPanelHtml(calendarViewYear, calendarViewMonth, constraintStart, constraintEnd);
 
-    document.getElementById('calendar-prev-month').addEventListener('click', () => {
+    panel.querySelector('[data-nav="prev"]').addEventListener('click', () => {
       calendarViewMonth--;
       if (calendarViewMonth < 0) { calendarViewMonth = 11; calendarViewYear--; }
       renderCalendar();
     });
-    document.getElementById('calendar-next-month').addEventListener('click', () => {
+    panel.querySelector('[data-nav="next"]').addEventListener('click', () => {
       calendarViewMonth++;
       if (calendarViewMonth > 11) { calendarViewMonth = 0; calendarViewYear++; }
       renderCalendar();
