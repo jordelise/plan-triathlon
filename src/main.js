@@ -1352,6 +1352,9 @@ function buildGeneratedPlan(){
   // clamped to a sane range), otherwise a generic fallback.
   const PEAK_DURATION_FALLBACK_MIN = { swim: 30, bike: 45, run: 35, strength: 30 };
   const PEAK_DURATION_CLAMP_MIN = { swim: [20, 60], bike: [30, 120], run: [20, 90] };
+  // Floor applied after load-fraction scaling — below this a session isn't
+  // really a workout, particularly for swim.
+  const MIN_SESSION_DURATION = { swim: 25, bike: 25, run: 20, strength: 20 };
   function peakMinutesFor(discipline){
     if (discipline === 'strength') return PEAK_DURATION_FALLBACK_MIN.strength;
     const goalSec = currentGoals?.[`${discipline}_duration_sec`];
@@ -1360,14 +1363,17 @@ function buildGeneratedPlan(){
     return Math.max(floor, Math.min(ceiling, (goalSec / 60) * 0.6));
   }
 
-  // Weekly load fraction of peak duration: ramps 0.5 -> 1.0 across the
+  // Weekly load fraction of peak duration: ramps 0.7 -> 1.0 across the
   // base/build/specific phases (3-weeks-up, 1-week-down recovery pattern),
-  // then a flat deload for the taper phase.
+  // then a flat deload for the taper phase. Floors are kept fairly high —
+  // going much below this makes sessions (especially swim) too short to be
+  // a real workout, and compounding a low ramp with the recovery-week
+  // multiplier was pushing sessions all the way down to the length floor.
   const loadWeeks = phase1Weeks + phase2Weeks + phase3Weeks;
   function loadFractionForWeek(weekNumber){
-    if (weekNumber > loadWeeks) return 0.5; // taper
-    let fraction = 0.5 + 0.5 * (weekNumber / loadWeeks);
-    if (weekNumber % 4 === 0) fraction *= 0.7; // recovery week
+    if (weekNumber > loadWeeks) return 0.6; // taper
+    let fraction = 0.7 + 0.3 * (weekNumber / loadWeeks);
+    if (weekNumber % 4 === 0) fraction *= 0.8; // recovery week
     return fraction;
   }
 
@@ -1438,7 +1444,7 @@ function buildGeneratedPlan(){
 
     const { tag, long } = workoutTypeFor(discipline);
     const rawDuration = peakMinutesFor(discipline) * loadFractionForWeek(weekNumber) * (long ? 1.3 : 1);
-    const duration_min = Math.max(15, Math.round(rawDuration / 5) * 5);
+    const duration_min = Math.max(MIN_SESSION_DURATION[discipline], Math.round(rawDuration / 5) * 5);
 
     rows.push({
       session_key: `gen-${sessionCounter}`,
