@@ -1247,56 +1247,6 @@ function wireContraintesSection(){
   });
 }
 
-// Generic workout templates adapted from supabase/seed.sql's recurring
-// patterns (échauffement/corps/retour au calme), stripped of numeric paces
-// since we don't have per-user pace data yet. Strength's "Circuit" segment
-// is already generic in seed.sql, so it's reused verbatim.
-const GENERATED_SESSION_TEMPLATES = {
-  swim: [
-    { title: 'Natation', tag: 'Endurance', duration_min: 45, segments: [
-      { label: 'Échauffement', text: '400 m souple + 8×50 m éducatifs (attrape-rattrape, poing fermé, 6 temps).' },
-      { label: 'Corps', text: 'Séance continue à allure confortable, environ 1500-2000 m.' },
-      { label: 'Retour au calme', text: '200 m souple.' },
-    ] },
-    { title: 'Natation', tag: 'Fractionné', duration_min: 45, segments: [
-      { label: 'Échauffement', text: '400 m souple.' },
-      { label: 'Corps', text: '8×100 m à allure soutenue, récup 15-20".' },
-      { label: 'Retour au calme', text: '200 m souple.' },
-    ] },
-  ],
-  bike: [
-    { title: 'Fractionné', tag: '≈28 km', duration_min: 75, segments: [
-      { label: 'Échauffement', text: '20 min à allure facile.' },
-      { label: 'Corps', text: '4×8 min à allure soutenue, récup 4 min facile.' },
-      { label: 'Retour au calme', text: '15 min.' },
-    ] },
-    { title: 'Vélo long', tag: '≈45-60 km', duration_min: 150, segments: [
-      { label: 'Vélo', text: 'Sortie longue à allure tranquille, 45-60 km.' },
-    ] },
-  ],
-  run: [
-    { title: 'Fractionné', tag: '≈6 km', duration_min: 50, segments: [
-      { label: 'Échauffement', text: '15 min de footing.' },
-      { label: 'Intervalles', text: '6×1000 m à allure soutenue, récup 2 min.' },
-      { label: 'Retour au calme', text: '5 min de footing souple.' },
-    ] },
-    { title: 'Sortie longue', tag: '≈10-12 km', duration_min: 75, segments: [
-      { label: 'Sortie longue', text: '1h à 1h10 à allure confortable.' },
-      { label: 'Retour au calme', text: '5 min de footing souple.' },
-    ] },
-    { title: 'Course tranquille', tag: '≈5-7 km', duration_min: 50, segments: [
-      { label: 'Échauffement', text: '15 min de footing.' },
-      { label: 'Footing', text: '30 min à allure facile.' },
-      { label: 'Retour au calme', text: '5 min de footing souple.' },
-    ] },
-  ],
-  strength: [
-    { title: 'Renforcement', tag: null, duration_min: null, segments: [
-      { label: 'Circuit', text: 'fessiers, gainage, mollets, tibial antérieur, dos.' },
-    ] },
-  ],
-};
-
 function buildGeneratedPlan(){
   const trainingDays = DAY_OPTIONS.filter(d => currentPreferences.training_days.includes(d));
   const disciplines = DISCIPLINE_OPTIONS.filter(d => currentPreferences.preferred_disciplines.includes(d));
@@ -1341,7 +1291,6 @@ function buildGeneratedPlan(){
   }
 
   let disciplinePointer = 0;
-  const templateCounters = Object.fromEntries(DISCIPLINE_OPTIONS.map(d => [d, 0]));
   let sessionCounter = 0;
   const rows = [];
 
@@ -1368,9 +1317,6 @@ function buildGeneratedPlan(){
       }
       if (!discipline) return; // no allowed discipline available this day — skip it
 
-      const pool = GENERATED_SESSION_TEMPLATES[discipline];
-      const template = pool[templateCounters[discipline] % pool.length];
-      templateCounters[discipline]++;
       sessionCounter++;
 
       rows.push({
@@ -1380,10 +1326,10 @@ function buildGeneratedPlan(){
         order_index: orderIndex,
         discipline,
         icon: DISCIPLINE_EMOJI[discipline],
-        title: template.title,
-        tag: template.tag,
-        duration_min: template.duration_min,
-        segments: template.segments,
+        title: DISCIPLINE_LABELS[discipline],
+        tag: null,
+        duration_min: null,
+        segments: [],
         session_date: dateStr,
       });
     });
