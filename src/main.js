@@ -941,6 +941,18 @@ function sportPickerHtml(preferredDisciplines, chipClass){
     </button>`).join('');
 }
 
+function priorityListHtml(order){
+  return order.map((d, i) => `<div class="priority-row">
+      <span class="priority-rank">${i + 1}</span>
+      <span class="priority-icon">${DISCIPLINE_EMOJI[d]}</span>
+      <span class="priority-label">${DISCIPLINE_LABELS[d]}</span>
+      <div class="priority-arrows">
+        <button type="button" class="priority-arrow-btn" data-move="up" data-discipline="${d}"${i === 0 ? ' disabled' : ''} aria-label="Monter">↑</button>
+        <button type="button" class="priority-arrow-btn" data-move="down" data-discipline="${d}"${i === order.length - 1 ? ' disabled' : ''} aria-label="Descendre">↓</button>
+      </div>
+    </div>`).join('');
+}
+
 function prefsFieldsHtml(preferences){
   return `<div class="goal-field">
       <label>Jours d'entraînement</label>
@@ -949,6 +961,7 @@ function prefsFieldsHtml(preferences){
     <div class="goal-field">
       <label>Sports pratiqués</label>
       <div class="picker-grid sport-picker-grid">${sportPickerHtml(preferences.preferred_disciplines, 'pref-discipline-btn')}</div>
+      <div id="pref-priority-container"></div>
     </div>`;
 }
 
@@ -1092,6 +1105,49 @@ function toggleChipGroup(selector, selectedSet, datasetKey, onChange){
       if (onChange) onChange();
     });
   });
+}
+
+// Wires the sport picker chips together with the "priority" reorder list
+// below them: order (mutated in place) reflects selection order, and can be
+// nudged with the up/down arrows. Used both by the algorithm (to weight
+// which sports get more sessions when days/sports counts don't match) and
+// as the saved preferred_disciplines order.
+function wirePreferredDisciplines(order, onChange){
+  function renderPriorityList(){
+    const container = document.getElementById('pref-priority-container');
+    if (!container) return;
+    container.innerHTML = order.length > 1
+      ? `<p class="priority-hint">Priorité (le plus important en premier)</p>${priorityListHtml(order)}`
+      : '';
+    container.querySelectorAll('.priority-arrow-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const i = order.indexOf(btn.dataset.discipline);
+        const j = btn.dataset.move === 'up' ? i - 1 : i + 1;
+        if (i === -1 || j < 0 || j >= order.length) return;
+        [order[i], order[j]] = [order[j], order[i]];
+        renderPriorityList();
+        if (onChange) onChange();
+      });
+    });
+  }
+
+  document.querySelectorAll('.pref-discipline-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const d = btn.dataset.discipline;
+      const idx = order.indexOf(d);
+      if (idx === -1) {
+        order.push(d);
+        btn.classList.add('active');
+      } else {
+        order.splice(idx, 1);
+        btn.classList.remove('active');
+      }
+      renderPriorityList();
+      if (onChange) onChange();
+    });
+  });
+
+  renderPriorityList();
 }
 
 function isPrefsConfigured(){
@@ -1254,7 +1310,9 @@ function wireContraintesSection(){
 
 function buildGeneratedPlan(){
   const trainingDays = DAY_OPTIONS.filter(d => currentPreferences.training_days.includes(d));
-  const disciplines = DISCIPLINE_OPTIONS.filter(d => currentPreferences.preferred_disciplines.includes(d));
+  // Order matters here: preferred_disciplines is saved in priority order
+  // (highest priority first), used below to weight who gets more sessions.
+  const disciplines = currentPreferences.preferred_disciplines.filter(d => DISCIPLINE_OPTIONS.includes(d));
   if (trainingDays.length === 0 || disciplines.length === 0) return [];
 
   const today = new Date();
@@ -1289,7 +1347,27 @@ function buildGeneratedPlan(){
   }
 
   const trainingDaySet = new Set(trainingDays);
-  let disciplinePointer = 0;
+
+  // Smooth weighted round-robin: higher-priority sports (earlier in
+  // `disciplines`) get proportionally more sessions when there are more
+  // training days than sports, and proportionally fewer when sports
+  // outnumber training days, instead of splitting evenly.
+  const disciplineWeights = disciplines.map((_, i) => disciplines.length - i);
+  const disciplineCredit = new Array(disciplines.length).fill(0);
+  const totalDisciplineWeight = disciplineWeights.reduce((a, b) => a + b, 0);
+
+  function pickDiscipline(isAllowed){
+    for (let i = 0; i < disciplines.length; i++) disciplineCredit[i] += disciplineWeights[i];
+    const order = disciplines.map((_, i) => i).sort((a, b) => disciplineCredit[b] - disciplineCredit[a]);
+    for (const idx of order) {
+      if (isAllowed(disciplines[idx])) {
+        disciplineCredit[idx] -= totalDisciplineWeight;
+        return disciplines[idx];
+      }
+    }
+    return null;
+  }
+
   let sessionCounter = 0;
   let orderIndexInWeek = 0;
   let lastWeekNumber = 0;
@@ -1315,15 +1393,7 @@ function buildGeneratedPlan(){
 
     const dateStr = ymd(date.getFullYear(), date.getMonth(), date.getDate());
     const constraint = constraintForDate(dateStr);
-    let discipline = null;
-    for (let attempt = 0; attempt < disciplines.length; attempt++) {
-      const candidate = disciplines[(disciplinePointer + attempt) % disciplines.length];
-      if (!constraint || constraint.allowed_disciplines.includes(candidate)) {
-        discipline = candidate;
-        disciplinePointer = (disciplinePointer + attempt + 1) % disciplines.length;
-        break;
-      }
-    }
+    const discipline = pickDiscipline(candidate => !constraint || constraint.allowed_disciplines.includes(candidate));
     if (!discipline) continue; // no allowed discipline available this day — skip it
 
     sessionCounter++;
@@ -1437,16 +1507,16 @@ function renderTrainingPrefsPanel(){
     } else {
       container.innerHTML = trainingPrefsStep1Html(currentPreferences);
       const selectedDays = new Set(currentPreferences.training_days);
-      const selectedPreferredDisciplines = new Set(currentPreferences.preferred_disciplines);
+      const preferredOrder = [...currentPreferences.preferred_disciplines];
       toggleChipGroup('.day-check-btn', selectedDays, 'day');
-      toggleChipGroup('.pref-discipline-btn', selectedPreferredDisciplines, 'discipline');
+      wirePreferredDisciplines(preferredOrder);
 
       document.getElementById('prefs-next-btn').addEventListener('click', async () => {
-        if (selectedDays.size === 0 || selectedPreferredDisciplines.size === 0) return;
+        if (selectedDays.size === 0 || preferredOrder.length === 0) return;
         const updated = {
           ...currentPreferences,
           training_days: DAY_OPTIONS.filter(d => selectedDays.has(d)),
-          preferred_disciplines: DISCIPLINE_OPTIONS.filter(d => selectedPreferredDisciplines.has(d)),
+          preferred_disciplines: [...preferredOrder],
           updated_at: new Date().toISOString(),
         };
         const { error } = await supabase.from('plan_preferences').upsert(updated);
@@ -1468,13 +1538,13 @@ function renderTrainingPrefsPanel(){
   attachDayCardHandlers();
 
   const selectedDays = new Set(currentPreferences.training_days);
-  const selectedPreferredDisciplines = new Set(currentPreferences.preferred_disciplines);
+  const preferredOrder = [...currentPreferences.preferred_disciplines];
 
   async function autoSavePrefs(){
     const updated = {
       ...currentPreferences,
       training_days: DAY_OPTIONS.filter(d => selectedDays.has(d)),
-      preferred_disciplines: DISCIPLINE_OPTIONS.filter(d => selectedPreferredDisciplines.has(d)),
+      preferred_disciplines: [...preferredOrder],
       updated_at: new Date().toISOString(),
     };
     const { error } = await supabase.from('plan_preferences').upsert(updated);
@@ -1486,7 +1556,7 @@ function renderTrainingPrefsPanel(){
   }
 
   toggleChipGroup('.day-check-btn', selectedDays, 'day', autoSavePrefs);
-  toggleChipGroup('.pref-discipline-btn', selectedPreferredDisciplines, 'discipline', autoSavePrefs);
+  wirePreferredDisciplines(preferredOrder, autoSavePrefs);
 }
 
 let onboardingPrimaryHandler = null;
