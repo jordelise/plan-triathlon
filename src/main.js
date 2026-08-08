@@ -1382,13 +1382,20 @@ function buildGeneratedPlan(){
   // with one of the easy slots flagged as the week's long session.
   const disciplineOccurrence = Object.fromEntries(disciplines.map(d => [d, 0]));
   function workoutTypeFor(discipline){
-    if (discipline === 'strength') return { tag: 'Renforcement', long: false };
+    if (discipline === 'strength') return 'Renforcement';
     const slot = disciplineOccurrence[discipline] % 5;
     disciplineOccurrence[discipline]++;
-    if (slot === 4) return { tag: 'Sortie longue', long: true };
-    if (slot === 2) return { tag: 'Fractionné', long: false };
-    return { tag: 'Endurance', long: false };
+    if (slot === 4) return 'Sortie longue';
+    if (slot === 2) return 'Fractionné';
+    return 'Endurance';
   }
+
+  // The workout type is what actually defines duration, not the other way
+  // around: a long session IS what "peak" means for the discipline, an
+  // interval session is shorter despite being harder, and an easy session
+  // sits in between. The week's load fraction then scales whichever base
+  // this type gives.
+  const TYPE_DURATION_FRACTION = { 'Sortie longue': 1, 'Endurance': 0.65, 'Fractionné': 0.55 };
 
   const trainingDaySet = new Set(trainingDays);
 
@@ -1442,9 +1449,15 @@ function buildGeneratedPlan(){
 
     sessionCounter++;
 
-    const { tag, long } = workoutTypeFor(discipline);
-    const rawDuration = peakMinutesFor(discipline) * loadFractionForWeek(weekNumber) * (long ? 1.3 : 1);
-    const duration_min = Math.max(MIN_SESSION_DURATION[discipline], Math.round(rawDuration / 5) * 5);
+    const tag = workoutTypeFor(discipline);
+    // Strength stays constant — no long/interval/easy variants, no weekly
+    // progression, matching seed.sql's always-the-same "Circuit" session.
+    const duration_min = discipline === 'strength'
+      ? peakMinutesFor('strength')
+      : Math.max(
+          MIN_SESSION_DURATION[discipline],
+          Math.round((peakMinutesFor(discipline) * TYPE_DURATION_FRACTION[tag] * loadFractionForWeek(weekNumber)) / 5) * 5
+        );
 
     rows.push({
       session_key: `gen-${sessionCounter}`,
