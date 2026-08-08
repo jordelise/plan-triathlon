@@ -1358,6 +1358,16 @@ function buildGeneratedPlan(){
     ? new Date(currentPreferences.plan_start_date + 'T00:00:00')
     : tomorrow;
 
+  // Weeks are always real Monday-Sunday calendar weeks, not rolling periods
+  // from planStart — otherwise a single displayed week could span the tail
+  // of one calendar week and the start of the next (e.g. Sunday then
+  // Monday out of order). If planStart isn't a Monday, week 1 is simply a
+  // short partial week (as few as one day), and week 2 properly starts on
+  // the next Monday.
+  const planStartDow = (planStart.getDay() + 6) % 7; // 0 = Monday, ..., 6 = Sunday
+  const firstMonday = new Date(planStart);
+  firstMonday.setDate(planStart.getDate() - planStartDow);
+
   const raceDate = currentGoals?.race_date ? new Date(currentGoals.race_date + 'T00:00:00') : null;
   let weeksTotal = 8;
   if (raceDate && raceDate > planStart) {
@@ -1474,12 +1484,8 @@ function buildGeneratedPlan(){
     const dow = DAY_OPTIONS[(date.getDay() + 6) % 7];
     if (!trainingDaySet.has(dow)) continue;
 
-    // Weeks are rolling 7-day periods from planStart itself, not calendar
-    // Monday-Sunday weeks — otherwise, when planStart isn't a Monday, week 1
-    // could end up entirely empty (all chosen weekdays falling earlier in
-    // that calendar week than planStart) and the plan would appear to start
-    // at "week 2".
-    const weekNumber = Math.floor(dayIndex / 7) + 1;
+    const daysSinceFirstMonday = Math.round((date - firstMonday) / 86400000);
+    const weekNumber = Math.floor(daysSinceFirstMonday / 7) + 1;
     if (weekNumber !== lastWeekNumber) {
       orderIndexInWeek = 0;
       lastWeekNumber = weekNumber;
