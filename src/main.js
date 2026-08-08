@@ -1515,15 +1515,24 @@ function buildGeneratedPlan(){
   // sessions, independent of whether a cardio session landed that day.
   const weekDates = new Map();
 
-  const totalDays = weeksTotal * 7;
+  // Generous day upper bound (planStart isn't necessarily a Monday, so the
+  // first calendar week can be partial and "use up" days without covering a
+  // full week) — the loop below stops itself once weekNumber exceeds
+  // weeksTotal, which is what actually bounds the plan to its intended
+  // length (otherwise the tail spills into an extra week that falls past
+  // every phase boundary and silently extends the taper).
+  const totalDays = (weeksTotal + 1) * 7;
   for (let dayIndex = 0; dayIndex < totalDays; dayIndex++) {
     const date = new Date(planStart);
     date.setDate(planStart.getDate() + dayIndex);
-    const dow = DAY_OPTIONS[(date.getDay() + 6) % 7];
-    if (!trainingDaySet.has(dow)) continue;
 
     const daysSinceFirstMonday = Math.round((date - firstMonday) / 86400000);
     const weekNumber = Math.floor(daysSinceFirstMonday / 7) + 1;
+    if (weekNumber > weeksTotal) break;
+
+    const dow = DAY_OPTIONS[(date.getDay() + 6) % 7];
+    if (!trainingDaySet.has(dow)) continue;
+
     if (weekNumber !== lastWeekNumber) {
       orderIndexInWeek = 0;
       lastWeekNumber = weekNumber;
