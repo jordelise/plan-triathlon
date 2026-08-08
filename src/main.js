@@ -1339,18 +1339,35 @@ function buildGeneratedPlan(){
 }
 
 async function generatePersonalizedPlan(){
-  const { count, error: countError } = await supabase
+  const { data: existing, error: fetchError } = await supabase
     .from('plan_sessions')
-    .select('*', { count: 'exact', head: true });
+    .select('session_key');
 
-  if (countError) {
-    console.error('Erreur de vérification du plan existant', countError);
+  if (fetchError) {
+    console.error('Erreur de vérification du plan existant', fetchError);
     return;
   }
-  if (count > 0) return; // never touch an account that already has a plan
+
+  // Only ever skip when a real hand-written plan exists (any session_key not
+  // prefixed "gen-") — never touch that. A previously *generated* plan is
+  // safe to replace, so re-running onboarding actually regenerates instead
+  // of silently keeping stale results from an earlier run.
+  const hasRealPlan = existing.some(row => !row.session_key.startsWith('gen-'));
+  if (hasRealPlan) return;
 
   const rows = buildGeneratedPlan();
   if (rows.length === 0) return;
+
+  if (existing.length > 0) {
+    const { error: deleteError } = await supabase
+      .from('plan_sessions')
+      .delete()
+      .in('session_key', existing.map(row => row.session_key));
+    if (deleteError) {
+      console.error('Erreur de suppression de l\'ancien plan généré', deleteError);
+      return;
+    }
+  }
 
   const { data: { session } } = await supabase.auth.getSession();
   const { error } = await supabase
