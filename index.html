@@ -1115,11 +1115,13 @@ details[open] .chevron{transform:rotate(180deg);}
   flex:1;
   -webkit-appearance:none;
   appearance:none;
-  height:4px;
-  border-radius:2px;
+  height:2px;
+  border-radius:1px;
   background:var(--line);
   outline:none;
 }
+.strength-slider::-webkit-slider-runnable-track{height:2px;border-radius:1px;background:var(--line);}
+.strength-slider::-moz-range-track{height:2px;border-radius:1px;background:var(--line);}
 .strength-slider::-webkit-slider-thumb{
   -webkit-appearance:none;
   appearance:none;
