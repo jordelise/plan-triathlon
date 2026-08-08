@@ -844,7 +844,7 @@ async function loadAndRenderPreferences(){
   if (prefsError) {
     console.error('Erreur de chargement des préférences', prefsError);
     const { data: { session } } = await supabase.auth.getSession();
-    currentPreferences = { user_id: session?.user?.id, training_days: [], preferred_disciplines: [], plan_start_date: null, strength_sessions_per_week: 0 };
+    currentPreferences = { user_id: session?.user?.id, training_days: [], preferred_disciplines: [], discipline_priority: {}, plan_start_date: null, strength_sessions_per_week: 0 };
   } else {
     currentPreferences = prefsData;
   }
@@ -954,15 +954,17 @@ function strengthSliderHtml(count){
     <div class="strength-slider-label" id="strength-slider-label">${strengthSliderLabel(count)}</div>`;
 }
 
-function priorityListHtml(order){
-  return order.map((d, i) => `<div class="priority-row">
-      <span class="priority-rank">${i + 1}</span>
+// Three priority tiers rather than a strict ranking — several sports can
+// share the same tier (equal priority), unlike an ordered list where every
+// position is necessarily distinct.
+const PRIORITY_LEVELS = [{ value: 1, label: 'Basse' }, { value: 2, label: 'Moyenne' }, { value: 3, label: 'Haute' }];
+const DEFAULT_PRIORITY_LEVEL = 2;
+
+function priorityListHtml(order, priorityMap){
+  return order.map(d => `<div class="priority-row" data-discipline="${d}">
       <span class="priority-icon">${DISCIPLINE_EMOJI[d]}</span>
       <span class="priority-label">${DISCIPLINE_LABELS[d]}</span>
-      <div class="priority-arrows">
-        <button type="button" class="priority-arrow-btn" data-move="up" data-discipline="${d}"${i === 0 ? ' disabled' : ''} aria-label="Monter">↑</button>
-        <button type="button" class="priority-arrow-btn" data-move="down" data-discipline="${d}"${i === order.length - 1 ? ' disabled' : ''} aria-label="Descendre">↓</button>
-      </div>
+      <div class="priority-level-options">${PRIORITY_LEVELS.map(l => `<button type="button" class="priority-level-btn${(priorityMap[d] || DEFAULT_PRIORITY_LEVEL) === l.value ? ' active' : ''}" data-discipline="${d}" data-level="${l.value}">${l.label}</button>`).join('')}</div>
     </div>`).join('');
 }
 
@@ -1129,19 +1131,16 @@ function toggleChipGroup(selector, selectedSet, datasetKey, onChange){
 // nudged with the up/down arrows. Used both by the algorithm (to weight
 // which sports get more sessions when days/sports counts don't match) and
 // as the saved preferred_disciplines order.
-function wirePreferredDisciplines(order, onChange){
+function wirePreferredDisciplines(order, priorityMap, onChange){
   function renderPriorityList(){
     const container = document.getElementById('pref-priority-container');
     if (!container) return;
     container.innerHTML = order.length > 1
-      ? `<p class="priority-hint">Priorité (le plus important en premier)</p>${priorityListHtml(order)}`
+      ? `<p class="priority-hint">Priorité (plusieurs sports peuvent partager le même niveau)</p>${priorityListHtml(order, priorityMap)}`
       : '';
-    container.querySelectorAll('.priority-arrow-btn').forEach(btn => {
+    container.querySelectorAll('.priority-level-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        const i = order.indexOf(btn.dataset.discipline);
-        const j = btn.dataset.move === 'up' ? i - 1 : i + 1;
-        if (i === -1 || j < 0 || j >= order.length) return;
-        [order[i], order[j]] = [order[j], order[i]];
+        priorityMap[btn.dataset.discipline] = Number(btn.dataset.level);
         renderPriorityList();
         if (onChange) onChange();
       });
@@ -1154,9 +1153,11 @@ function wirePreferredDisciplines(order, onChange){
       const idx = order.indexOf(d);
       if (idx === -1) {
         order.push(d);
+        priorityMap[d] = DEFAULT_PRIORITY_LEVEL;
         btn.classList.add('active');
       } else {
         order.splice(idx, 1);
+        delete priorityMap[d];
         btn.classList.remove('active');
       }
       renderPriorityList();
@@ -1433,11 +1434,13 @@ function buildGeneratedPlan(){
 
   const trainingDaySet = new Set(trainingDays);
 
-  // Smooth weighted round-robin: higher-priority sports (earlier in
-  // `disciplines`) get proportionally more sessions when there are more
-  // training days than sports, and proportionally fewer when sports
-  // outnumber training days, instead of splitting evenly.
-  const disciplineWeights = disciplines.map((_, i) => disciplines.length - i);
+  // Smooth weighted round-robin: sports at a higher priority tier get
+  // proportionally more sessions when there are more training days than
+  // sports, and proportionally fewer when sports outnumber training days.
+  // Weight comes directly from each sport's saved priority tier (1-3), so
+  // sports sharing a tier get equal weight instead of every sport needing a
+  // distinct rank.
+  const disciplineWeights = disciplines.map(d => currentPreferences.discipline_priority?.[d] || DEFAULT_PRIORITY_LEVEL);
   const disciplineCredit = new Array(disciplines.length).fill(0);
 
   function pickDiscipline(isAllowed){
@@ -1635,9 +1638,10 @@ function renderTrainingPrefsPanel(){
       container.innerHTML = trainingPrefsStep1Html(currentPreferences);
       const selectedDays = new Set(currentPreferences.training_days);
       const preferredOrder = currentPreferences.preferred_disciplines.filter(d => CARDIO_DISCIPLINES.includes(d));
+      const priorityMap = Object.fromEntries(preferredOrder.map(d => [d, currentPreferences.discipline_priority?.[d] || DEFAULT_PRIORITY_LEVEL]));
       const strengthState = { value: currentPreferences.strength_sessions_per_week || 0 };
       toggleChipGroup('.day-check-btn', selectedDays, 'day');
-      wirePreferredDisciplines(preferredOrder);
+      wirePreferredDisciplines(preferredOrder, priorityMap);
       wireStrengthFrequency(strengthState);
 
       document.getElementById('prefs-next-btn').addEventListener('click', async () => {
@@ -1646,6 +1650,7 @@ function renderTrainingPrefsPanel(){
           ...currentPreferences,
           training_days: DAY_OPTIONS.filter(d => selectedDays.has(d)),
           preferred_disciplines: [...preferredOrder],
+          discipline_priority: { ...priorityMap },
           strength_sessions_per_week: strengthState.value,
           updated_at: new Date().toISOString(),
         };
@@ -1669,6 +1674,7 @@ function renderTrainingPrefsPanel(){
 
   const selectedDays = new Set(currentPreferences.training_days);
   const preferredOrder = currentPreferences.preferred_disciplines.filter(d => CARDIO_DISCIPLINES.includes(d));
+  const priorityMap = Object.fromEntries(preferredOrder.map(d => [d, currentPreferences.discipline_priority?.[d] || DEFAULT_PRIORITY_LEVEL]));
   const strengthState = { value: currentPreferences.strength_sessions_per_week || 0 };
 
   async function autoSavePrefs(){
@@ -1676,6 +1682,7 @@ function renderTrainingPrefsPanel(){
       ...currentPreferences,
       training_days: DAY_OPTIONS.filter(d => selectedDays.has(d)),
       preferred_disciplines: [...preferredOrder],
+      discipline_priority: { ...priorityMap },
       strength_sessions_per_week: strengthState.value,
       updated_at: new Date().toISOString(),
     };
@@ -1688,7 +1695,7 @@ function renderTrainingPrefsPanel(){
   }
 
   toggleChipGroup('.day-check-btn', selectedDays, 'day', autoSavePrefs);
-  wirePreferredDisciplines(preferredOrder, autoSavePrefs);
+  wirePreferredDisciplines(preferredOrder, priorityMap, autoSavePrefs);
   wireStrengthFrequency(strengthState, autoSavePrefs);
 }
 

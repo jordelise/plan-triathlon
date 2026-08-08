@@ -2,6 +2,7 @@ create table if not exists plan_preferences (
   user_id uuid primary key references auth.users(id) on delete cascade,
   training_days text[] not null default '{}',
   preferred_disciplines text[] not null default '{}',
+  discipline_priority jsonb not null default '{}'::jsonb,
   plan_start_date date,
   strength_sessions_per_week int not null default 0,
   updated_at timestamptz not null default now(),
@@ -14,6 +15,7 @@ alter table plan_preferences add column if not exists preferred_disciplines text
 alter table plan_preferences drop constraint if exists plan_preferences_preferred_disciplines_check;
 alter table plan_preferences add constraint plan_preferences_preferred_disciplines_check check (preferred_disciplines <@ array['swim','bike','run','strength']);
 alter table plan_preferences add column if not exists plan_start_date date;
+alter table plan_preferences add column if not exists discipline_priority jsonb not null default '{}'::jsonb;
 alter table plan_preferences add column if not exists strength_sessions_per_week int not null default 0;
 alter table plan_preferences drop constraint if exists plan_preferences_strength_check;
 alter table plan_preferences add constraint plan_preferences_strength_check check (strength_sessions_per_week between 0 and 7);

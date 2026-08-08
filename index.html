@@ -1199,29 +1199,25 @@ details[open] .chevron{transform:rotate(180deg);}
   background:#fff;
   margin-bottom:6px;
 }
-.priority-rank{
-  width:20px;height:20px;
-  border-radius:50%;
+.priority-icon{font-size:16px;flex-shrink:0;}
+.priority-label{flex:1;font-family:'Oswald',sans-serif;font-size:14px;color:var(--ink);}
+.priority-level-options{display:flex;gap:4px;flex-shrink:0;}
+.priority-level-btn{
+  padding:6px 10px;
+  border:1px solid transparent;
+  border-radius:8px;
   background:var(--paper-2);
   color:var(--tarmac);
   font-family:'IBM Plex Mono',monospace;
   font-size:11px;
-  display:flex;align-items:center;justify-content:center;
-  flex-shrink:0;
-}
-.priority-icon{font-size:16px;flex-shrink:0;}
-.priority-label{flex:1;font-family:'Oswald',sans-serif;font-size:14px;color:var(--ink);}
-.priority-arrows{display:flex;gap:4px;}
-.priority-arrow-btn{
-  width:26px;height:26px;
-  border:none;
-  border-radius:6px;
-  background:var(--paper-2);
-  color:var(--ink);
-  font-size:13px;
+  text-transform:uppercase;
+  letter-spacing:.03em;
   cursor:pointer;
 }
-.priority-arrow-btn:disabled{opacity:.3;cursor:default;}
+.priority-level-btn.active{
+  background:var(--ink);
+  color:#fff;
+}
 
 @keyframes wizardFadeIn{
   from{opacity:0;transform:translateY(10px);}
