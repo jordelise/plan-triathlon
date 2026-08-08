@@ -1087,6 +1087,8 @@ const PHASE_GOALS = {
   3: 'Se rapprocher des allures cibles de la course.',
   4: 'Réduire le volume, garder un peu d\'intensité.',
 };
+const PHASE_ICONS = { 1: '🌱', 2: '📈', 3: '🎯', 4: '⚡' };
+const PHASE_COLORS = { 1: '#4F7A73', 2: '#0E6E8C', 3: '#4A4E8C', 4: 'var(--coral)' };
 
 function betaPlanSectionHtml(){
   if (sessionsByKey.size === 0) return '';
@@ -1111,10 +1113,14 @@ function betaPlanSectionHtml(){
 
   const body = Array.from(byPhase.keys()).sort((a, b) => a - b).map(phase => {
     const weeksHtml = byPhase.get(phase).map(wn => weekBlockHtml(wn, weeks.get(wn), wn === activeWeek)).join('');
-    return `<div class="plan-phase-head">
-        <h3>Phase ${phase} — ${PHASE_NAMES[phase] || ''}</h3>
+    const color = PHASE_COLORS[phase] || 'var(--ink)';
+    return `<div class="plan-phase-head" style="--phase-color:${color}">
+        <span class="plan-phase-icon">${PHASE_ICONS[phase] || ''}</span>
+        <div>
+          <h3>Phase ${phase} — ${PHASE_NAMES[phase] || ''}</h3>
+          <p class="plan-phase-goal">${PHASE_GOALS[phase] || ''}</p>
+        </div>
       </div>
-      <p class="plan-phase-goal">${PHASE_GOALS[phase] || ''}</p>
       ${weeksHtml}`;
   }).join('');
 

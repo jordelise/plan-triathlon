@@ -797,17 +797,30 @@ details[open] .chevron{transform:rotate(180deg);}
   text-transform:uppercase;
   letter-spacing:.03em;
 }
-.plan-phase-head{margin:20px 0 2px;}
+.plan-phase-head{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  margin:24px 0 14px;
+  padding:12px 16px;
+  border-radius:12px;
+  background:var(--paper-2);
+  background:color-mix(in srgb, var(--phase-color) 12%, var(--paper-2));
+  border-left:4px solid var(--phase-color);
+}
+.plan-phase-icon{font-size:22px;line-height:1;flex-shrink:0;}
 .plan-phase-head h3{
   font-family:'Oswald',sans-serif;
-  font-size:18px;
+  font-size:17px;
+  text-transform:uppercase;
+  letter-spacing:.02em;
   margin:0;
-  color:var(--ink);
+  color:var(--phase-color);
 }
 .plan-phase-goal{
   font-size:13px;
   color:var(--tarmac);
-  margin:2px 0 14px;
+  margin:4px 0 0;
   max-width:62ch;
 }
 .tag{
