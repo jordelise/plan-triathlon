@@ -945,10 +945,25 @@ function sportPickerHtml(preferredDisciplines, chipClass, options = CARDIO_DISCI
     </button>`).join('');
 }
 
+function strengthEnabledHtml(enabled){
+  return `<button type="button" class="picker-chip strength-enabled-btn${enabled ? ' active' : ''}" data-enabled="true">
+      <span class="picker-chip-label">Oui</span>
+    </button>
+    <button type="button" class="picker-chip strength-enabled-btn${!enabled ? ' active' : ''}" data-enabled="false">
+      <span class="picker-chip-label">Non</span>
+    </button>`;
+}
+
 function strengthFrequencyHtml(count){
-  return [0, 1, 2, 3, 4, 5].map(n => `<button type="button" class="picker-chip strength-freq-btn${count === n ? ' active' : ''}" data-count="${n}">
-      <span class="picker-chip-label">${n === 0 ? 'Non' : n}</span>
+  return [1, 2, 3, 4, 5].map(n => `<button type="button" class="picker-chip strength-freq-btn${count === n ? ' active' : ''}" data-count="${n}">
+      <span class="picker-chip-label">${n}</span>
     </button>`).join('');
+}
+
+function strengthFreqContainerHtml(count){
+  return count > 0
+    ? `<p class="priority-hint">Combien de fois par semaine ?</p><div class="picker-grid strength-freq-grid">${strengthFrequencyHtml(count)}</div>`
+    : '';
 }
 
 function priorityListHtml(order){
@@ -974,8 +989,9 @@ function prefsFieldsHtml(preferences){
       <div id="pref-priority-container"></div>
     </div>
     <div class="goal-field">
-      <label>Renforcement — combien de fois par semaine ?</label>
-      <div class="picker-grid strength-freq-grid">${strengthFrequencyHtml(preferences.strength_sessions_per_week || 0)}</div>
+      <label>Renforcement</label>
+      <div class="picker-grid strength-toggle-grid">${strengthEnabledHtml((preferences.strength_sessions_per_week || 0) > 0)}</div>
+      <div id="strength-freq-container">${strengthFreqContainerHtml(preferences.strength_sessions_per_week || 0)}</div>
     </div>`;
 }
 
@@ -1167,13 +1183,30 @@ function wirePreferredDisciplines(order, onChange){
 // Single-select frequency chips (0-5x/week) for Renfo — a separate question
 // from the sport priority ranking, not another entry competing in it.
 function wireStrengthFrequency(state, onChange){
-  document.querySelectorAll('.strength-freq-btn').forEach(btn => {
+  function renderFreqRow(){
+    const container = document.getElementById('strength-freq-container');
+    if (!container) return;
+    container.innerHTML = strengthFreqContainerHtml(state.value);
+    container.querySelectorAll('.strength-freq-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.value = Number(btn.dataset.count);
+        renderFreqRow();
+        if (onChange) onChange();
+      });
+    });
+  }
+
+  document.querySelectorAll('.strength-enabled-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      state.value = Number(btn.dataset.count);
-      document.querySelectorAll('.strength-freq-btn').forEach(b => b.classList.toggle('active', b === btn));
+      const enabled = btn.dataset.enabled === 'true';
+      document.querySelectorAll('.strength-enabled-btn').forEach(b => b.classList.toggle('active', b === btn));
+      state.value = enabled ? (state.value || 2) : 0;
+      renderFreqRow();
       if (onChange) onChange();
     });
   });
+
+  renderFreqRow();
 }
 
 function isPrefsConfigured(){
@@ -1627,7 +1660,7 @@ function renderTrainingPrefsPanel(){
     } else {
       container.innerHTML = trainingPrefsStep1Html(currentPreferences);
       const selectedDays = new Set(currentPreferences.training_days);
-      const preferredOrder = [...currentPreferences.preferred_disciplines];
+      const preferredOrder = currentPreferences.preferred_disciplines.filter(d => CARDIO_DISCIPLINES.includes(d));
       const strengthState = { value: currentPreferences.strength_sessions_per_week || 0 };
       toggleChipGroup('.day-check-btn', selectedDays, 'day');
       wirePreferredDisciplines(preferredOrder);
@@ -1661,7 +1694,7 @@ function renderTrainingPrefsPanel(){
   attachDayCardHandlers();
 
   const selectedDays = new Set(currentPreferences.training_days);
-  const preferredOrder = [...currentPreferences.preferred_disciplines];
+  const preferredOrder = currentPreferences.preferred_disciplines.filter(d => CARDIO_DISCIPLINES.includes(d));
   const strengthState = { value: currentPreferences.strength_sessions_per_week || 0 };
 
   async function autoSavePrefs(){
