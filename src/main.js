@@ -249,10 +249,15 @@ async function refreshStravaRowVisibility(){
 
 function weekBlockHtml(weekNumber, sessions, isOpen){
   const label = `Semaine S${weekNumber}`;
-  const range = WEEK_DATE_RANGES[weekNumber];
+  const sorted = [...sessions].sort((a, b) => (a.session_date || '').localeCompare(b.session_date || ''));
+  // Derive the displayed range from the sessions themselves rather than the
+  // hardcoded WEEK_DATE_RANGES map, which only covers the real hand-written
+  // plan's calendar — a generated plan's own week N would otherwise show
+  // that plan's unrelated dates.
+  const sessionDates = sorted.map(s => s.session_date).filter(Boolean);
+  const range = sessionDates.length ? [sessionDates[0], sessionDates[sessionDates.length - 1]] : null;
   const datesHtml = range ? `<span class="week-dates">${formatWeekDates(range)}</span>` : '';
   const doneCount = sessions.filter(s => s.done).length;
-  const sorted = [...sessions].sort((a, b) => (a.session_date || '').localeCompare(b.session_date || ''));
 
   return `<details class="week-block" data-week="wk${weekNumber}"${isOpen ? ' open' : ''}><summary class="week-heading"><span>${label} ${datesHtml}</span><span class="week-right"><span class="week-count"><span class="wc-done">${doneCount}</span>/${sessions.length}</span><svg class="chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span></summary><div class="day-list">${sorted.map(dayRowHtml).join('')}</div></details>`;
 }
