@@ -1068,6 +1068,18 @@ function prefsCardHtml(icon, title, subtitle, bodyHtml, openByDefault = false){
   </details>`;
 }
 
+function activeGeneratedWeek(weeks, weekNumbers){
+  const today = new Date();
+  const todayStr = ymd(today.getFullYear(), today.getMonth(), today.getDate());
+  for (const wn of weekNumbers) {
+    const dates = weeks.get(wn).map(s => s.session_date).filter(Boolean);
+    if (dates.length === 0) continue;
+    const end = dates.reduce((a, b) => a > b ? a : b);
+    if (todayStr <= end) return wn; // first week not yet fully in the past
+  }
+  return weekNumbers[weekNumbers.length - 1];
+}
+
 function betaPlanSectionHtml(){
   if (sessionsByKey.size === 0) return '';
 
@@ -1076,8 +1088,11 @@ function betaPlanSectionHtml(){
     if (!weeks.has(s.week_number)) weeks.set(s.week_number, []);
     weeks.get(s.week_number).push(s);
   }
-  const activeWeek = currentWeekNumber(new Date());
   const weekNumbers = Array.from(weeks.keys()).sort((a, b) => a - b);
+  // Computed from this plan's own session dates rather than
+  // currentWeekNumber(), which is tied to WEEK_DATE_RANGES — the real
+  // hand-written plan's calendar, unrelated to a generated plan's dates.
+  const activeWeek = activeGeneratedWeek(weeks, weekNumbers);
   const body = weekNumbers.map(wn => weekBlockHtml(wn, weeks.get(wn), wn === activeWeek)).join('');
 
   return `<div class="detail-title" style="margin:24px 0 12px;">Ton plan</div>${body}`;
