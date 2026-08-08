@@ -1080,6 +1080,14 @@ function activeGeneratedWeek(weeks, weekNumbers){
   return weekNumbers[weekNumbers.length - 1];
 }
 
+const PHASE_NAMES = { 1: 'Base', 2: 'Développement', 3: 'Spécifique', 4: 'Affûtage' };
+const PHASE_GOALS = {
+  1: "Construire le volume et les bases d'endurance.",
+  2: "Augmenter progressivement l'intensité.",
+  3: 'Se rapprocher des allures cibles de la course.',
+  4: 'Réduire le volume, garder un peu d\'intensité.',
+};
+
 function betaPlanSectionHtml(){
   if (sessionsByKey.size === 0) return '';
 
@@ -1093,7 +1101,22 @@ function betaPlanSectionHtml(){
   // currentWeekNumber(), which is tied to WEEK_DATE_RANGES — the real
   // hand-written plan's calendar, unrelated to a generated plan's dates.
   const activeWeek = activeGeneratedWeek(weeks, weekNumbers);
-  const body = weekNumbers.map(wn => weekBlockHtml(wn, weeks.get(wn), wn === activeWeek)).join('');
+
+  const byPhase = new Map();
+  for (const wn of weekNumbers) {
+    const phase = weeks.get(wn)[0].phase;
+    if (!byPhase.has(phase)) byPhase.set(phase, []);
+    byPhase.get(phase).push(wn);
+  }
+
+  const body = Array.from(byPhase.keys()).sort((a, b) => a - b).map(phase => {
+    const weeksHtml = byPhase.get(phase).map(wn => weekBlockHtml(wn, weeks.get(wn), wn === activeWeek)).join('');
+    return `<div class="plan-phase-head">
+        <h3>Phase ${phase} — ${PHASE_NAMES[phase] || ''}</h3>
+      </div>
+      <p class="plan-phase-goal">${PHASE_GOALS[phase] || ''}</p>
+      ${weeksHtml}`;
+  }).join('');
 
   return `<div class="detail-title" style="margin:24px 0 12px;">Ton plan</div>${body}`;
 }
