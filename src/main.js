@@ -1653,6 +1653,33 @@ function buildGeneratedPlan(){
     ];
   }
 
+  // Sortie longue/Fractionné are capped at 1/week, not guaranteed every
+  // week — a continuous per-discipline occurrence cycle gives them their
+  // old rough 1-in-5 frequency, and a per-week guard converts a would-be
+  // 2nd long/Fractionné that week into Tempo/Seuil instead of ever placing
+  // two of the same capped type in the same week.
+  const cardioTypeOccurrence = { bike: 0, run: 0 };
+  const tempoSeuilAlternator = { bike: 0, run: 0 };
+  const weekTypesUsed = new Map(); // weekNumber -> { bike: Set, run: Set }
+  function pickCardioType(discipline, weekNumber){
+    if (!weekTypesUsed.has(weekNumber)) weekTypesUsed.set(weekNumber, { bike: new Set(), run: new Set() });
+    const usedThisWeek = weekTypesUsed.get(weekNumber)[discipline];
+
+    const slot = cardioTypeOccurrence[discipline] % 5;
+    cardioTypeOccurrence[discipline]++;
+
+    let type;
+    if (slot === 4 && !usedThisWeek.has('Sortie longue')) type = 'Sortie longue';
+    else if (slot === 2 && !usedThisWeek.has('Fractionné')) type = 'Fractionné';
+    else {
+      type = tempoSeuilAlternator[discipline] % 2 === 0 ? 'Tempo' : 'Seuil';
+      tempoSeuilAlternator[discipline]++;
+    }
+
+    usedThisWeek.add(type);
+    return type;
+  }
+
   const trainingDaySet = new Set(trainingDays);
 
   // Smooth weighted round-robin: sports at a higher priority tier get
@@ -1687,10 +1714,6 @@ function buildGeneratedPlan(){
   // Every training-day date, grouped by week — used below to place Renfo
   // sessions, independent of whether a cardio session landed that day.
   const weekDates = new Map();
-  // Bike/run rows collected here (in chronological order within each week),
-  // for the second-pass type assignment below: last day of the week = the
-  // long session, next = Fractionné, everything else alternates Tempo/Seuil.
-  const cardioByWeek = new Map();
 
   // Generous day upper bound (planStart isn't necessarily a Monday, so the
   // first calendar week can be partial and "use up" days without covering a
@@ -1742,8 +1765,9 @@ function buildGeneratedPlan(){
     orderIndexInWeek++;
 
     if (discipline === 'bike' || discipline === 'run') {
-      if (!cardioByWeek.has(weekNumber)) cardioByWeek.set(weekNumber, { bike: [], run: [] });
-      cardioByWeek.get(weekNumber)[discipline].push(row);
+      const type = pickCardioType(discipline, weekNumber);
+      if (type === 'Sortie longue') applySortieLongue(row, discipline, weekNumber);
+      else applyTreeType(row, discipline, weekNumber, type);
     } else {
       // Swim (and anything else non-tree): keep the original skeleton system.
       const tag = legacyWorkoutTypeFor(discipline);
@@ -1752,31 +1776,6 @@ function buildGeneratedPlan(){
         MIN_SESSION_DURATION[discipline],
         Math.round((peakMinutesFor(discipline) * TYPE_DURATION_FRACTION[tag] * loadFractionForWeek(weekNumber)) / 5) * 5
       );
-    }
-  }
-
-  // Second pass: now that we know every bike/run session for each week, in
-  // chronological order, assign types per the weekly rule (at most 1 long,
-  // at most 1 Fractionné, everything else alternates Tempo/Seuil) and fill
-  // in real content from the trees/formulas above.
-  const tempoSeuilAlternator = { bike: 0, run: 0 };
-  for (const group of cardioByWeek.values()) {
-    for (const discipline of ['bike', 'run']) {
-      const weekRows = group[discipline];
-      if (weekRows.length === 0) continue;
-
-      const longRow = weekRows[weekRows.length - 1];
-      applySortieLongue(longRow, discipline, longRow.week_number);
-
-      const rest = weekRows.slice(0, -1);
-      const fracRow = rest.pop(); // day right before the long session, if any
-      if (fracRow) applyTreeType(fracRow, discipline, fracRow.week_number, 'Fractionné');
-
-      rest.forEach(row => {
-        const type = tempoSeuilAlternator[discipline] % 2 === 0 ? 'Tempo' : 'Seuil';
-        tempoSeuilAlternator[discipline]++;
-        applyTreeType(row, discipline, row.week_number, type);
-      });
     }
   }
 
