@@ -809,17 +809,16 @@ details[open] .chevron{transform:rotate(180deg);}
 }
 .plan-phase-head{
   position:sticky;
-  top:10px;
+  top:0;
   z-index:20;
   display:flex;
   align-items:flex-start;
   gap:12px;
-  margin-bottom:14px;
-  padding:14px 16px;
-  border-radius:12px;
+  margin:-16px -16px 14px;
+  padding:16px;
+  border-radius:14px 14px 0 0;
   background:var(--paper);
-  background:color-mix(in srgb, var(--phase-color) 14%, var(--paper));
-  box-shadow:0 4px 14px rgba(22,41,43,0.12);
+  background:color-mix(in srgb, var(--phase-color) 16%, var(--paper));
 }
 .plan-phase-icon{font-size:22px;line-height:1;flex-shrink:0;}
 .plan-phase-head h3{
