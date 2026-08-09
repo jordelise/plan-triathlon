@@ -798,6 +798,7 @@ details[open] .chevron{transform:rotate(180deg);}
   letter-spacing:.03em;
 }
 .plan-phase-group{
+  position:relative;
   margin:24px 0;
   padding:16px;
   border-radius:14px;
@@ -807,10 +808,17 @@ details[open] .chevron{transform:rotate(180deg);}
   border-left:4px solid var(--phase-color);
 }
 .plan-phase-head{
+  position:sticky;
+  top:0;
+  z-index:20;
   display:flex;
   align-items:flex-start;
   gap:12px;
-  margin-bottom:14px;
+  margin:-16px -16px 14px;
+  padding:16px;
+  background:var(--paper);
+  background:color-mix(in srgb, var(--phase-color) 10%, var(--paper));
+  border-radius:14px 14px 0 0;
 }
 .plan-phase-icon{font-size:22px;line-height:1;flex-shrink:0;}
 .plan-phase-head h3{
