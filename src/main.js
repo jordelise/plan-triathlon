@@ -1829,13 +1829,11 @@ function maybeShowOnboardingPopup(goals){
   if (goalsMissing) showGoalsReminderPopup();
 }
 
-const RACE_SIZE_LABELS = { S: 'Sprint', M: 'M', L: 'L (70.3)', IRONMAN: 'Iron Man' };
+const RACE_SIZE_LABELS = { S: 'Sprint', M: 'M' };
 
 const RACE_SIZE_DISTANCES = {
   S: { swim_distance_m: 750, bike_distance_km: 20, run_distance_km: 5 },
   M: { swim_distance_m: 1500, bike_distance_km: 40, run_distance_km: 10 },
-  L: { swim_distance_m: 1900, bike_distance_km: 90, run_distance_km: 21.1 },
-  IRONMAN: { swim_distance_m: 3800, bike_distance_km: 180, run_distance_km: 42.2 },
 };
 
 function raceInfoEditorHtml(goals){
@@ -1850,7 +1848,7 @@ function raceInfoEditorHtml(goals){
     </div>
     <div class="goal-field">
       <label>Format</label>
-      <div class="race-size-options">${['S', 'M', 'L', 'IRONMAN']
+      <div class="race-size-options">${['S', 'M']
         .map(sz => `<button type="button" class="race-size-btn${goals.size === sz ? ' active' : ''}" data-size="${sz}">${RACE_SIZE_LABELS[sz]}</button>`)
         .join('')}</div>
     </div>

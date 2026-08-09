@@ -12,8 +12,14 @@ create table if not exists plan_race_goals (
   run_distance_km numeric,
   run_duration_sec int,
   updated_at timestamptz not null default now(),
-  constraint plan_race_goals_size_check check (size in ('S', 'M', 'L', 'IRONMAN'))
+  constraint plan_race_goals_size_check check (size in ('S', 'M'))
 );
+
+-- L and Iron Man are no longer offered — fold any existing rows into M
+-- before tightening the constraint, so this doesn't fail on old data.
+update plan_race_goals set size = 'M' where size not in ('S', 'M');
+alter table plan_race_goals drop constraint if exists plan_race_goals_size_check;
+alter table plan_race_goals add constraint plan_race_goals_size_check check (size in ('S', 'M'));
 
 alter table plan_race_goals enable row level security;
 
