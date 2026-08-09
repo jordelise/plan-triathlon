@@ -799,14 +799,20 @@ details[open] .chevron{transform:rotate(180deg);}
 }
 .plan-phase-group{
   position:relative;
-  overflow:hidden;
   margin:24px 0;
-  padding:16px;
+  padding:16px 16px 16px 20px;
   border-radius:14px;
   background:var(--paper);
   background:color-mix(in srgb, var(--phase-color) 6%, var(--paper));
   border:1px solid var(--line);
-  border-left:4px solid var(--phase-color);
+}
+.plan-phase-group::before{
+  content:"";
+  position:absolute;
+  left:0;top:0;bottom:0;
+  width:4px;
+  background:var(--phase-color);
+  border-radius:14px 0 0 14px;
 }
 .plan-phase-head{
   position:sticky;
@@ -815,8 +821,8 @@ details[open] .chevron{transform:rotate(180deg);}
   display:flex;
   align-items:flex-start;
   gap:12px;
-  margin:-16px -16px 14px;
-  padding:16px;
+  margin:-16px -16px 14px -20px;
+  padding:16px 16px 16px 20px;
   border-radius:14px 14px 0 0;
   background:var(--paper);
   background:color-mix(in srgb, var(--phase-color) 16%, var(--paper));
