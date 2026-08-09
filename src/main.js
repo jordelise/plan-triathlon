@@ -1486,9 +1486,6 @@ const CARDIO_WARMUP_COOLDOWN = {
   run: { warmup: 25, cooldown: 10 },
 };
 
-const DEFAULT_LONG_PACE_SEC_PER_KM = { run: 330 }; // 5'30/km fallback
-const DEFAULT_LONG_SPEED_KMH = { bike: 24 };
-
 function lightestFormat(pool){
   return pool.reduce((best, entry) => entry.min < best.min ? entry : best, pool[0]);
 }
@@ -1610,30 +1607,29 @@ function buildGeneratedPlan(){
     return Math.round(distance * 10) / 10;
   }
 
+  // Duration is intentionally left null for generated bike/run sessions —
+  // estimating it means guessing at paces/main-set timing we don't have real
+  // numbers for yet. Distance, format text, and segment structure are real
+  // (from the rules/trees), so those are still filled in.
   function applySortieLongue(row, discipline, weekNumber){
     if (discipline === 'run') {
       const distanceKm = runLongDistanceKm(weekNumber);
-      const paceSecPerKm = (currentGoals?.run_duration_sec && currentGoals?.run_distance_km)
-        ? (currentGoals.run_duration_sec / currentGoals.run_distance_km) * 1.15 // easier than race pace
-        : DEFAULT_LONG_PACE_SEC_PER_KM.run;
       row.title = 'Sortie longue';
       row.tag = `≈${distanceKm} km`;
-      row.duration_min = Math.max(MIN_SESSION_DURATION.run, Math.round((distanceKm * paceSecPerKm / 60) / 5) * 5);
+      row.duration_min = null;
       row.segments = [{ label: 'Sortie longue', text: `${distanceKm} km à allure confortable.` }];
     } else {
       const distanceKm = bikeLongDistanceKm(weekNumber);
-      const speedKmh = (currentGoals?.bike_duration_sec && currentGoals?.bike_distance_km)
-        ? (currentGoals.bike_distance_km / (currentGoals.bike_duration_sec / 3600)) * 0.85 // easier than race pace
-        : DEFAULT_LONG_SPEED_KMH.bike;
       row.title = 'Sortie longue';
       row.tag = `≈${distanceKm} km`;
-      row.duration_min = Math.max(MIN_SESSION_DURATION.bike, Math.round((distanceKm / speedKmh * 60) / 5) * 5);
+      row.duration_min = null;
       row.segments = [{ label: 'Sortie longue', text: `${distanceKm} km à allure tranquille.` }];
     }
   }
 
   // Cycles through that type's 4 tree presets in order (repeating) — except
-  // in taper, where it always uses the lightest variant instead.
+  // in taper, where it always uses the lightest (per the curated `min` used
+  // only to rank variants, not to compute/display a duration).
   const formatOccurrence = {};
   function applyTreeType(row, discipline, weekNumber, type){
     const pool = SESSION_FORMATS[discipline][raceSize][type];
@@ -1649,7 +1645,7 @@ function buildGeneratedPlan(){
     const { warmup, cooldown } = CARDIO_WARMUP_COOLDOWN[discipline];
     row.title = type;
     row.tag = pick.text;
-    row.duration_min = Math.round((warmup + pick.min + cooldown) / 5) * 5;
+    row.duration_min = null;
     row.segments = [
       { label: 'Échauffement', text: `${warmup} min à allure facile.` },
       { label: 'Corps de séance', text: pick.text },
