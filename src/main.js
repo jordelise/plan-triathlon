@@ -1394,8 +1394,6 @@ function wireContraintesSection(){
 // aren't reliably parseable without pace assumptions, so these are
 // hand-estimated). The lowest-`min` entry in each type is used during
 // taper instead of continuing the normal cycle.
-// Known gap: Course à pied (S) Fractionné only has 3 confirmed entries
-// (the tree's export seems to be missing a 4th) — cycles through the 3.
 const SESSION_FORMATS = {
   bike: {
     M: {
@@ -1474,6 +1472,7 @@ const SESSION_FORMATS = {
         { text: '6x300m', min: 14 },
       ],
       Fractionné: [
+        { text: '6x300m', min: 14 },
         { text: '4x800m', min: 20 },
         { text: '8x200m', min: 13 },
         { text: '5x400m', min: 13 },
