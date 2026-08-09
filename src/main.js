@@ -1114,14 +1114,16 @@ function betaPlanSectionHtml(){
   const body = Array.from(byPhase.keys()).sort((a, b) => a - b).map(phase => {
     const weeksHtml = byPhase.get(phase).map(wn => weekBlockHtml(wn, weeks.get(wn), wn === activeWeek)).join('');
     const color = PHASE_COLORS[phase] || 'var(--ink)';
-    return `<div class="plan-phase-head" style="--phase-color:${color}">
+    return `<div class="plan-phase-group" style="--phase-color:${color}">
+      <div class="plan-phase-head">
         <span class="plan-phase-icon">${PHASE_ICONS[phase] || ''}</span>
         <div>
           <h3>Phase ${phase} — ${PHASE_NAMES[phase] || ''}</h3>
           <p class="plan-phase-goal">${PHASE_GOALS[phase] || ''}</p>
         </div>
       </div>
-      ${weeksHtml}`;
+      <div class="plan-phase-weeks">${weeksHtml}</div>
+    </div>`;
   }).join('');
 
   return `<div class="detail-title" style="margin:24px 0 12px;">Ton plan</div>${body}`;

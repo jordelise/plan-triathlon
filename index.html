@@ -797,16 +797,20 @@ details[open] .chevron{transform:rotate(180deg);}
   text-transform:uppercase;
   letter-spacing:.03em;
 }
+.plan-phase-group{
+  margin:24px 0;
+  padding:16px;
+  border-radius:14px;
+  background:var(--paper);
+  background:color-mix(in srgb, var(--phase-color) 6%, var(--paper));
+  border:1px solid var(--line);
+  border-left:4px solid var(--phase-color);
+}
 .plan-phase-head{
   display:flex;
   align-items:flex-start;
   gap:12px;
-  margin:24px 0 14px;
-  padding:12px 16px;
-  border-radius:12px;
-  background:var(--paper-2);
-  background:color-mix(in srgb, var(--phase-color) 12%, var(--paper-2));
-  border-left:4px solid var(--phase-color);
+  margin-bottom:14px;
 }
 .plan-phase-icon{font-size:22px;line-height:1;flex-shrink:0;}
 .plan-phase-head h3{
@@ -823,6 +827,7 @@ details[open] .chevron{transform:rotate(180deg);}
   margin:4px 0 0;
   max-width:62ch;
 }
+.plan-phase-weeks .week-block:last-child{margin-bottom:0;}
 .tag{
   font-family:'IBM Plex Mono',monospace;
   font-size:10.5px;
