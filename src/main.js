@@ -1134,7 +1134,15 @@ function trainingPrefsFullFormHtml(preferences, constraints){
     prefsFieldsHtml(preferences))
     + prefsCardHtml('🗓️', 'Contraintes', 'Vacances, blessures, périodes particulières.',
     contraintesSectionHtml(preferences, constraints))
-    + betaPlanSectionHtml();
+    + betaPlanSectionHtml()
+    + resetPlanSectionHtml();
+}
+
+function resetPlanSectionHtml(){
+  return `<div class="reset-plan-zone">
+    <button type="button" id="reset-plan-btn" class="reset-plan-btn">Réinitialiser le plan</button>
+    <p class="reset-plan-hint">Supprime les séances générées, tes habitudes et tes contraintes pour recommencer l'onboarding à zéro.</p>
+  </div>`;
 }
 
 function renderConstraintList(){
@@ -1853,6 +1861,63 @@ async function generatePersonalizedPlan(){
   await loadAndRenderSessions();
 }
 
+// Only ever deletes *generated* sessions (session_key prefixed "gen-") —
+// never a real hand-written plan, same safeguard as generatePersonalizedPlan.
+async function resetGeneratedPlan(){
+  const { data: { session } } = await supabase.auth.getSession();
+  const userId = session?.user?.id;
+
+  const { data: existing, error: fetchError } = await supabase
+    .from('plan_sessions')
+    .select('session_key');
+  if (fetchError) {
+    console.error('Erreur de vérification du plan existant', fetchError);
+    return;
+  }
+  const generatedKeys = existing.filter(row => row.session_key.startsWith('gen-')).map(row => row.session_key);
+  if (generatedKeys.length > 0) {
+    const { error: deleteSessionsError } = await supabase
+      .from('plan_sessions')
+      .delete()
+      .in('session_key', generatedKeys);
+    if (deleteSessionsError) {
+      console.error('Erreur de suppression des séances générées', deleteSessionsError);
+      return;
+    }
+  }
+
+  const { error: deleteConstraintsError } = await supabase
+    .from('plan_constraints')
+    .delete()
+    .eq('user_id', userId);
+  if (deleteConstraintsError) {
+    console.error('Erreur de suppression des contraintes', deleteConstraintsError);
+    return;
+  }
+
+  const resetPreferences = {
+    user_id: userId,
+    training_days: [],
+    preferred_disciplines: [],
+    discipline_priority: {},
+    plan_start_date: null,
+    strength_sessions_per_week: 0,
+    updated_at: new Date().toISOString(),
+  };
+  const { error: resetPrefsError } = await supabase.from('plan_preferences').upsert(resetPreferences);
+  if (resetPrefsError) {
+    console.error('Erreur de réinitialisation des préférences', resetPrefsError);
+    return;
+  }
+
+  currentPreferences = resetPreferences;
+  currentConstraints = [];
+  trainingPrefsOnboardingDone = false;
+  trainingPrefsStep = 1;
+  await loadAndRenderSessions();
+  renderTrainingPrefsPanel();
+}
+
 function renderTrainingPrefsPanel(){
   if (!currentPreferences) return;
   const container = document.getElementById('training-prefs-container');
@@ -1932,6 +1997,14 @@ function renderTrainingPrefsPanel(){
   container.innerHTML = trainingPrefsFullFormHtml(currentPreferences, currentConstraints);
   renderConstraintList();
   wireContraintesSection();
+
+  document.getElementById('reset-plan-btn').addEventListener('click', async (e) => {
+    if (!confirm('Réinitialiser le plan ? Cela supprime les séances générées, tes habitudes et tes contraintes.')) return;
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    btn.textContent = 'Réinitialisation…';
+    await resetGeneratedPlan();
+  });
   attachDayCardHandlers();
 
   const selectedDays = new Set(currentPreferences.training_days);
