@@ -1388,6 +1388,112 @@ function wireContraintesSection(){
   });
 }
 
+// Tempo/Seuil/Fractionné presets per discipline and race size, transcribed
+// from the decision trees. `min` is a curated approximate main-set duration
+// (not runtime-parsed from the text — formats like "8x30/30" or "6x400m"
+// aren't reliably parseable without pace assumptions, so these are
+// hand-estimated). The lowest-`min` entry in each type is used during
+// taper instead of continuing the normal cycle.
+// Known gap: Course à pied (S) Fractionné only has 3 confirmed entries
+// (the tree's export seems to be missing a 4th) — cycles through the 3.
+const SESSION_FORMATS = {
+  bike: {
+    M: {
+      Tempo: [
+        { text: '3x15min', min: 50 },
+        { text: '4x10min', min: 45 },
+        { text: '1x30min continu', min: 30 },
+        { text: '1x40min continu', min: 40 },
+      ],
+      Seuil: [
+        { text: '3x10min', min: 35 },
+        { text: '4x8min', min: 36 },
+        { text: '3x12min', min: 40 },
+        { text: '2x18min', min: 40 },
+      ],
+      Fractionné: [
+        { text: '6x3min', min: 25 },
+        { text: '8x30/30', min: 10 },
+        { text: '5x4min', min: 25 },
+        { text: '10x2min', min: 25 },
+      ],
+    },
+    S: {
+      Tempo: [
+        { text: '2x10min', min: 24 },
+        { text: '3x7min', min: 25 },
+        { text: '20min continu', min: 20 },
+        { text: '25min continu', min: 25 },
+      ],
+      Seuil: [
+        { text: '3x6min', min: 22 },
+        { text: '4x5min', min: 24 },
+        { text: '2x8min', min: 18 },
+        { text: '1x12min', min: 12 },
+      ],
+      Fractionné: [
+        { text: '5x2min', min: 14 },
+        { text: '6x20/20', min: 8 },
+        { text: '4x3min', min: 16 },
+        { text: '8x1min', min: 14 },
+      ],
+    },
+  },
+  run: {
+    M: {
+      Tempo: [
+        { text: '3x2km', min: 32 },
+        { text: '4x1.5km', min: 32 },
+        { text: '5km continu', min: 26 },
+        { text: '6km continu', min: 31 },
+      ],
+      Seuil: [
+        { text: '4x1.5km', min: 30 },
+        { text: '5x1km', min: 26 },
+        { text: '3x2.5km', min: 35 },
+        { text: '2x4km', min: 37 },
+      ],
+      Fractionné: [
+        { text: '6x400m', min: 18 },
+        { text: '5x1000m', min: 24 },
+        { text: '10x300m', min: 18 },
+        { text: '8x500m', min: 24 },
+      ],
+    },
+    S: {
+      Tempo: [
+        { text: '3x1km', min: 17 },
+        { text: '4x600m', min: 16 },
+        { text: '2.5km continu', min: 14 },
+        { text: '3km continu', min: 17 },
+      ],
+      Seuil: [
+        { text: '4x750m', min: 16 },
+        { text: '3x1km', min: 14 },
+        { text: '2x2km', min: 18 },
+        { text: '6x300m', min: 14 },
+      ],
+      Fractionné: [
+        { text: '4x800m', min: 20 },
+        { text: '8x200m', min: 13 },
+        { text: '5x400m', min: 13 },
+      ],
+    },
+  },
+};
+
+const CARDIO_WARMUP_COOLDOWN = {
+  bike: { warmup: 20, cooldown: 10 },
+  run: { warmup: 25, cooldown: 10 },
+};
+
+const DEFAULT_LONG_PACE_SEC_PER_KM = { run: 330 }; // 5'30/km fallback
+const DEFAULT_LONG_SPEED_KMH = { bike: 24 };
+
+function lightestFormat(pool){
+  return pool.reduce((best, entry) => entry.min < best.min ? entry : best, pool[0]);
+}
+
 function buildGeneratedPlan(){
   const trainingDays = DAY_OPTIONS.filter(d => currentPreferences.training_days.includes(d));
   // Order matters here: preferred_disciplines is saved in priority order
@@ -1469,24 +1575,88 @@ function buildGeneratedPlan(){
     return fraction;
   }
 
-  // 80/20 polarized intensity: a repeating 5-slot cycle per discipline
-  // (tracked continuously, not reset weekly) gives 1-in-5 hard sessions,
-  // with one of the easy slots flagged as the week's long session.
+  // Swim still uses the old skeleton system (80/20, 5-slot cycle) — its
+  // trees/content are deferred to a later pass. Bike and run use the new
+  // tree-based system built below instead.
   const disciplineOccurrence = Object.fromEntries(disciplines.map(d => [d, 0]));
-  function workoutTypeFor(discipline){
+  function legacyWorkoutTypeFor(discipline){
     const slot = disciplineOccurrence[discipline] % 5;
     disciplineOccurrence[discipline]++;
     if (slot === 4) return 'Sortie longue';
     if (slot === 2) return 'Fractionné';
     return 'Endurance';
   }
-
-  // The workout type is what actually defines duration, not the other way
-  // around: a long session IS what "peak" means for the discipline, an
-  // interval session is shorter despite being harder, and an easy session
-  // sits in between. The week's load fraction then scales whichever base
-  // this type gives.
   const TYPE_DURATION_FRACTION = { 'Sortie longue': 1, 'Endurance': 0.65, 'Fractionné': 0.55 };
+
+  const raceSize = currentGoals?.size === 'S' ? 'S' : 'M';
+
+  // Run's long session grows toward the race distance as the race
+  // approaches, reusing the same ramp/recovery/taper shape as
+  // loadFractionForWeek (applied to distance instead of duration).
+  function runLongDistanceKm(weekNumber){
+    const raceKm = currentGoals?.run_distance_km || RACE_SIZE_DISTANCES[raceSize].run_distance_km;
+    return Math.round(raceKm * loadFractionForWeek(weekNumber) * 10) / 10;
+  }
+
+  // Bike's long ride has no target ceiling — it grows every time it occurs
+  // (race distance x1.1, x1.2, x1.3...), still dampened on recovery weeks
+  // and flattened for taper so it doesn't keep growing into the race.
+  let bikeLongOccurrence = 0;
+  function bikeLongDistanceKm(weekNumber){
+    const raceKm = currentGoals?.bike_distance_km || RACE_SIZE_DISTANCES[raceSize].bike_distance_km;
+    if (weekNumber > loadWeeks) return Math.round(raceKm * 0.6 * 10) / 10; // taper
+    let distance = raceKm * (1.1 + 0.1 * bikeLongOccurrence);
+    bikeLongOccurrence++;
+    if (weekNumber % 4 === 0) distance *= 0.8; // recovery week
+    return Math.round(distance * 10) / 10;
+  }
+
+  function applySortieLongue(row, discipline, weekNumber){
+    if (discipline === 'run') {
+      const distanceKm = runLongDistanceKm(weekNumber);
+      const paceSecPerKm = (currentGoals?.run_duration_sec && currentGoals?.run_distance_km)
+        ? (currentGoals.run_duration_sec / currentGoals.run_distance_km) * 1.15 // easier than race pace
+        : DEFAULT_LONG_PACE_SEC_PER_KM.run;
+      row.title = 'Sortie longue';
+      row.tag = `≈${distanceKm} km`;
+      row.duration_min = Math.max(MIN_SESSION_DURATION.run, Math.round((distanceKm * paceSecPerKm / 60) / 5) * 5);
+      row.segments = [{ label: 'Sortie longue', text: `${distanceKm} km à allure confortable.` }];
+    } else {
+      const distanceKm = bikeLongDistanceKm(weekNumber);
+      const speedKmh = (currentGoals?.bike_duration_sec && currentGoals?.bike_distance_km)
+        ? (currentGoals.bike_distance_km / (currentGoals.bike_duration_sec / 3600)) * 0.85 // easier than race pace
+        : DEFAULT_LONG_SPEED_KMH.bike;
+      row.title = 'Sortie longue';
+      row.tag = `≈${distanceKm} km`;
+      row.duration_min = Math.max(MIN_SESSION_DURATION.bike, Math.round((distanceKm / speedKmh * 60) / 5) * 5);
+      row.segments = [{ label: 'Sortie longue', text: `${distanceKm} km à allure tranquille.` }];
+    }
+  }
+
+  // Cycles through that type's 4 tree presets in order (repeating) — except
+  // in taper, where it always uses the lightest variant instead.
+  const formatOccurrence = {};
+  function applyTreeType(row, discipline, weekNumber, type){
+    const pool = SESSION_FORMATS[discipline][raceSize][type];
+    const key = `${discipline}-${type}`;
+    let pick;
+    if (phaseForWeek(weekNumber) === 4) {
+      pick = lightestFormat(pool);
+    } else {
+      const i = formatOccurrence[key] || 0;
+      pick = pool[i % pool.length];
+      formatOccurrence[key] = i + 1;
+    }
+    const { warmup, cooldown } = CARDIO_WARMUP_COOLDOWN[discipline];
+    row.title = type;
+    row.tag = pick.text;
+    row.duration_min = Math.round((warmup + pick.min + cooldown) / 5) * 5;
+    row.segments = [
+      { label: 'Échauffement', text: `${warmup} min à allure facile.` },
+      { label: 'Corps de séance', text: pick.text },
+      { label: 'Retour au calme', text: `${cooldown} min à allure facile.` },
+    ];
+  }
 
   const trainingDaySet = new Set(trainingDays);
 
@@ -1522,6 +1692,10 @@ function buildGeneratedPlan(){
   // Every training-day date, grouped by week — used below to place Renfo
   // sessions, independent of whether a cardio session landed that day.
   const weekDates = new Map();
+  // Bike/run rows collected here (in chronological order within each week),
+  // for the second-pass type assignment below: last day of the week = the
+  // long session, next = Fractionné, everything else alternates Tempo/Seuil.
+  const cardioByWeek = new Map();
 
   // Generous day upper bound (planStart isn't necessarily a Monday, so the
   // first calendar week can be partial and "use up" days without covering a
@@ -1556,13 +1730,7 @@ function buildGeneratedPlan(){
 
     sessionCounter++;
 
-    const tag = workoutTypeFor(discipline);
-    const duration_min = Math.max(
-      MIN_SESSION_DURATION[discipline],
-      Math.round((peakMinutesFor(discipline) * TYPE_DURATION_FRACTION[tag] * loadFractionForWeek(weekNumber)) / 5) * 5
-    );
-
-    rows.push({
+    const row = {
       session_key: `gen-${sessionCounter}`,
       week_number: weekNumber,
       phase: phaseForWeek(weekNumber),
@@ -1570,12 +1738,51 @@ function buildGeneratedPlan(){
       discipline,
       icon: DISCIPLINE_EMOJI[discipline],
       title: DISCIPLINE_LABELS[discipline],
-      tag,
-      duration_min,
+      tag: null,
+      duration_min: null,
       segments: [],
       session_date: dateStr,
-    });
+    };
+    rows.push(row);
     orderIndexInWeek++;
+
+    if (discipline === 'bike' || discipline === 'run') {
+      if (!cardioByWeek.has(weekNumber)) cardioByWeek.set(weekNumber, { bike: [], run: [] });
+      cardioByWeek.get(weekNumber)[discipline].push(row);
+    } else {
+      // Swim (and anything else non-tree): keep the original skeleton system.
+      const tag = legacyWorkoutTypeFor(discipline);
+      row.tag = tag;
+      row.duration_min = Math.max(
+        MIN_SESSION_DURATION[discipline],
+        Math.round((peakMinutesFor(discipline) * TYPE_DURATION_FRACTION[tag] * loadFractionForWeek(weekNumber)) / 5) * 5
+      );
+    }
+  }
+
+  // Second pass: now that we know every bike/run session for each week, in
+  // chronological order, assign types per the weekly rule (at most 1 long,
+  // at most 1 Fractionné, everything else alternates Tempo/Seuil) and fill
+  // in real content from the trees/formulas above.
+  const tempoSeuilAlternator = { bike: 0, run: 0 };
+  for (const group of cardioByWeek.values()) {
+    for (const discipline of ['bike', 'run']) {
+      const weekRows = group[discipline];
+      if (weekRows.length === 0) continue;
+
+      const longRow = weekRows[weekRows.length - 1];
+      applySortieLongue(longRow, discipline, longRow.week_number);
+
+      const rest = weekRows.slice(0, -1);
+      const fracRow = rest.pop(); // day right before the long session, if any
+      if (fracRow) applyTreeType(fracRow, discipline, fracRow.week_number, 'Fractionné');
+
+      rest.forEach(row => {
+        const type = tempoSeuilAlternator[discipline] % 2 === 0 ? 'Tempo' : 'Seuil';
+        tempoSeuilAlternator[discipline]++;
+        applyTreeType(row, discipline, row.week_number, type);
+      });
+    }
   }
 
   // Renfo: fixed frequency per week, placed on that week's first N training
