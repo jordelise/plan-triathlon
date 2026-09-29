@@ -402,16 +402,33 @@ function refreshWeekCounts(){
   });
 }
 
+const PROGRESS_RENFO_KEY = 'progress-include-renfo';
+
+function progressIncludesRenfo(){
+  try { return localStorage.getItem(PROGRESS_RENFO_KEY) !== '0'; } catch { return true; }
+}
+
+const progressRenfoToggle = document.getElementById('progress-renfo-toggle');
+if (progressRenfoToggle) {
+  progressRenfoToggle.checked = progressIncludesRenfo();
+  progressRenfoToggle.addEventListener('change', () => {
+    try { localStorage.setItem(PROGRESS_RENFO_KEY, progressRenfoToggle.checked ? '1' : '0'); } catch {}
+    refreshProgress();
+  });
+}
+
 function refreshProgress(){
   const now = new Date();
+  const includeRenfo = progressIncludesRenfo();
+  const counted = Array.from(sessionsByKey.values()).filter(s => includeRenfo || s.discipline !== 'strength');
 
   const weeks = new Map();
-  for (const s of sessionsByKey.values()) {
+  for (const s of counted) {
     if (!weeks.has(s.week_number)) weeks.set(s.week_number, []);
     weeks.get(s.week_number).push(s);
   }
 
-  const totalSessions = sessionsByKey.size;
+  const totalSessions = counted.length;
 
   const expectedSessions = Array.from(weeks.entries()).reduce(
     (sum, [weekNumber, sessions]) => sum + sessions.length * weekCreditFraction(weekNumber, now),
@@ -419,7 +436,7 @@ function refreshProgress(){
   );
   const expectedPct = totalSessions ? (expectedSessions / totalSessions * 100) : 0;
 
-  const done = Array.from(sessionsByKey.values()).filter(s => s.done).length;
+  const done = counted.filter(s => s.done).length;
   const actualPct = totalSessions ? (done / totalSessions * 100) : 0;
 
   const expectedFill = document.getElementById('progress-expected-fill');

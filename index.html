@@ -328,7 +328,7 @@ body{font-size:16px;}
 }
 .progress-head{
   display:flex;
-  justify-content:flex-end;
+  justify-content:space-between;
   align-items:baseline;
   flex-wrap:wrap;
   gap:8px;
@@ -340,6 +340,36 @@ body{font-size:16px;}
   color:var(--tarmac);
 }
 .progress-head .pg-values b{color:var(--ink);font-weight:600;}
+.progress-renfo-toggle{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:12px;
+  color:var(--tarmac);
+  cursor:pointer;
+  user-select:none;
+}
+.progress-renfo-toggle input{position:absolute;opacity:0;pointer-events:none;}
+.progress-renfo-toggle .switch{
+  position:relative;
+  width:30px;height:17px;
+  border-radius:9px;
+  background:var(--paper-2);
+  border:1px solid var(--line);
+  transition:background .2s ease;
+}
+.progress-renfo-toggle .switch::after{
+  content:'';
+  position:absolute;
+  top:2px;left:2px;
+  width:11px;height:11px;
+  border-radius:50%;
+  background:var(--tarmac);
+  transition:transform .2s ease, background .2s ease;
+}
+.progress-renfo-toggle input:checked + .switch{background:var(--ink);border-color:var(--ink);}
+.progress-renfo-toggle input:checked + .switch::after{transform:translateX(13px);background:#fff;}
+.progress-renfo-toggle input:focus-visible + .switch{outline:2px solid var(--ink);outline-offset:2px;}
 .progress-track{
   position:relative;
   height:14px;
@@ -1523,6 +1553,7 @@ details[open] .chevron{transform:rotate(180deg);}
   <div class="section-title">Progression</div>
   <div class="progress-card">
     <div class="progress-head">
+      <label class="progress-renfo-toggle"><input type="checkbox" id="progress-renfo-toggle" checked><span class="switch"></span>Renfo inclus</label>
       <span class="pg-values"><b id="progress-actual-val">0%</b> réalisé · <b id="progress-expected-val">0%</b> prévu</span>
     </div>
     <div class="progress-track">
