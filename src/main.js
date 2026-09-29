@@ -80,9 +80,17 @@ function formatDurationBadge(minutes){
 function sessionDetailHtml(s){
   const tagHtml = s.tag ? `<span class="tag">${escapeHtml(s.tag)}</span>` : '';
   const durationHtml = s.duration_min ? `<span class="tag">${formatDurationBadge(s.duration_min)}</span>` : '';
-  const segsHtml = (s.segments || [])
-    .map(seg => `<span class="seg"><b class="seg-label">${escapeHtml(seg.label)}</b> ${seg.text}</span>`)
+  const segments = s.segments || [];
+  const zoneChip = zone => ZONES[zone] ? ` <span class="zone-chip ${zone.toLowerCase()}">${zone}</span>` : '';
+  const segsHtml = segments
+    .map(seg => `<span class="seg"><b class="seg-label">${escapeHtml(seg.label)}</b>${zoneChip(seg.zone)} ${seg.text}</span>`)
     .join('');
+  // What each zone used in this session feels like, so the athlete knows
+  // how hard to go without heart-rate or pace targets.
+  const zonesUsed = Object.keys(ZONES).filter(z => segments.some(seg => seg.zone === z));
+  const zoneLegendHtml = zonesUsed.length
+    ? `<div class="zone-legend">${zonesUsed.map(z => `<div class="zone-legend-row"><span class="zone-chip ${z.toLowerCase()}">${z}</span><span><b>${ZONES[z].name}</b> · ${ZONES[z].feel}</span></div>`).join('')}</div>`
+    : '';
   const stravaHtml = s.session_date
     ? `<p class="detail-card-title">Résultat de la séance</p><div class="detail-card detail-strava"><div id="detail-strava"><p class="detail-strava-status">Chargement Strava…</p></div></div>`
     : '';
@@ -92,7 +100,7 @@ function sessionDetailHtml(s){
     ? `<a class="detail-fit-link" href="/fit/s2-3-sortie-longue.fit" download aria-label="Télécharger la séance (test Garmin)"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7"/><polyline points="12 9 12 12 13.5 13.5"/><path d="M16.51 17.35l-.35 3.83a2 2 0 0 1-2 1.82H9.83a2 2 0 0 1-2-1.82l-.35-3.83m.01-10.7.35-3.83A2 2 0 0 1 9.83 1h4.35a2 2 0 0 1 2 1.82l.35 3.83"/></svg></a>`
     : '';
 
-  return `<div class="detail-head"><span class="detail-icon">${s.icon}</span><div class="detail-title-row"><span class="detail-title">${escapeHtml(s.title)}</span>${tagHtml}${durationHtml}</div></div><div class="detail-meta-row"><label class="detail-date-field">Date<input type="date" id="detail-date-input" data-key="${s.session_key}" value="${s.session_date || ''}"></label><label class="detail-done-toggle">Fait<span class="detail-done-box-wrap"><input type="checkbox" id="detail-done-checkbox" data-key="${s.session_key}"${s.done ? ' checked' : ''}><span class="detail-done-box"><svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="square" stroke-linejoin="miter"><polyline points="4 12 9 17 20 6"/></svg></span></span></label>${fitHtml}</div><p class="detail-card-title">Détail de la séance</p><div class="detail-card"><p class="detail-segments">${segsHtml}</p></div>${stravaHtml}`;
+  return `<div class="detail-head"><span class="detail-icon">${s.icon}</span><div class="detail-title-row"><span class="detail-title">${escapeHtml(s.title)}</span>${tagHtml}${durationHtml}</div></div><div class="detail-meta-row"><label class="detail-date-field">Date<input type="date" id="detail-date-input" data-key="${s.session_key}" value="${s.session_date || ''}"></label><label class="detail-done-toggle">Fait<span class="detail-done-box-wrap"><input type="checkbox" id="detail-done-checkbox" data-key="${s.session_key}"${s.done ? ' checked' : ''}><span class="detail-done-box"><svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="square" stroke-linejoin="miter"><polyline points="4 12 9 17 20 6"/></svg></span></span></label>${fitHtml}</div><p class="detail-card-title">Détail de la séance</p><div class="detail-card"><p class="detail-segments">${segsHtml}</p>${zoneLegendHtml}</div>${stravaHtml}`;
 }
 
 let stravaRequestSeq = 0;
@@ -844,6 +852,7 @@ async function loadAndRenderGoals(){
   updateSplitLabels(currentGoals);
   renderRaceInfo(currentGoals);
   maybeShowOnboardingPopup(currentGoals);
+  renderTrainingPrefsPanel();
 }
 
 async function loadAndRenderPreferences(){
@@ -935,7 +944,7 @@ function constraintRowHtml(constraint){
   </div>`;
 }
 
-const WIZARD_STEP_LABELS = ['Habitudes', 'Contraintes', 'Strava'];
+const WIZARD_STEP_LABELS = ['Course', 'Habitudes', 'Contraintes', 'Strava'];
 
 function wizardStepsHtml(step){
   return `<div class="wizard-steps">${WIZARD_STEP_LABELS.map((label, i) => {
@@ -1036,12 +1045,27 @@ function contraintesSectionHtml(preferences, constraints, centerToggle = false){
     </div>`;
 }
 
+// The race comes first: its date is the plan's end date, and its format
+// picks the session presets and long-session distances.
+function trainingPrefsRaceStepHtml(goals){
+  return `<div class="wizard-card">
+    <div class="wizard-hero">🏁</div>
+    <div class="detail-title" style="margin-bottom:4px;text-align:center;">Configurons ton plan</div>
+    <p class="settings-sub" style="text-align:center;">Quelle course prépares-tu ? Le plan se termine le jour de la course.</p>
+    ${wizardStepsHtml(1)}
+    ${raceInfoFieldsHtml(goals, ymdFromDate(tomorrowDate()))}
+    <p class="wizard-error" id="race-step-error" hidden></p>
+    <button type="button" class="goal-save-btn wizard-next-btn" id="prefs-race-next-btn">Suivant →</button>
+  </div>`;
+}
+
 function trainingPrefsStep1Html(preferences){
   return `<div class="wizard-card">
+    <button type="button" class="wizard-back-link" id="prefs-back-btn">← Précédent</button>
     <div class="wizard-hero">🎯</div>
-    <div class="detail-title" style="margin-bottom:4px;text-align:center;">Configurons ton plan</div>
+    <div class="detail-title" style="margin-bottom:4px;text-align:center;">Tes habitudes</div>
     <p class="settings-sub" style="text-align:center;">Dis-nous quand et quoi tu aimes t'entraîner.</p>
-    ${wizardStepsHtml(1)}
+    ${wizardStepsHtml(2)}
     ${prefsFieldsHtml(preferences)}
     <button type="button" class="goal-save-btn wizard-next-btn" id="prefs-next-btn">Suivant →</button>
   </div>`;
@@ -1053,8 +1077,9 @@ function trainingPrefsStep2Html(preferences, constraints){
     <div class="wizard-hero">🗓️</div>
     <div class="detail-title" style="margin-bottom:4px;text-align:center;">Des périodes particulières ?</div>
     <p class="settings-sub" style="text-align:center;">Vacances, blessure... ajoute des contraintes si besoin.</p>
-    ${wizardStepsHtml(2)}
+    ${wizardStepsHtml(3)}
     ${contraintesSectionHtml(preferences, constraints, true)}
+    <p class="wizard-error" id="contraintes-step-error" hidden></p>
     <button type="button" class="goal-save-btn wizard-next-btn" id="prefs-step2-next-btn" style="margin-top:24px;">Suivant →</button>
   </div>`;
 }
@@ -1065,7 +1090,7 @@ function trainingPrefsStep3Html(){
     <div class="wizard-hero">🔗</div>
     <div class="detail-title" style="margin-bottom:4px;text-align:center;">Connecte Strava</div>
     <p class="settings-sub" style="text-align:center;">Pour comparer tes séances planifiées à tes vraies activités (facultatif).</p>
-    ${wizardStepsHtml(3)}
+    ${wizardStepsHtml(4)}
     <div id="wizard-strava-status"><p class="settings-status">Chargement de Strava…</p></div>
     <button type="button" class="goal-save-btn wizard-next-btn" id="prefs-finish-btn" style="margin-top:24px;">Terminer ✓</button>
   </div>`;
@@ -1511,321 +1536,427 @@ const CARDIO_WARMUP_COOLDOWN = {
   run: { warmup: 25, cooldown: 10 },
 };
 
-function lightestFormat(pool){
-  return pool.reduce((best, entry) => entry.min < best.min ? entry : best, pool[0]);
+function tomorrowDate(){
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + 1);
+  return d;
 }
+
+function ymdFromDate(d){
+  return ymd(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function planStartDate(){
+  return currentPreferences.plan_start_date
+    ? new Date(currentPreferences.plan_start_date + 'T00:00:00')
+    : tomorrowDate();
+}
+
+// Effort zones shown on each session segment, described by feel (breathing
+// and how much you can talk) since the app has no heart-rate or pace data.
+const ZONES = {
+  Z1: { name: 'Très facile', feel: 'Respiration calme, tu peux parler sans effort.' },
+  Z2: { name: 'Endurance', feel: 'Confortable, tu peux tenir une conversation.' },
+  Z3: { name: 'Tempo', feel: 'Soutenu mais contrôlé, seulement des phrases courtes.' },
+  Z4: { name: 'Seuil', feel: 'Dur mais tenable plusieurs minutes, seulement quelques mots.' },
+  Z5: { name: 'Fractionné', feel: 'Très dur, sur des efforts courts, impossible de parler.' },
+};
+const ZONE_FOR_TYPE = { 'Sortie longue': 'Z2', Endurance: 'Z2', Tempo: 'Z3', Seuil: 'Z4', Fractionné: 'Z5' };
+
+// Season template for a full plan (16 weeks), read backward from the race —
+// the structure borrows from yootri's block model (github.com/nandocfz/yootri).
+// `ramp` is the load across the block's loading weeks, as a share of the
+// season's heaviest week; 4-week blocks end on a recovery week at `recovery`.
+// `presetLevel` picks which of a type's tree presets to use, ranked lightest
+// (0) to hardest (3).
+const SEASON_BLOCKS = [
+  { name: 'Base 1', phase: 1, weeks: 4, ramp: [0.70, 0.75], recovery: 0.60, presetLevel: 0 },
+  { name: 'Base 2', phase: 1, weeks: 4, ramp: [0.80, 0.85], recovery: 0.65, presetLevel: 1 },
+  { name: 'Construction', phase: 2, weeks: 4, ramp: [0.90, 1.00], recovery: 0.70, presetLevel: 2 },
+  { name: 'Spécifique', phase: 3, weeks: 2, ramp: [1.00, 0.90], presetLevel: 3 },
+  { name: 'Affûtage', phase: 4, weeks: 1, ramp: [0.70, 0.70], presetLevel: 0 },
+  { name: 'Course', phase: 4, weeks: 1, ramp: [0.50, 0.50], presetLevel: 0, raceWeek: true },
+];
+
+function expandSeasonBlock(block){
+  const loadingWeeks = block.recovery != null ? block.weeks - 1 : block.weeks;
+  return Array.from({ length: block.weeks }, (_, i) => {
+    const recovery = block.recovery != null && i === block.weeks - 1;
+    const [low, high] = block.ramp;
+    const load = recovery
+      ? block.recovery
+      : loadingWeeks === 1 ? low : low + (high - low) * i / (loadingWeeks - 1);
+    return { ...block, weekInBlock: i + 1, recovery, load };
+  });
+}
+
+// Lands the template on a plan of `weeksTotal` weeks ending on race week. A
+// shorter plan drops weeks from the front (taper and specific work are what
+// can't be skipped); a longer one pads the front with extra Base weeks,
+// repeating Base 1's 3+1 pattern so the padding ends on a recovery week.
+function fitSeasonToRace(weeksTotal){
+  const full = SEASON_BLOCKS.flatMap(expandSeasonBlock);
+  if (weeksTotal <= full.length) return full.slice(full.length - weeksTotal);
+  const baseCycle = expandSeasonBlock(SEASON_BLOCKS[0]).map(w => ({ ...w, name: 'Base' }));
+  const padLength = weeksTotal - full.length;
+  const pad = Array.from({ length: padLength }, (_, i) => {
+    const cycleIndex = ((i - padLength) % baseCycle.length + baseCycle.length) % baseCycle.length;
+    return { ...baseCycle[cycleIndex], presetLevel: 0 };
+  });
+  return pad.concat(full);
+}
+
+// Peak long session, as a multiple of the race distance (bike/run) or in
+// minutes (swim). Every other week's long session is this x the week's load.
+const LONG_SESSION_RATIO = { S: { bike: 2, run: 1.6 }, M: { bike: 1.5, run: 1.2 } };
+const SWIM_LONG_MIN = { S: 30, M: 45 };
+const SWIM_SHORT_FRACTION = 0.8; // non-long swims, relative to the long one
+const MIN_SWIM_DURATION = 25;
+const STRENGTH_DURATION = 30;
+
+// A sport's sessions in a week take roles in order: its 1st is the long
+// session, its 2nd the key session, the rest are complements. What each role
+// means depends on the phase (see cardioTypeFor / swimTypeFor); `null` means
+// the role has no session that week (the day is left free).
+function cardioTypeFor(week, role){
+  if (week.raceWeek) return role === 'clé' ? 'Tempo' : null;
+  if (role === 'longue') return 'Sortie longue';
+  // Key sessions of blocks listed in KEY_ALTERNATION_BY_BLOCK are swapped
+  // for the block's alternation in buildGeneratedPlan.
+  switch (week.phase) {
+    case 1: return 'Tempo';
+    case 2: return role === 'clé' ? 'Seuil' : 'Tempo';
+    case 3: return role === 'clé' ? 'Seuil' : 'Tempo';
+    default: return role === 'clé' ? 'Seuil' : null; // taper: no complements
+  }
+}
+
+// From Base 2 on, a sport's key sessions (bike/run) alternate Fractionné and
+// the block's other key type, starting with Fractionné. The alternation is
+// counted per sport by its own key sessions across the whole plan (not by
+// week, not restarting each block): a sport with one session a week only
+// gets its key session every other week, and any week-based or per-block
+// alternation could land it on the same type every time. Recovery weeks
+// always get a Tempo instead and don't count, so they never eat a
+// Fractionné. Fractionné comes in gently in Base (lightest presets, see
+// pickFormat).
+const KEY_PARTNER_BY_BLOCK = {
+  'Base 2': 'Tempo',
+  'Construction': 'Seuil',
+  'Spécifique': 'Seuil',
+};
+
+function swimTypeFor(week, role){
+  if (week.raceWeek) return role === 'clé' ? 'Endurance' : null;
+  if (role === 'longue') return 'Sortie longue';
+  if (role === 'clé') return week.phase === 1 ? 'Endurance' : 'Fractionné';
+  return week.phase === 4 ? null : 'Endurance';
+}
+
+// A sport with a single session that week can't be long *and* key, so its
+// role alternates week to week — offset between sports, so the week still
+// holds a mix (bike long while run does its key session, then the reverse).
+const SINGLE_SESSION_ROTATION = {
+  1: ['longue', 'clé'],
+  2: ['longue', 'clé'],
+  3: ['clé', 'longue'],
+  4: ['longue', 'clé'],
+};
+const SINGLE_SESSION_OFFSET = { bike: 0, run: 1, swim: 0 };
+
+// Long sessions claim their days first, bike first, so the long ride gets
+// the weekend before anything else does.
+const ROLE_PLACEMENT_ORDER = ['longue', 'clé', 'complément'];
+const LONG_PLACEMENT_ORDER = ['bike', 'run', 'swim'];
 
 function buildGeneratedPlan(){
   const trainingDays = DAY_OPTIONS.filter(d => currentPreferences.training_days.includes(d));
   // Order matters here: preferred_disciplines is saved in priority order
-  // (highest priority first), used below to weight who gets more sessions.
-  // Renfo never participates in this rotation — it's scheduled separately
-  // below, by fixed weekly frequency rather than competing for priority.
+  // (highest priority first), used to break ties below. Renfo never takes
+  // part in the weekly split — it's scheduled separately at the end.
   const disciplines = currentPreferences.preferred_disciplines.filter(d => CARDIO_DISCIPLINES.includes(d));
   if (trainingDays.length === 0 || disciplines.length === 0) return [];
 
-  const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
-  const planStart = currentPreferences.plan_start_date
-    ? new Date(currentPreferences.plan_start_date + 'T00:00:00')
-    : tomorrow;
+  // The race date is the plan's end: no race date (or a race before the
+  // start) means there's nothing to build toward, so no plan.
+  const planStart = planStartDate();
+  const raceDate = currentGoals?.race_date ? new Date(currentGoals.race_date + 'T00:00:00') : null;
+  if (!raceDate || raceDate <= planStart) return [];
 
   // Weeks are always real Monday-Sunday calendar weeks, not rolling periods
-  // from planStart — otherwise a single displayed week could span the tail
-  // of one calendar week and the start of the next (e.g. Sunday then
-  // Monday out of order). If planStart isn't a Monday, week 1 is simply a
-  // short partial week (as few as one day), and week 2 properly starts on
-  // the next Monday.
+  // from planStart. If planStart isn't a Monday, week 1 is simply a short
+  // partial week, and week 2 properly starts on the next Monday.
   const planStartDow = (planStart.getDay() + 6) % 7; // 0 = Monday, ..., 6 = Sunday
   const firstMonday = new Date(planStart);
   firstMonday.setDate(planStart.getDate() - planStartDow);
 
-  const raceDate = currentGoals?.race_date ? new Date(currentGoals.race_date + 'T00:00:00') : null;
-  let weeksTotal = 8;
-  if (raceDate && raceDate > planStart) {
-    weeksTotal = Math.round((raceDate - planStart) / (7 * 86400000));
-    weeksTotal = Math.max(8, Math.min(20, weeksTotal));
+  // Every training day from the start up to the day before the race (no
+  // session on race day itself), grouped by week. The last week is the race
+  // week; a Monday race counts the week before it as race week instead of
+  // leaving an empty one.
+  const weekDays = new Map(); // weekNumber -> [{ date, dateStr, dayIndex }]
+  const trainingDaySet = new Set(trainingDays);
+  const totalDays = Math.round((raceDate - planStart) / 86400000);
+  let weeksTotal = 0;
+  for (let dayIndex = 0; dayIndex < totalDays; dayIndex++) {
+    const date = new Date(planStart);
+    date.setDate(planStart.getDate() + dayIndex);
+    const daysSinceFirstMonday = Math.round((date - firstMonday) / 86400000);
+    const weekNumber = Math.floor(daysSinceFirstMonday / 7) + 1;
+    weeksTotal = weekNumber;
+    if (!trainingDaySet.has(DAY_OPTIONS[(date.getDay() + 6) % 7])) continue;
+    if (!weekDays.has(weekNumber)) weekDays.set(weekNumber, []);
+    weekDays.get(weekNumber).push({ date, dateStr: ymd(date.getFullYear(), date.getMonth(), date.getDate()), dayIndex });
   }
 
-  const phase4Weeks = Math.min(2, weeksTotal);
-  const remaining = weeksTotal - phase4Weeks;
-  const phase1Weeks = Math.ceil(remaining * 0.45);
-  const phase2Weeks = Math.ceil(remaining * 0.30);
-  const phase3Weeks = Math.max(0, remaining - phase1Weeks - phase2Weeks);
-
-  function phaseForWeek(weekNumber){
-    if (weekNumber <= phase1Weeks) return 1;
-    if (weekNumber <= phase1Weeks + phase2Weeks) return 2;
-    if (weekNumber <= phase1Weeks + phase2Weeks + phase3Weeks) return 3;
-    return 4;
-  }
+  const season = fitSeasonToRace(weeksTotal);
+  const raceSize = currentGoals?.size === 'S' ? 'S' : 'M';
+  const disciplineWeights = disciplines.map(d => currentPreferences.discipline_priority?.[d] || DEFAULT_PRIORITY_LEVEL);
 
   function constraintForDate(dateStr){
     return currentConstraints.find(c => dateStr >= c.start_date && dateStr <= c.end_date);
   }
 
-  // Peak (best-week) session duration per discipline, derived from the
-  // user's own race goal when set (a full race-split duration is
-  // unrealistic as a regular training session, so it's scaled down and
-  // clamped to a sane range), otherwise a generic fallback.
-  const PEAK_DURATION_FALLBACK_MIN = { swim: 30, bike: 45, run: 35, strength: 30 };
-  const PEAK_DURATION_CLAMP_MIN = { swim: [20, 60], bike: [30, 120], run: [20, 90] };
-  // Floor applied after load-fraction scaling — below this a session isn't
-  // really a workout, particularly for swim.
-  const MIN_SESSION_DURATION = { swim: 25, bike: 25, run: 20, strength: 20 };
-  function peakMinutesFor(discipline){
-    if (discipline === 'strength') return PEAK_DURATION_FALLBACK_MIN.strength;
-    const goalSec = currentGoals?.[`${discipline}_duration_sec`];
-    if (!goalSec) return PEAK_DURATION_FALLBACK_MIN[discipline];
-    const [floor, ceiling] = PEAK_DURATION_CLAMP_MIN[discipline];
-    return Math.max(floor, Math.min(ceiling, (goalSec / 60) * 0.6));
-  }
-
-  // Weekly load fraction of peak duration: ramps 0.7 -> 1.0 across the
-  // base/build/specific phases (3-weeks-up, 1-week-down recovery pattern),
-  // then a flat deload for the taper phase. Floors are kept fairly high —
-  // going much below this makes sessions (especially swim) too short to be
-  // a real workout, and compounding a low ramp with the recovery-week
-  // multiplier was pushing sessions all the way down to the length floor.
-  const loadWeeks = phase1Weeks + phase2Weeks + phase3Weeks;
-  function loadFractionForWeek(weekNumber){
-    if (weekNumber > loadWeeks) return 0.6; // taper
-    let fraction = 0.7 + 0.3 * (weekNumber / loadWeeks);
-    if (weekNumber % 4 === 0) fraction *= 0.8; // recovery week
-    return fraction;
-  }
-
-  // Swim still uses the old skeleton system (80/20, 5-slot cycle) — its
-  // trees/content are deferred to a later pass. Bike and run use the new
-  // tree-based system built below instead.
-  const disciplineOccurrence = Object.fromEntries(disciplines.map(d => [d, 0]));
-  function legacyWorkoutTypeFor(discipline){
-    const slot = disciplineOccurrence[discipline] % 5;
-    disciplineOccurrence[discipline]++;
-    if (slot === 4) return 'Sortie longue';
-    if (slot === 2) return 'Fractionné';
-    return 'Endurance';
-  }
-  const TYPE_DURATION_FRACTION = { 'Sortie longue': 1, 'Endurance': 0.65, 'Fractionné': 0.55 };
-
-  const raceSize = currentGoals?.size === 'S' ? 'S' : 'M';
-
-  // Run's long session grows toward the race distance as the race
-  // approaches, reusing the same ramp/recovery/taper shape as
-  // loadFractionForWeek (applied to distance instead of duration).
-  function runLongDistanceKm(weekNumber){
-    const raceKm = currentGoals?.run_distance_km || RACE_SIZE_DISTANCES[raceSize].run_distance_km;
-    return Math.round(raceKm * loadFractionForWeek(weekNumber) * 10) / 10;
-  }
-
-  // Bike's long ride has no target ceiling — it grows every time it occurs
-  // (race distance x1.1, x1.2, x1.3...), still dampened on recovery weeks
-  // and flattened for taper so it doesn't keep growing into the race.
-  let bikeLongOccurrence = 0;
-  function bikeLongDistanceKm(weekNumber){
-    const raceKm = currentGoals?.bike_distance_km || RACE_SIZE_DISTANCES[raceSize].bike_distance_km;
-    if (weekNumber > loadWeeks) return Math.round(raceKm * 0.6 * 10) / 10; // taper
-    let distance = raceKm * (1.1 + 0.1 * bikeLongOccurrence);
-    bikeLongOccurrence++;
-    if (weekNumber % 4 === 0) distance *= 0.8; // recovery week
-    return Math.round(distance * 10) / 10;
-  }
-
-  // Duration is intentionally left null for generated bike/run sessions —
-  // estimating it means guessing at paces/main-set timing we don't have real
-  // numbers for yet. Distance, format text, and segment structure are real
-  // (from the rules/trees), so those are still filled in.
-  function applySortieLongue(row, discipline, weekNumber){
-    if (discipline === 'run') {
-      const distanceKm = runLongDistanceKm(weekNumber);
-      row.title = 'Sortie longue';
-      row.tag = `≈${distanceKm} km`;
-      row.duration_min = null;
-      row.segments = [{ label: 'Sortie longue', text: `${distanceKm} km à allure confortable.` }];
+  // How many sessions each sport gets this week. With at least one day per
+  // sport, every sport gets one and the extra days go by priority (Haute x3,
+  // Moyenne x2, Basse x1) through a smooth weighted round-robin started fresh
+  // each week, so the split is the same every full week. With fewer days than
+  // sports, the round-robin carries over between weeks so lower-priority
+  // sports still come up in turn.
+  const carriedCredit = new Array(disciplines.length).fill(0);
+  function sessionCounts(dayCount){
+    const counts = new Array(disciplines.length).fill(0);
+    let credit;
+    let picks;
+    if (dayCount >= disciplines.length) {
+      counts.fill(1);
+      credit = new Array(disciplines.length).fill(0);
+      picks = dayCount - disciplines.length;
     } else {
-      const distanceKm = bikeLongDistanceKm(weekNumber);
-      row.title = 'Sortie longue';
-      row.tag = `≈${distanceKm} km`;
-      row.duration_min = null;
-      row.segments = [{ label: 'Sortie longue', text: `${distanceKm} km à allure tranquille.` }];
+      credit = carriedCredit;
+      picks = dayCount;
     }
+    const weightTotal = disciplineWeights.reduce((a, b) => a + b, 0);
+    for (let p = 0; p < picks; p++) {
+      disciplineWeights.forEach((w, i) => { credit[i] += w; });
+      const chosen = credit.reduce((best, c, i) => c > credit[best] ? i : best, 0);
+      credit[chosen] -= weightTotal;
+      counts[chosen]++;
+    }
+    return counts;
   }
 
-  // Cycles through that type's 4 tree presets in order (repeating) — except
-  // in taper, where it always uses the lightest (per the curated `min` used
-  // only to rank variants, not to compute/display a duration).
+  function rolesFor(discipline, count, weekNumber, week){
+    if (count === 0) return [];
+    if (count === 1) {
+      if (week.raceWeek) return ['clé'];
+      const rotation = SINGLE_SESSION_ROTATION[week.phase];
+      return [rotation[(weekNumber + SINGLE_SESSION_OFFSET[discipline]) % rotation.length]];
+    }
+    return ['longue', 'clé', ...Array(count - 2).fill('complément')];
+  }
+
+  function typeFor(discipline, week, role){
+    return discipline === 'swim' ? swimTypeFor(week, role) : cardioTypeFor(week, role);
+  }
+
+  // Greedy placement, one session per day: each session takes the free day
+  // with the lowest penalty (earliest day on ties).
+  function placeWeek(sessions, days){
+    const isWeekend = day => day.date.getDay() === 0 || day.date.getDay() === 6;
+    const adjacent = (a, b) => Math.abs(a.dayIndex - b.dayIndex) === 1;
+    const placed = [];
+    const ordered = [...sessions].sort((a, b) =>
+      ROLE_PLACEMENT_ORDER.indexOf(a.role) - ROLE_PLACEMENT_ORDER.indexOf(b.role)
+      || LONG_PLACEMENT_ORDER.indexOf(a.discipline) - LONG_PLACEMENT_ORDER.indexOf(b.discipline));
+
+    for (const session of ordered) {
+      const free = days.filter(day => !placed.some(p => p.day === day));
+      if (free.length === 0) break;
+      const penalty = day => {
+        const neighbours = placed.filter(p => adjacent(p.day, day));
+        let score = 0;
+        if (neighbours.some(p => p.discipline === session.discipline)) score += 10;
+        if (session.role === 'clé' && neighbours.some(p => p.role === 'clé')) score += 5;
+        if (session.role === 'longue' && !isWeekend(day)) score += 3;
+        if (session.role === 'clé' && isWeekend(day)) score += 2;
+        return score;
+      };
+      const day = free.reduce((best, d) => penalty(d) < penalty(best) ? d : best, free[0]);
+      placed.push({ ...session, day });
+    }
+    return placed;
+  }
+
+  // Presets are ranked by the curated `min` (used only to rank variants, not
+  // to display a duration). For variety, each block alternates between two
+  // neighbouring presets — its own level and the next one up (the two
+  // hardest at the top, hardest first) — so sessions change within a block
+  // while still getting harder block to block. Recovery weeks and the taper
+  // use a single light preset; Fractionné in Base (its introduction)
+  // alternates between the two lightest.
   const formatOccurrence = {};
-  function applyTreeType(row, discipline, weekNumber, type){
-    const pool = SESSION_FORMATS[discipline][raceSize][type];
-    const key = `${discipline}-${type}`;
-    let pick;
-    if (phaseForWeek(weekNumber) === 4) {
-      pick = lightestFormat(pool);
-    } else {
-      const i = formatOccurrence[key] || 0;
-      pick = pool[i % pool.length];
-      formatOccurrence[key] = i + 1;
-    }
-    const { warmup, cooldown } = CARDIO_WARMUP_COOLDOWN[discipline];
+  function pickFormat(discipline, type, week){
+    const ranked = [...SESSION_FORMATS[discipline][raceSize][type]].sort((a, b) => a.min - b.min);
+    const top = ranked.length - 1;
+    let choices;
+    if (week.phase === 4) choices = [0];
+    else if (week.recovery) choices = [Math.max(0, week.presetLevel - 1)];
+    else if (week.phase === 1 && type === 'Fractionné') choices = [0, 1];
+    else if (week.presetLevel >= top) choices = [top, top - 1];
+    else choices = [week.presetLevel, week.presetLevel + 1];
+    // Restarts each block, so a block always opens on its own level.
+    const key = `${discipline}-${type}-${week.name}`;
+    const occurrence = formatOccurrence[key] || 0;
+    formatOccurrence[key] = occurrence + 1;
+    return ranked[Math.min(choices[occurrence % choices.length], top)];
+  }
+
+  function longDistanceKm(discipline, week){
+    const raceKm = currentGoals?.[`${discipline}_distance_km`] || RACE_SIZE_DISTANCES[raceSize][`${discipline}_distance_km`];
+    const km = raceKm * LONG_SESSION_RATIO[raceSize][discipline] * week.load;
+    return discipline === 'bike' ? Math.round(km) : Math.round(km * 2) / 2;
+  }
+
+  // Duration is intentionally left null for bike/run — estimating it means
+  // guessing at paces we don't have. Distance, format text and segment
+  // structure are real (from the rules/trees), so those are filled in.
+  function fillCardio(row, discipline, week, role, type){
     row.title = type;
-    row.tag = pick.text;
     row.duration_min = null;
+    if (type === 'Sortie longue') {
+      const distanceKm = longDistanceKm(discipline, week);
+      row.tag = `≈${distanceKm} km`;
+      row.segments = [{ label: 'Sortie longue', zone: ZONE_FOR_TYPE['Sortie longue'], text: `${distanceKm} km à allure ${discipline === 'run' ? 'confortable' : 'tranquille'}.` }];
+      return;
+    }
+    const pick = pickFormat(discipline, type, week);
+    const { warmup, cooldown } = CARDIO_WARMUP_COOLDOWN[discipline];
+    row.tag = pick.text;
+    const recoveryNote = type === 'Tempo' ? '' : ' Récupération entre les répétitions en Z1.';
     row.segments = [
-      { label: 'Échauffement', text: `${warmup} min à allure facile.` },
-      { label: 'Corps de séance', text: pick.text },
-      { label: 'Retour au calme', text: `${cooldown} min à allure facile.` },
+      { label: 'Échauffement', zone: 'Z1', text: `${warmup} min à allure facile.` },
+      { label: 'Corps de séance', zone: ZONE_FOR_TYPE[type], text: `${pick.text}.${recoveryNote}` },
+      { label: 'Retour au calme', zone: 'Z1', text: `${cooldown} min à allure facile.` },
     ];
   }
 
-  // Sortie longue/Fractionné are capped at 1/week, not guaranteed every
-  // week — a continuous per-discipline occurrence cycle gives them their
-  // old rough 1-in-5 frequency, and a per-week guard converts a would-be
-  // 2nd long/Fractionné that week into Tempo/Seuil instead of ever placing
-  // two of the same capped type in the same week.
-  const cardioTypeOccurrence = { bike: 0, run: 0 };
-  const tempoSeuilAlternator = { bike: 0, run: 0 };
-  const weekTypesUsed = new Map(); // weekNumber -> { bike: Set, run: Set }
-  function pickCardioType(discipline, weekNumber){
-    if (!weekTypesUsed.has(weekNumber)) weekTypesUsed.set(weekNumber, { bike: new Set(), run: new Set() });
-    const usedThisWeek = weekTypesUsed.get(weekNumber)[discipline];
-
-    const slot = cardioTypeOccurrence[discipline] % 5;
-    cardioTypeOccurrence[discipline]++;
-
-    let type;
-    if (slot === 4 && !usedThisWeek.has('Sortie longue')) type = 'Sortie longue';
-    else if (slot === 2 && !usedThisWeek.has('Fractionné')) type = 'Fractionné';
-    else {
-      type = tempoSeuilAlternator[discipline] % 2 === 0 ? 'Tempo' : 'Seuil';
-      tempoSeuilAlternator[discipline]++;
-    }
-
-    usedThisWeek.add(type);
-    return type;
-  }
-
-  const trainingDaySet = new Set(trainingDays);
-
-  // Smooth weighted round-robin: sports at a higher priority tier get
-  // proportionally more sessions when there are more training days than
-  // sports, and proportionally fewer when sports outnumber training days.
-  // Weight comes directly from each sport's saved priority tier (1-3), so
-  // sports sharing a tier get equal weight instead of every sport needing a
-  // distinct rank.
-  const disciplineWeights = disciplines.map(d => currentPreferences.discipline_priority?.[d] || DEFAULT_PRIORITY_LEVEL);
-  const disciplineCredit = new Array(disciplines.length).fill(0);
-
-  function pickDiscipline(isAllowed){
-    // Only accrue credit for disciplines eligible *today* — otherwise a
-    // multi-week contrainte (e.g. "run only") lets every blocked discipline
-    // pile up unspent credit for weeks, which then dominates picks for a
-    // long stretch after the contrainte ends, effectively suppressing
-    // whatever was constrained instead of resuming normally.
-    const eligible = disciplines.map((_, i) => i).filter(i => isAllowed(disciplines[i]));
-    if (eligible.length === 0) return null;
-
-    eligible.forEach(i => { disciplineCredit[i] += disciplineWeights[i]; });
-    const chosen = eligible.reduce((best, i) => disciplineCredit[i] > disciplineCredit[best] ? i : best, eligible[0]);
-    const eligibleWeightTotal = eligible.reduce((sum, i) => sum + disciplineWeights[i], 0);
-    disciplineCredit[chosen] -= eligibleWeightTotal;
-    return disciplines[chosen];
+  // Swim still uses the old skeleton system (type + duration only) — its
+  // trees/content are deferred to a later pass.
+  function fillSwim(row, week, role, type){
+    row.tag = type;
+    const fraction = role === 'longue' ? 1 : SWIM_SHORT_FRACTION;
+    row.duration_min = Math.max(MIN_SWIM_DURATION, Math.round(SWIM_LONG_MIN[raceSize] * week.load * fraction / 5) * 5);
+    row.segments = [{
+      label: 'Corps de séance',
+      zone: ZONE_FOR_TYPE[type],
+      text: type === 'Fractionné'
+        ? 'Répétitions rapides, récupération entre chaque en Z1.'
+        : 'Nage continue, régulière.',
+    }];
   }
 
   let sessionCounter = 0;
-  let orderIndexInWeek = 0;
-  let lastWeekNumber = 0;
   const rows = [];
-  // Every training-day date, grouped by week — used below to place Renfo
-  // sessions, independent of whether a cardio session landed that day.
-  const weekDates = new Map();
+  const keySessionCount = {}; // discipline -> non-recovery key sessions so far, from Base 2 on
 
-  // Generous day upper bound (planStart isn't necessarily a Monday, so the
-  // first calendar week can be partial and "use up" days without covering a
-  // full week) — the loop below stops itself once weekNumber exceeds
-  // weeksTotal, which is what actually bounds the plan to its intended
-  // length (otherwise the tail spills into an extra week that falls past
-  // every phase boundary and silently extends the taper).
-  const totalDays = (weeksTotal + 1) * 7;
-  for (let dayIndex = 0; dayIndex < totalDays; dayIndex++) {
-    const date = new Date(planStart);
-    date.setDate(planStart.getDate() + dayIndex);
+  for (let weekNumber = 1; weekNumber <= weeksTotal; weekNumber++) {
+    const days = weekDays.get(weekNumber) || [];
+    if (days.length === 0) continue;
+    const week = season[weekNumber - 1];
 
-    const daysSinceFirstMonday = Math.round((date - firstMonday) / 86400000);
-    const weekNumber = Math.floor(daysSinceFirstMonday / 7) + 1;
-    if (weekNumber > weeksTotal) break;
+    const counts = sessionCounts(days.length);
+    const sessions = disciplines.flatMap((discipline, i) =>
+      rolesFor(discipline, counts[i], weekNumber, week)
+        .filter(role => typeFor(discipline, week, role) !== null)
+        .map(role => ({ discipline, role })));
 
-    const dow = DAY_OPTIONS[(date.getDay() + 6) % 7];
-    if (!trainingDaySet.has(dow)) continue;
+    const placed = placeWeek(sessions, days);
 
-    if (weekNumber !== lastWeekNumber) {
-      orderIndexInWeek = 0;
-      lastWeekNumber = weekNumber;
-    }
-
-    const dateStr = ymd(date.getFullYear(), date.getMonth(), date.getDate());
-    if (!weekDates.has(weekNumber)) weekDates.set(weekNumber, []);
-    weekDates.get(weekNumber).push(dateStr);
-
-    const constraint = constraintForDate(dateStr);
-    const discipline = pickDiscipline(candidate => !constraint || constraint.allowed_disciplines.includes(candidate));
-    if (!discipline) continue; // no allowed discipline available this day — skip it
-
-    sessionCounter++;
-
-    const row = {
-      session_key: `gen-${sessionCounter}`,
-      week_number: weekNumber,
-      phase: phaseForWeek(weekNumber),
-      order_index: orderIndexInWeek,
-      discipline,
-      icon: DISCIPLINE_EMOJI[discipline],
-      title: DISCIPLINE_LABELS[discipline],
-      tag: null,
-      duration_min: null,
-      segments: [],
-      session_date: dateStr,
+    // A contrainte blocking a session's sport hands its day to an allowed
+    // sport — the user's own first (highest priority first), else any allowed
+    // cardio sport. Nothing allowed: the day stays free. The replacement keeps
+    // the role unless that sport already has it this week (one long and one
+    // key session per sport), in which case it takes the next role down.
+    const rolesUsed = new Map(); // discipline -> Set of roles this week
+    const markRole = (discipline, role) => {
+      if (!rolesUsed.has(discipline)) rolesUsed.set(discipline, new Set());
+      rolesUsed.get(discipline).add(role);
     };
-    rows.push(row);
-    orderIndexInWeek++;
-
-    if (discipline === 'bike' || discipline === 'run') {
-      const type = pickCardioType(discipline, weekNumber);
-      if (type === 'Sortie longue') applySortieLongue(row, discipline, weekNumber);
-      else applyTreeType(row, discipline, weekNumber, type);
-    } else {
-      // Swim (and anything else non-tree): keep the original skeleton system.
-      const tag = legacyWorkoutTypeFor(discipline);
-      row.tag = tag;
-      row.duration_min = Math.max(
-        MIN_SESSION_DURATION[discipline],
-        Math.round((peakMinutesFor(discipline) * TYPE_DURATION_FRACTION[tag] * loadFractionForWeek(weekNumber)) / 5) * 5
-      );
+    const isBlocked = s => {
+      const constraint = constraintForDate(s.day.dateStr);
+      return constraint && !constraint.allowed_disciplines.includes(s.discipline);
+    };
+    placed.filter(s => !isBlocked(s)).forEach(s => markRole(s.discipline, s.role));
+    for (const session of [...placed].sort((a, b) => a.day.dayIndex - b.day.dayIndex)) {
+      if (!isBlocked(session)) continue;
+      const allowed = constraintForDate(session.day.dateStr).allowed_disciplines.filter(d => CARDIO_DISCIPLINES.includes(d));
+      session.discipline = disciplines.find(d => allowed.includes(d)) || allowed[0] || null;
+      if (!session.discipline) continue;
+      const used = rolesUsed.get(session.discipline) || new Set();
+      const fromIndex = ROLE_PLACEMENT_ORDER.indexOf(session.role);
+      session.role = ROLE_PLACEMENT_ORDER.slice(fromIndex).find(r => r === 'complément' || !used.has(r));
+      markRole(session.discipline, session.role);
     }
+
+    placed
+      .filter(s => s.discipline)
+      .sort((a, b) => a.day.dayIndex - b.day.dayIndex)
+      .forEach((session, orderIndex) => {
+        let type = typeFor(session.discipline, week, session.role);
+        if (!type) return;
+        const partner = KEY_PARTNER_BY_BLOCK[week.name];
+        if (partner && session.role === 'clé' && session.discipline !== 'swim') {
+          if (week.recovery) {
+            type = 'Tempo';
+          } else {
+            const count = keySessionCount[session.discipline] || 0;
+            keySessionCount[session.discipline] = count + 1;
+            type = count % 2 === 0 ? 'Fractionné' : partner;
+          }
+        }
+        sessionCounter++;
+        const row = {
+          session_key: `gen-${sessionCounter}`,
+          week_number: weekNumber,
+          phase: week.phase,
+          order_index: orderIndex,
+          discipline: session.discipline,
+          icon: DISCIPLINE_EMOJI[session.discipline],
+          title: DISCIPLINE_LABELS[session.discipline],
+          tag: null,
+          duration_min: null,
+          segments: [],
+          session_date: session.day.dateStr,
+        };
+        if (session.discipline === 'swim') fillSwim(row, week, session.role, type);
+        else fillCardio(row, session.discipline, week, session.role, type);
+        rows.push(row);
+      });
   }
 
   // Renfo: fixed frequency per week, placed on that week's first N training
-  // days (chronologically) rather than competing in the cardio rotation.
+  // days (chronologically) rather than competing in the weekly split.
   // Not filtered by contraintes — those only ever restrict cardio disciplines
   // in the UI (the contrainte discipline picker no longer offers Renfo).
   const strengthPerWeek = Math.min(currentPreferences.strength_sessions_per_week || 0, trainingDays.length);
   if (strengthPerWeek > 0) {
-    const strengthDuration = peakMinutesFor('strength');
-    for (const [weekNumber, dates] of weekDates) {
-      dates.slice(0, strengthPerWeek).forEach((dateStr, i) => {
+    for (const [weekNumber, days] of weekDays) {
+      days.slice(0, strengthPerWeek).forEach((day, i) => {
         sessionCounter++;
         rows.push({
           session_key: `gen-${sessionCounter}`,
           week_number: weekNumber,
-          phase: phaseForWeek(weekNumber),
+          phase: season[weekNumber - 1].phase,
           order_index: 1000 + i, // after that week's cardio sessions; exact value isn't meaningful, rendering sorts by date
           discipline: 'strength',
           icon: DISCIPLINE_EMOJI.strength,
           title: DISCIPLINE_LABELS.strength,
           tag: 'Renforcement',
-          duration_min: strengthDuration,
+          duration_min: STRENGTH_DURATION,
           segments: [],
-          session_date: dateStr,
+          session_date: day.dateStr,
         });
       });
     }
@@ -1936,7 +2067,8 @@ async function resetGeneratedPlan(){
 }
 
 function renderTrainingPrefsPanel(){
-  if (!currentPreferences) return;
+  // Goals and preferences load in parallel; the wizard's first step needs both.
+  if (!currentPreferences || !currentGoals) return;
   const container = document.getElementById('training-prefs-container');
 
   if (trainingPrefsOnboardingDone === null) trainingPrefsOnboardingDone = isPrefsConfigured();
@@ -1951,35 +2083,46 @@ function renderTrainingPrefsPanel(){
   }
 
   if (!trainingPrefsOnboardingDone) {
-    if (trainingPrefsStep === 3) {
+    if (trainingPrefsStep === 4) {
       container.innerHTML = trainingPrefsStep3Html();
       renderStravaSettingsContent('wizard-strava-status', false);
       document.getElementById('prefs-back-btn').addEventListener('click', () => {
-        trainingPrefsStep = 2;
+        trainingPrefsStep = 3;
         renderTrainingPrefsPanel();
       });
       document.getElementById('prefs-finish-btn').addEventListener('click', () => {
         finishOnboarding(document.getElementById('prefs-finish-btn'));
       });
-    } else if (trainingPrefsStep === 2) {
+    } else if (trainingPrefsStep === 3) {
       container.innerHTML = trainingPrefsStep2Html(currentPreferences, currentConstraints);
       renderConstraintList();
       wireContraintesSection();
       document.getElementById('prefs-back-btn').addEventListener('click', () => {
-        trainingPrefsStep = 1;
+        trainingPrefsStep = 2;
         renderTrainingPrefsPanel();
       });
       document.getElementById('prefs-step2-next-btn').addEventListener('click', async () => {
         const nextBtn = document.getElementById('prefs-step2-next-btn');
+        const errorEl = document.getElementById('contraintes-step-error');
+        if (ymdFromDate(planStartDate()) >= currentGoals.race_date) {
+          errorEl.textContent = `Le plan doit commencer avant la course (${formatDateShort(currentGoals.race_date)}).`;
+          errorEl.hidden = false;
+          return;
+        }
+        errorEl.hidden = true;
         if (await isStravaVisible()) {
-          trainingPrefsStep = 3;
+          trainingPrefsStep = 4;
           renderTrainingPrefsPanel();
         } else {
           await finishOnboarding(nextBtn);
         }
       });
-    } else {
+    } else if (trainingPrefsStep === 2) {
       container.innerHTML = trainingPrefsStep1Html(currentPreferences);
+      document.getElementById('prefs-back-btn').addEventListener('click', () => {
+        trainingPrefsStep = 1;
+        renderTrainingPrefsPanel();
+      });
       const selectedDays = new Set(currentPreferences.training_days);
       const preferredOrder = currentPreferences.preferred_disciplines.filter(d => CARDIO_DISCIPLINES.includes(d));
       const priorityMap = Object.fromEntries(preferredOrder.map(d => [d, currentPreferences.discipline_priority?.[d] || DEFAULT_PRIORITY_LEVEL]));
@@ -2004,6 +2147,27 @@ function renderTrainingPrefsPanel(){
           return;
         }
         currentPreferences = updated;
+        trainingPrefsStep = 3;
+        renderTrainingPrefsPanel();
+      });
+    } else {
+      container.innerHTML = trainingPrefsRaceStepHtml(currentGoals);
+      const getSize = wireRaceSizeButtons(currentGoals.size);
+      document.getElementById('prefs-race-next-btn').addEventListener('click', async () => {
+        const raceDate = document.getElementById('race-info-date').value;
+        const errorEl = document.getElementById('race-step-error');
+        if (!raceDate || raceDate <= ymdFromDate(new Date())) {
+          errorEl.textContent = 'Choisis une date de course à venir.';
+          errorEl.hidden = false;
+          return;
+        }
+        errorEl.hidden = true;
+        const saved = await saveRaceInfo({
+          name: document.getElementById('race-info-name').value.trim() || null,
+          raceDate,
+          size: getSize(),
+        });
+        if (!saved) return;
         trainingPrefsStep = 2;
         renderTrainingPrefsPanel();
       });
@@ -2127,31 +2291,32 @@ const RACE_SIZE_DISTANCES = {
   M: { swim_distance_m: 1500, bike_distance_km: 40, run_distance_km: 10 },
 };
 
-function raceInfoEditorHtml(goals){
-  return `<div class="detail-title" style="margin-bottom:16px;">Mon triathlon</div>
-    <div class="goal-field">
+function raceInfoFieldsHtml(goals, minDate = null){
+  return `<div class="goal-field">
       <label>Nom</label>
       <input type="text" id="race-info-name" value="${escapeHtml(goals.name || '')}">
     </div>
     <div class="goal-field">
       <label>Date</label>
-      <input type="date" id="race-info-date" value="${goals.race_date || ''}">
+      <input type="date" id="race-info-date" value="${goals.race_date || ''}"${minDate ? ` min="${minDate}"` : ''}>
     </div>
     <div class="goal-field">
       <label>Format</label>
       <div class="race-size-options">${['S', 'M']
         .map(sz => `<button type="button" class="race-size-btn${goals.size === sz ? ' active' : ''}" data-size="${sz}">${RACE_SIZE_LABELS[sz]}</button>`)
         .join('')}</div>
-    </div>
+    </div>`;
+}
+
+function raceInfoEditorHtml(goals){
+  return `<div class="detail-title" style="margin-bottom:16px;">Mon triathlon</div>
+    ${raceInfoFieldsHtml(goals)}
     <button type="button" class="goal-save-btn" id="save-race-info-btn">Enregistrer</button>`;
 }
 
-function openRaceInfoEditor(){
-  if (!currentGoals) return;
-  let selectedSize = currentGoals.size;
-
-  document.getElementById('detail-content').innerHTML = raceInfoEditorHtml(currentGoals);
-
+// Returns a getter for the currently selected size.
+function wireRaceSizeButtons(initialSize){
+  let selectedSize = initialSize;
   document.querySelectorAll('.race-size-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       selectedSize = btn.dataset.size;
@@ -2159,24 +2324,40 @@ function openRaceInfoEditor(){
       btn.classList.add('active');
     });
   });
+  return () => selectedSize;
+}
+
+async function saveRaceInfo({ name, raceDate, size }){
+  const sizeChanged = size !== currentGoals.size;
+  const notYetConfigured = currentGoals.swim_distance_m == null;
+  const distances = (sizeChanged || notYetConfigured) ? RACE_SIZE_DISTANCES[size] : {};
+
+  const updated = { ...currentGoals, name, race_date: raceDate, size, ...distances, updated_at: new Date().toISOString() };
+  const { error } = await supabase.from('plan_race_goals').upsert(updated);
+  if (error) {
+    console.error('Erreur de sauvegarde des infos de course', error);
+    return false;
+  }
+  currentGoals = updated;
+  renderRaceInfo(currentGoals);
+  renderGoals(currentGoals);
+  updateSplitLabels(currentGoals);
+  return true;
+}
+
+function openRaceInfoEditor(){
+  if (!currentGoals) return;
+
+  document.getElementById('detail-content').innerHTML = raceInfoEditorHtml(currentGoals);
+  const getSize = wireRaceSizeButtons(currentGoals.size);
 
   document.getElementById('save-race-info-btn').addEventListener('click', async () => {
-    const name = document.getElementById('race-info-name').value.trim() || null;
-    const raceDate = document.getElementById('race-info-date').value || currentGoals.race_date;
-    const sizeChanged = selectedSize !== currentGoals.size;
-    const notYetConfigured = currentGoals.swim_distance_m == null;
-    const distances = (sizeChanged || notYetConfigured) ? RACE_SIZE_DISTANCES[selectedSize] : {};
-
-    const updated = { ...currentGoals, name, race_date: raceDate, size: selectedSize, ...distances, updated_at: new Date().toISOString() };
-    const { error } = await supabase.from('plan_race_goals').upsert(updated);
-    if (error) {
-      console.error('Erreur de sauvegarde des infos de course', error);
-      return;
-    }
-    currentGoals = updated;
-    renderRaceInfo(currentGoals);
-    renderGoals(currentGoals);
-    updateSplitLabels(currentGoals);
+    const saved = await saveRaceInfo({
+      name: document.getElementById('race-info-name').value.trim() || null,
+      raceDate: document.getElementById('race-info-date').value || currentGoals.race_date,
+      size: getSize(),
+    });
+    if (!saved) return;
     closeDetail();
     maybeShowOnboardingPopup(currentGoals);
   });

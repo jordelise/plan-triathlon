@@ -25,6 +25,11 @@
   --sand:#DED0AC;
   --paper-2:#E8E1CE;
   --line: rgba(22,41,43,0.14);
+  --z1:#6F9A8D;
+  --z2:var(--pool);
+  --z3:#C9A227;
+  --z4:var(--pace);
+  --z5:var(--coral);
 }
 *{box-sizing:border-box;}
 
@@ -914,6 +919,35 @@ details[open] .chevron{transform:rotate(180deg);}
 .detail-segments{font-size:14px;line-height:1.6;color:#2A3B3C;margin:0;}
 .detail-segments .seg{display:block;margin-bottom:10px;}
 .detail-segments .seg:last-child{margin-bottom:0;}
+.zone-chip{
+  display:inline-block;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;
+  font-weight:600;
+  line-height:1;
+  padding:3px 6px;
+  border-radius:5px;
+  color:#fff;
+  vertical-align:1px;
+}
+.zone-chip.z1{background:var(--z1);}
+.zone-chip.z2{background:var(--z2);}
+.zone-chip.z3{background:var(--z3);}
+.zone-chip.z4{background:var(--z4);}
+.zone-chip.z5{background:var(--z5);}
+.zone-legend{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  margin-top:14px;
+  padding-top:12px;
+  border-top:1px solid var(--line);
+  font-size:12.5px;
+  line-height:1.45;
+  color:var(--tarmac);
+}
+.zone-legend-row{display:flex;align-items:baseline;gap:8px;}
+.zone-legend-row b{color:var(--ink);font-weight:600;}
 .detail-strava-status{font-size:13px;color:var(--tarmac);margin:0;}
 .strava-activity + .strava-activity{margin-top:12px;}
 .strava-activity-name{
@@ -1392,6 +1426,7 @@ details[open] .chevron{transform:rotate(180deg);}
 }
 .wizard-step-line{width:36px;height:2px;background:var(--line);margin-bottom:20px;transition:background .2s ease;}
 .wizard-step-line.done{background:var(--ink);}
+.wizard-error{margin:12px 0 0;font-size:13px;color:var(--coral);text-align:center;}
 .wizard-next-btn{width:100%;font-size:15px;padding:14px 16px;}
 
 /* ---------- SETTINGS ---------- */
