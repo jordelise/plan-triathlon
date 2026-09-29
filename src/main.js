@@ -81,16 +81,24 @@ function sessionDetailHtml(s){
   const tagHtml = s.tag ? `<span class="tag">${escapeHtml(s.tag)}</span>` : '';
   const durationHtml = s.duration_min ? `<span class="tag">${formatDurationBadge(s.duration_min)}</span>` : '';
   const segments = s.segments || [];
-  const zoneChip = zone => ZONES[zone] ? ` <span class="zone-chip ${zone.toLowerCase()}">${zone}</span>` : '';
+  const zoneChip = zone => `<span class="zone-chip ${zone.toLowerCase()}">${zone}</span>`;
+  const keyPaceChip = '<span class="zone-chip zc">allure clé</span>';
+  // Zones written in a segment's text ("100 Z1", "allure clé") are shown as
+  // chips too — a swim set mixes several zones within one segment.
+  const withZoneChips = text => text
+    .replace(/\bZ[1-5]\b/g, zone => zoneChip(zone))
+    .replace(/allure clé/g, keyPaceChip);
   const segsHtml = segments
-    .map(seg => `<span class="seg"><b class="seg-label">${escapeHtml(seg.label)}</b>${zoneChip(seg.zone)} ${seg.text}</span>`)
+    .map(seg => `<span class="seg"><b class="seg-label">${escapeHtml(seg.label)}</b>${ZONES[seg.zone] ? ' ' + zoneChip(seg.zone) : ''} ${withZoneChips(seg.text)}</span>`)
     .join('');
   // What each zone used in this session feels like, so the athlete knows
   // how hard to go without heart-rate or pace targets.
-  const zonesUsed = Object.keys(ZONES).filter(z => segments.some(seg => seg.zone === z));
-  const zoneLegendHtml = zonesUsed.length
-    ? `<div class="zone-legend">${zonesUsed.map(z => `<div class="zone-legend-row"><span class="zone-chip ${z.toLowerCase()}">${z}</span><span><b>${ZONES[z].name}</b> · ${ZONES[z].feel}</span></div>`).join('')}</div>`
-    : '';
+  const zonesUsed = Object.keys(ZONES).filter(z => segments.some(seg => seg.zone === z || new RegExp(`\\b${z}\\b`).test(seg.text)));
+  const legendRows = zonesUsed.map(z => `<div class="zone-legend-row">${zoneChip(z)}<span><b>${ZONES[z].name}</b> · ${ZONES[z].feel}</span></div>`);
+  if (segments.some(seg => seg.text.includes('allure clé'))) {
+    legendRows.push(`<div class="zone-legend-row">${keyPaceChip}<span>${KEY_PACE.feel}</span></div>`);
+  }
+  const zoneLegendHtml = legendRows.length ? `<div class="zone-legend">${legendRows.join('')}</div>` : '';
   const stravaHtml = s.session_date
     ? `<p class="detail-card-title">Résultat de la séance</p><div class="detail-card detail-strava"><div id="detail-strava"><p class="detail-strava-status">Chargement Strava…</p></div></div>`
     : '';
@@ -1562,7 +1570,8 @@ const ZONES = {
   Z4: { name: 'Seuil', feel: 'Dur mais tenable plusieurs minutes, seulement quelques mots.' },
   Z5: { name: 'Fractionné', feel: 'Très dur, sur des efforts courts, impossible de parler.' },
 };
-const ZONE_FOR_TYPE = { 'Sortie longue': 'Z2', Endurance: 'Z2', Tempo: 'Z3', Seuil: 'Z4', Fractionné: 'Z5' };
+const ZONE_FOR_TYPE = { 'Sortie longue': 'Z2', Tempo: 'Z3', Seuil: 'Z4', Fractionné: 'Z5' };
+const KEY_PACE = { name: 'Allure clé', feel: 'Allure que tu vises le jour de la course.' };
 
 // Season template for a full plan (16 weeks), read backward from the race —
 // the structure borrows from yootri's block model (github.com/nandocfz/yootri).
@@ -1607,13 +1616,90 @@ function fitSeasonToRace(weeksTotal){
   return pad.concat(full);
 }
 
-// Peak long session, as a multiple of the race distance (bike/run) or in
-// minutes (swim). Every other week's long session is this x the week's load.
+// Peak long session, as a multiple of the race distance. Every other week's
+// long session is this x the week's load.
 const LONG_SESSION_RATIO = { S: { bike: 2, run: 1.6 }, M: { bike: 1.5, run: 1.2 } };
-const SWIM_LONG_MIN = { S: 30, M: 45 };
-const SWIM_SHORT_FRACTION = 0.8; // non-long swims, relative to the long one
-const MIN_SWIM_DURATION = 25;
 const STRENGTH_DURATION = 30;
+
+// Swim sessions are built like a coach's pool session: warm-up, drills,
+// a main set given by the session's objective, cool-down — all in metres.
+// A session aims at peak distance x the week's load x its role's share; the
+// main set's repetitions stretch or shrink to get close to that.
+const SWIM_PEAK_DISTANCE_M = { S: 2000, M: 3000 };
+const SWIM_ROLE_SHARE = { longue: 1, clé: 0.9, complément: 0.8 };
+const SWIM_OBJECTIVE = {
+  endurance: 'Endurance + Tempo',
+  seuil: 'Seuil + Technique',
+  resistance: 'Résistance + Technique',
+  technique: 'Technique + Endurance',
+};
+// Construction/Spécifique key swims alternate these, counted over the plan
+// like bike/run key sessions (see KEY_PARTNER_BY_BLOCK).
+const SWIM_KEY_ALTERNATION = [SWIM_OBJECTIVE.seuil, SWIM_OBJECTIVE.resistance];
+
+// Gear assumed: kickboard, pull-buoy (PB) and paddles — no fins or snorkel.
+// Drills are never named: the athlete picks them from the exercise library.
+const SWIM_DRILL_CHOICE = 'éducatifs au choix dans la bibliothèque';
+const SWIM_WARMUP_M = 200;
+const SWIM_COOLDOWN_M = 50; // "50 à 200", counted at its minimum
+
+const swimReps = (budget, unit, min, max) => Math.max(min, Math.min(max, Math.round(budget / unit)));
+
+// Main sets by objective, from the coach's sessions. Each takes the metres
+// left for it and whether the week is light (recovery/taper), and returns
+// its lines and actual distance.
+const SWIM_MAIN_SETS = {
+  [SWIM_OBJECTIVE.endurance]: (budget, light) => {
+    const blocks = swimReps(budget - 400, 600, 1, light ? 1 : 3);
+    const finalM = Math.max(200, Math.min(600, Math.floor((budget - blocks * 600) / 100) * 100));
+    return {
+      meters: blocks * 600 + finalM,
+      lines: [
+        blocks === 1 ? 'Bloc :' : `Bloc, ${blocks} fois :`,
+        '– 100 Z2 (r = 15″)',
+        '– 200 Z3 avec PB + plaquettes (r = 20″)',
+        '– 2×100 Z4 (r = 10″)',
+        '– 100 Z1 (r = 15″)',
+        `${finalM} Z3 (r = 45″)`,
+      ],
+    };
+  },
+  [SWIM_OBJECTIVE.seuil]: (budget, light) => {
+    const reps = swimReps(budget - 600, 100, light ? 4 : 6, light ? 6 : 12);
+    return {
+      meters: 600 + reps * 100,
+      lines: [
+        '200 Z3 avec PB (r = 20″)',
+        `4×50 avec PB (25 m éducatif – 25 m Z1), r = 15″ : ${SWIM_DRILL_CHOICE}`,
+        '4×50 (r = 15″) : 1 Z3, 1 Z4 avec une cadence de bras élevée, 2×(25 Z5 avec une cadence de bras élevée – 25 Z1)',
+        `${reps}×100 allure clé (r = 12″)`,
+      ],
+    };
+  },
+  [SWIM_OBJECTIVE.resistance]: (budget, light) => {
+    const reps = swimReps(budget - 1100, 100, 2, light ? 4 : 8);
+    return {
+      meters: 1100 + reps * 100,
+      lines: [
+        '4×50 (Z2 – Z3 – Z4 – Z1), r = 15″',
+        '4×100 Z4 (r = 20″)',
+        `${reps}×100 allure clé (r = 20″)`,
+        '4×100 sprint : le meilleur temps que tu peux tenir de manière régulière sur les 4 (r = 20″)',
+        '100 Z1 avec PB + plaquettes (r = 20″)',
+      ],
+    };
+  },
+  [SWIM_OBJECTIVE.technique]: (budget, light) => {
+    const reps = swimReps(budget - 200, 200, light ? 1 : 2, 6);
+    return {
+      meters: 200 + reps * 200,
+      lines: [
+        '4×50 jambes avec planche (r = 15″)',
+        reps === 1 ? '200 Z2 avec PB' : `${reps}×200 Z2 (r = 20″), le dernier avec PB`,
+      ],
+    };
+  },
+};
 
 // A sport's sessions in a week take roles in order: its 1st is the long
 // session, its 2nd the key session, the rest are complements. What each role
@@ -1622,8 +1708,8 @@ const STRENGTH_DURATION = 30;
 function cardioTypeFor(week, role){
   if (week.raceWeek) return role === 'clé' ? 'Tempo' : null;
   if (role === 'longue') return 'Sortie longue';
-  // Key sessions of blocks listed in KEY_ALTERNATION_BY_BLOCK are swapped
-  // for the block's alternation in buildGeneratedPlan.
+  // Key sessions of blocks listed in KEY_PARTNER_BY_BLOCK are swapped for
+  // the block's alternation in buildGeneratedPlan.
   switch (week.phase) {
     case 1: return 'Tempo';
     case 2: return role === 'clé' ? 'Seuil' : 'Tempo';
@@ -1647,11 +1733,16 @@ const KEY_PARTNER_BY_BLOCK = {
   'Spécifique': 'Seuil',
 };
 
+// Swim "type" is the session's objective. Construction/Spécifique key swims
+// are swapped for SWIM_KEY_ALTERNATION in buildGeneratedPlan.
 function swimTypeFor(week, role){
-  if (week.raceWeek) return role === 'clé' ? 'Endurance' : null;
-  if (role === 'longue') return 'Sortie longue';
-  if (role === 'clé') return week.phase === 1 ? 'Endurance' : 'Fractionné';
-  return week.phase === 4 ? null : 'Endurance';
+  if (week.raceWeek) return role === 'clé' ? SWIM_OBJECTIVE.endurance : null;
+  if (role === 'longue') return SWIM_OBJECTIVE.endurance;
+  if (role === 'clé') {
+    if (week.phase === 1) return SWIM_OBJECTIVE.technique;
+    return SWIM_OBJECTIVE.seuil;
+  }
+  return week.phase === 4 ? null : SWIM_OBJECTIVE.technique;
 }
 
 // A sport with a single session that week can't be long *and* key, so its
@@ -1718,31 +1809,41 @@ function buildGeneratedPlan(){
     return currentConstraints.find(c => dateStr >= c.start_date && dateStr <= c.end_date);
   }
 
-  // How many sessions each sport gets this week. With at least one day per
-  // sport, every sport gets one and the extra days go by priority (Haute x3,
-  // Moyenne x2, Basse x1) through a smooth weighted round-robin started fresh
-  // each week, so the split is the same every full week. With fewer days than
-  // sports, the round-robin carries over between weeks so lower-priority
-  // sports still come up in turn.
-  const carriedCredit = new Array(disciplines.length).fill(0);
+  // How many sessions each sport gets this week, by priority (Haute x3,
+  // Moyenne x2, Basse x1). Both cases use a smooth weighted round-robin whose
+  // credit carries over from week to week — restarting it each week would
+  // settle ties between sports of the same priority the same way every week.
+  //
+  // With at least one day per sport, every sport gets one session, and the
+  // extra days go by each sport's share of the week *beyond* that first
+  // session: its fair share of all training days (days x weight / total)
+  // minus 1. So with 4 days, swim and run Haute and bike Basse, the extra
+  // day alternates between swim and run, and bike — whose fair share is
+  // under one session — never gets it.
+  //
+  // With fewer days than sports, the round-robin runs on the priority
+  // weights themselves, so lower-priority sports still come up in turn.
+  const weightTotal = disciplineWeights.reduce((a, b) => a + b, 0);
+  const extraWeights = disciplineWeights.map(w => Math.max(0, trainingDays.length * w / weightTotal - 1));
+  const extraWeightTotal = extraWeights.reduce((a, b) => a + b, 0);
+  const extraCredit = new Array(disciplines.length).fill(0);
+  const shortWeekCredit = new Array(disciplines.length).fill(0);
+  function roundRobin(counts, credit, weights, total, picks){
+    for (let p = 0; p < picks; p++) {
+      weights.forEach((w, i) => { credit[i] += w; });
+      const chosen = credit.reduce((best, c, i) => c > credit[best] ? i : best, 0);
+      credit[chosen] -= total;
+      counts[chosen]++;
+    }
+  }
   function sessionCounts(dayCount){
     const counts = new Array(disciplines.length).fill(0);
-    let credit;
-    let picks;
     if (dayCount >= disciplines.length) {
       counts.fill(1);
-      credit = new Array(disciplines.length).fill(0);
-      picks = dayCount - disciplines.length;
+      const extras = dayCount - disciplines.length;
+      if (extras > 0 && extraWeightTotal > 0) roundRobin(counts, extraCredit, extraWeights, extraWeightTotal, extras);
     } else {
-      credit = carriedCredit;
-      picks = dayCount;
-    }
-    const weightTotal = disciplineWeights.reduce((a, b) => a + b, 0);
-    for (let p = 0; p < picks; p++) {
-      disciplineWeights.forEach((w, i) => { credit[i] += w; });
-      const chosen = credit.reduce((best, c, i) => c > credit[best] ? i : best, 0);
-      credit[chosen] -= weightTotal;
-      counts[chosen]++;
+      roundRobin(counts, shortWeekCredit, disciplineWeights, weightTotal, dayCount);
     }
     return counts;
   }
@@ -1842,19 +1943,22 @@ function buildGeneratedPlan(){
     ];
   }
 
-  // Swim still uses the old skeleton system (type + duration only) — its
-  // trees/content are deferred to a later pass.
-  function fillSwim(row, week, role, type){
-    row.tag = type;
-    const fraction = role === 'longue' ? 1 : SWIM_SHORT_FRACTION;
-    row.duration_min = Math.max(MIN_SWIM_DURATION, Math.round(SWIM_LONG_MIN[raceSize] * week.load * fraction / 5) * 5);
-    row.segments = [{
-      label: 'Corps de séance',
-      zone: ZONE_FOR_TYPE[type],
-      text: type === 'Fractionné'
-        ? 'Répétitions rapides, récupération entre chaque en Z1.'
-        : 'Nage continue, régulière.',
-    }];
+  function fillSwim(row, week, role, objective){
+    const light = week.phase === 4 || week.recovery;
+    const drillReps = objective === SWIM_OBJECTIVE.seuil ? 6 : 8;
+    const outerM = SWIM_WARMUP_M + drillReps * 50 + SWIM_COOLDOWN_M;
+    const target = SWIM_PEAK_DISTANCE_M[raceSize] * week.load * SWIM_ROLE_SHARE[role];
+    const main = SWIM_MAIN_SETS[objective](target - outerM, light);
+
+    row.title = objective;
+    row.tag = `${outerM + main.meters} m`;
+    row.duration_min = null;
+    row.segments = [
+      { label: 'Échauffement', text: '100 Z1 (50 crawl – 50 dos)<br>100 Z2 (50 crawl – 50 dos)' },
+      { label: 'Éducatifs', text: `${drillReps}×50 (25 m éducatif – 25 m Z1), r = 15″ : ${SWIM_DRILL_CHOICE}` },
+      { label: 'Corps de séance', text: main.lines.join('<br>') },
+      { label: 'Retour au calme', text: '50 à 200 Z1 libre, nages au choix, dont au moins les 25 derniers mètres en dos 2 bras.' },
+    ];
   }
 
   let sessionCounter = 0;
@@ -1914,6 +2018,15 @@ function buildGeneratedPlan(){
             const count = keySessionCount[session.discipline] || 0;
             keySessionCount[session.discipline] = count + 1;
             type = count % 2 === 0 ? 'Fractionné' : partner;
+          }
+        }
+        if (session.discipline === 'swim' && session.role === 'clé' && (week.phase === 2 || week.phase === 3)) {
+          if (week.recovery) {
+            type = SWIM_OBJECTIVE.technique;
+          } else {
+            const count = keySessionCount.swim || 0;
+            keySessionCount.swim = count + 1;
+            type = SWIM_KEY_ALTERNATION[count % SWIM_KEY_ALTERNATION.length];
           }
         }
         sessionCounter++;
