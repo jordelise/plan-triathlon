@@ -1706,31 +1706,48 @@ const SWIM_MAIN_SETS = {
 // means depends on the phase (see cardioTypeFor / swimTypeFor); `null` means
 // the role has no session that week (the day is left free).
 function cardioTypeFor(week, role){
-  if (week.raceWeek) return role === 'clé' ? 'Tempo' : null;
+  if (week.raceWeek) return role === 'clé' ? 'Allure clé' : null;
   if (role === 'longue') return 'Sortie longue';
-  // Key sessions of blocks listed in KEY_PARTNER_BY_BLOCK are swapped for
-  // the block's alternation in buildGeneratedPlan.
+  // Key sessions of Base 2, Construction and Spécifique are swapped for
+  // their alternation in buildGeneratedPlan.
   switch (week.phase) {
     case 1: return 'Tempo';
     case 2: return role === 'clé' ? 'Seuil' : 'Tempo';
-    case 3: return role === 'clé' ? 'Seuil' : 'Tempo';
-    default: return role === 'clé' ? 'Seuil' : null; // taper: no complements
+    case 3: return role === 'clé' ? 'Allure clé' : 'Tempo';
+    default: return role === 'clé' ? 'Allure clé' : null; // taper: no complements
   }
 }
 
-// From Base 2 on, a sport's key sessions (bike/run) alternate Fractionné and
-// the block's other key type, starting with Fractionné. The alternation is
-// counted per sport by its own key sessions across the whole plan (not by
-// week, not restarting each block): a sport with one session a week only
-// gets its key session every other week, and any week-based or per-block
-// alternation could land it on the same type every time. Recovery weeks
-// always get a Tempo instead and don't count, so they never eat a
+// In Base 2 and Construction, a sport's key sessions (bike/run) alternate
+// Fractionné and the block's other key type, starting with Fractionné. The
+// alternation is counted per sport by its own key sessions across both
+// blocks (not by week, not restarting each block): a sport with one session
+// a week only gets its key session every other week, and any week-based or
+// per-block alternation could land it on the same type every time. Recovery
+// weeks always get a Tempo instead and don't count, so they never eat a
 // Fractionné. Fractionné comes in gently in Base (lightest presets, see
 // pickFormat).
 const KEY_PARTNER_BY_BLOCK = {
   'Base 2': 'Tempo',
   'Construction': 'Seuil',
-  'Spécifique': 'Seuil',
+};
+// Spécifique is about race pace: its key sessions alternate these, counted
+// within the block and starting with Allure clé, so even a sport with a
+// single key session there gets its race-pace work.
+const SPECIFIC_KEY_ALTERNATION = ['Allure clé', 'Fractionné'];
+
+// Race-pace ("allure clé") main sets, sized from the race format. `reps`
+// grows from the first to the second Spécifique week; the taper uses
+// `taperReps`, race week a short reminder.
+const KEY_PACE_SETS = {
+  run: {
+    S: { rep: '1 km', reps: [4, 5], taperReps: 3, rest: '1′30', raceWeek: '3×500 m', longFinishKm: 1.5 },
+    M: { rep: '2 km', reps: [3, 4], taperReps: 2, rest: '2′', raceWeek: '3×1 km', longFinishKm: 3 },
+  },
+  bike: {
+    S: { rep: '5 km', reps: [2, 3], taperReps: 2, rest: '3′', raceWeek: '3×2 km', longFinishKm: 5 },
+    M: { rep: '10 km', reps: [2, 3], taperReps: 2, rest: '5′', raceWeek: '3×3 km', longFinishKm: 10 },
+  },
 };
 
 // Swim "type" is the session's objective. Construction/Spécifique key swims
@@ -1926,19 +1943,33 @@ function buildGeneratedPlan(){
   function fillCardio(row, discipline, week, role, type){
     row.title = type;
     row.duration_min = null;
+    const paceSet = KEY_PACE_SETS[discipline][raceSize];
     if (type === 'Sortie longue') {
       const distanceKm = longDistanceKm(discipline, week);
+      // In Spécifique the long session ends at race pace.
+      const finish = week.phase === 3 ? `, dont les ${paceSet.longFinishKm} derniers km à allure clé` : '';
       row.tag = `≈${distanceKm} km`;
-      row.segments = [{ label: 'Sortie longue', zone: ZONE_FOR_TYPE['Sortie longue'], text: `${distanceKm} km à allure ${discipline === 'run' ? 'confortable' : 'tranquille'}.` }];
+      row.segments = [{ label: 'Sortie longue', zone: ZONE_FOR_TYPE['Sortie longue'], text: `${distanceKm} km à allure ${discipline === 'run' ? 'confortable' : 'tranquille'}${finish}.` }];
       return;
     }
-    const pick = pickFormat(discipline, type, week);
     const { warmup, cooldown } = CARDIO_WARMUP_COOLDOWN[discipline];
-    row.tag = pick.text;
+    let mainSet;
+    if (type === 'Allure clé') {
+      if (week.raceWeek) mainSet = paceSet.raceWeek;
+      else {
+        const reps = week.phase === 4 ? paceSet.taperReps : paceSet.reps[Math.min(week.weekInBlock, paceSet.reps.length) - 1];
+        mainSet = `${reps}×${paceSet.rep}`;
+      }
+      row.tag = mainSet;
+      mainSet = `${mainSet} allure clé (r = ${paceSet.rest})`;
+    } else {
+      mainSet = pickFormat(discipline, type, week).text;
+      row.tag = mainSet;
+    }
     const recoveryNote = type === 'Tempo' ? '' : ' Récupération entre les répétitions en Z1.';
     row.segments = [
       { label: 'Échauffement', zone: 'Z1', text: `${warmup} min à allure facile.` },
-      { label: 'Corps de séance', zone: ZONE_FOR_TYPE[type], text: `${pick.text}.${recoveryNote}` },
+      { label: 'Corps de séance', zone: ZONE_FOR_TYPE[type], text: `${mainSet}.${recoveryNote}` },
       { label: 'Retour au calme', zone: 'Z1', text: `${cooldown} min à allure facile.` },
     ];
   }
@@ -1964,6 +1995,7 @@ function buildGeneratedPlan(){
   let sessionCounter = 0;
   const rows = [];
   const keySessionCount = {}; // discipline -> non-recovery key sessions so far, from Base 2 on
+  const specificKeyCount = {}; // discipline -> key sessions so far in Spécifique
 
   for (let weekNumber = 1; weekNumber <= weeksTotal; weekNumber++) {
     const days = weekDays.get(weekNumber) || [];
@@ -2019,6 +2051,11 @@ function buildGeneratedPlan(){
             keySessionCount[session.discipline] = count + 1;
             type = count % 2 === 0 ? 'Fractionné' : partner;
           }
+        }
+        if (week.name === 'Spécifique' && session.role === 'clé' && session.discipline !== 'swim') {
+          const count = specificKeyCount[session.discipline] || 0;
+          specificKeyCount[session.discipline] = count + 1;
+          type = SPECIFIC_KEY_ALTERNATION[count % SPECIFIC_KEY_ALTERNATION.length];
         }
         if (session.discipline === 'swim' && session.role === 'clé' && (week.phase === 2 || week.phase === 3)) {
           if (week.recovery) {
