@@ -1642,19 +1642,18 @@ const STRENGTH_DURATION = 30;
 
 // Swim sessions are built like a coach's pool session: warm-up, drills,
 // a main set given by the session's objective, cool-down — all in metres.
-// A session aims at peak distance x the week's load x its role's share; the
-// main set's repetitions stretch or shrink to get close to that.
+// The long swim aims at peak distance x the week's load; the others take
+// their main set from presets (SWIM_FORMATS).
 const SWIM_PEAK_DISTANCE_M = { S: 2000, M: 3000 };
-const SWIM_ROLE_SHARE = { longue: 1, clé: 0.9, complément: 0.8 };
 const SWIM_OBJECTIVE = {
-  endurance: 'Endurance + Tempo',
-  seuil: 'Seuil + Technique',
-  resistance: 'Résistance + Technique',
-  technique: 'Technique + Endurance',
+  endurance: 'Endurance',
+  seuil: 'Seuil',
+  vitesse: 'Vitesse',
+  technique: 'Technique',
 };
 // Développement/Spécifique key swims alternate these, counted over the plan
 // like bike/run key sessions (see KEY_PARTNER_BY_BLOCK).
-const SWIM_KEY_ALTERNATION = [SWIM_OBJECTIVE.seuil, SWIM_OBJECTIVE.resistance];
+const SWIM_KEY_ALTERNATION = [SWIM_OBJECTIVE.seuil, SWIM_OBJECTIVE.vitesse];
 
 // Gear assumed: kickboard, pull-buoy (PB) and paddles — no fins or snorkel.
 // Drills are never named: the athlete picks them from the exercise library.
@@ -1664,59 +1663,68 @@ const SWIM_COOLDOWN_M = 50; // "50 à 200", counted at its minimum
 
 const swimReps = (budget, unit, min, max) => Math.max(min, Math.min(max, Math.round(budget / unit)));
 
-// Main sets by objective, from the coach's sessions. Each takes the metres
-// left for it and whether the week is light (recovery/taper), and returns
-// its lines and actual distance.
-const SWIM_MAIN_SETS = {
-  [SWIM_OBJECTIVE.endurance]: (budget, light) => {
-    const blocks = swimReps(budget - 400, 600, 1, light ? 1 : 3);
-    const finalM = Math.max(200, Math.min(600, Math.floor((budget - blocks * 600) / 100) * 100));
-    return {
-      meters: blocks * 600 + finalM,
-      lines: [
-        blocks === 1 ? 'Bloc :' : `Bloc, ${blocks} fois :`,
-        '– 100 Z2 (r = 15″)',
-        '– 200 Z3 avec PB + plaquettes (r = 20″)',
-        '– 2×100 Z4 (r = 10″)',
-        '– 100 Z1 (r = 15″)',
-        `${finalM} Z3 (r = 45″)`,
-      ],
-    };
+// The long swim (Endurance) is sized like a bike/run long session: its
+// blocks stretch or shrink with the week's volume. It takes the metres left
+// for its main set and whether the week is light (recovery/taper), and
+// returns its lines and actual distance.
+function swimEnduranceSet(budget, light){
+  const blocks = swimReps(budget - 400, 600, 1, light ? 1 : 3);
+  const finalM = Math.max(200, Math.min(600, Math.floor((budget - blocks * 600) / 100) * 100));
+  return {
+    meters: blocks * 600 + finalM,
+    lines: [
+      blocks === 1 ? 'Bloc :' : `Bloc, ${blocks} fois :`,
+      '– 100 Z2 (r = 15″)',
+      '– 200 Z3 avec PB + plaquettes (r = 20″)',
+      '– 2×100 Z4 (r = 10″)',
+      '– 100 Z1 (r = 15″)',
+      `${finalM} Z3 (r = 45″)`,
+    ],
+  };
+}
+
+// The other swims use presets like bike/run (see SESSION_FORMATS), listed
+// lightest first and picked by pickFormat. `m` is the main set's distance.
+const SWIM_FORMATS = {
+  M: {
+    [SWIM_OBJECTIVE.technique]: [
+      { text: '8x100m', m: 800, detail: 'Z2 : 50 m jambes avec planche – 50 m nage complète (r = 15″)' },
+      { text: '5x200m', m: 1000, detail: 'Z2, 1 sur 2 avec PB (r = 20″)' },
+      { text: '4x300m', m: 1200, detail: 'Z2, le dernier avec PB + plaquettes (r = 20″)' },
+      { text: '3x400m', m: 1200, detail: 'Z2, 1 sur 2 avec PB (r = 30″)' },
+    ],
+    [SWIM_OBJECTIVE.seuil]: [
+      { text: '8x100m', m: 800, detail: 'Z4 (r = 15″)' },
+      { text: '6x200m', m: 1200, detail: 'Z4 (r = 20″)' },
+      { text: '4x300m', m: 1200, detail: 'Z4 (r = 30″)' },
+      { text: '4x400m', m: 1600, detail: 'Z4 (r = 30″)' },
+    ],
+    [SWIM_OBJECTIVE.vitesse]: [
+      { text: '12x50m', m: 600, detail: 'Z5 (r = 30″)' },
+      { text: '16x50m', m: 800, detail: 'Z5 (r = 30″)' },
+      { text: '10x100m', m: 1000, detail: 'Z5 (r = 40″)' },
+      { text: '12x100m', m: 1200, detail: 'Z5 (r = 40″)' },
+    ],
   },
-  [SWIM_OBJECTIVE.seuil]: (budget, light) => {
-    const reps = swimReps(budget - 600, 100, light ? 4 : 6, light ? 6 : 12);
-    return {
-      meters: 600 + reps * 100,
-      lines: [
-        '200 Z3 avec PB (r = 20″)',
-        `4×50 avec PB (25 m éducatif – 25 m Z1), r = 15″ : ${SWIM_DRILL_CHOICE}`,
-        '4×50 (r = 15″) : 1 Z3, 1 Z4 avec une cadence de bras élevée, 2×(25 Z5 avec une cadence de bras élevée – 25 Z1)',
-        `${reps}×100 allure clé (r = 12″)`,
-      ],
-    };
-  },
-  [SWIM_OBJECTIVE.resistance]: (budget, light) => {
-    const reps = swimReps(budget - 1100, 100, 2, light ? 4 : 8);
-    return {
-      meters: 1100 + reps * 100,
-      lines: [
-        '4×50 (Z2 – Z3 – Z4 – Z1), r = 15″',
-        '4×100 Z4 (r = 20″)',
-        `${reps}×100 allure clé (r = 20″)`,
-        '4×100 sprint : le meilleur temps que tu peux tenir de manière régulière sur les 4 (r = 20″)',
-        '100 Z1 avec PB + plaquettes (r = 20″)',
-      ],
-    };
-  },
-  [SWIM_OBJECTIVE.technique]: (budget, light) => {
-    const reps = swimReps(budget - 200, 200, light ? 1 : 2, 6);
-    return {
-      meters: 200 + reps * 200,
-      lines: [
-        '4×50 jambes avec planche (r = 15″)',
-        reps === 1 ? '200 Z2 avec PB' : `${reps}×200 Z2 (r = 20″), le dernier avec PB`,
-      ],
-    };
+  S: {
+    [SWIM_OBJECTIVE.technique]: [
+      { text: '6x100m', m: 600, detail: 'Z2 : 50 m jambes avec planche – 50 m nage complète (r = 15″)' },
+      { text: '4x200m', m: 800, detail: 'Z2, 1 sur 2 avec PB (r = 20″)' },
+      { text: '3x300m', m: 900, detail: 'Z2, le dernier avec PB + plaquettes (r = 20″)' },
+      { text: '5x200m', m: 1000, detail: 'Z2, 1 sur 2 avec PB (r = 20″)' },
+    ],
+    [SWIM_OBJECTIVE.seuil]: [
+      { text: '6x100m', m: 600, detail: 'Z4 (r = 15″)' },
+      { text: '5x150m', m: 750, detail: 'Z4 (r = 20″)' },
+      { text: '4x200m', m: 800, detail: 'Z4 (r = 20″)' },
+      { text: '3x300m', m: 900, detail: 'Z4 (r = 30″)' },
+    ],
+    [SWIM_OBJECTIVE.vitesse]: [
+      { text: '8x50m', m: 400, detail: 'Z5 (r = 30″)' },
+      { text: '12x50m', m: 600, detail: 'Z5 (r = 30″)' },
+      { text: '6x100m', m: 600, detail: 'Z5 (r = 40″)' },
+      { text: '8x100m', m: 800, detail: 'Z5 (r = 40″)' },
+    ],
   },
 };
 
@@ -1935,7 +1943,9 @@ function buildGeneratedPlan(){
   // alternates between the two lightest.
   const formatOccurrence = {};
   function pickFormat(discipline, type, week){
-    const ranked = [...SESSION_FORMATS[discipline][raceSize][type]].sort((a, b) => a.min - b.min);
+    const ranked = discipline === 'swim'
+      ? SWIM_FORMATS[raceSize][type]
+      : [...SESSION_FORMATS[discipline][raceSize][type]].sort((a, b) => a.min - b.min);
     const top = ranked.length - 1;
     let choices;
     if (week.phase === 4) choices = [0];
@@ -1997,14 +2007,20 @@ function buildGeneratedPlan(){
     const light = week.phase === 4 || week.recovery;
     const drillReps = objective === SWIM_OBJECTIVE.seuil ? 6 : 8;
     const outerM = SWIM_WARMUP_M + drillReps * 50 + SWIM_COOLDOWN_M;
-    const target = SWIM_PEAK_DISTANCE_M[raceSize] * week.load * SWIM_ROLE_SHARE[role];
-    const main = SWIM_MAIN_SETS[objective](target - outerM, light);
+    let main;
+    if (objective === SWIM_OBJECTIVE.endurance) {
+      const target = SWIM_PEAK_DISTANCE_M[raceSize] * week.load;
+      main = swimEnduranceSet(target - outerM, light);
+    } else {
+      const preset = pickFormat('swim', objective, week);
+      main = { meters: preset.m, lines: [`${preset.text.replace('x', '×').replace(/m$/, ' m')} ${preset.detail}`] };
+    }
 
     row.title = objective;
     row.tag = `${outerM + main.meters} m`;
     row.duration_min = null;
     row.segments = [
-      { label: 'Échauffement', text: '100 Z1 (50 crawl – 50 dos)<br>100 Z2 (50 crawl – 50 dos)' },
+      { label: 'Échauffement', text: '100 Z1 nages au choix<br>100 Z2 nages au choix' },
       { label: 'Éducatifs', text: `${drillReps}×50 (25 m éducatif – 25 m Z1), r = 15″ : ${SWIM_DRILL_CHOICE}` },
       { label: 'Corps de séance', text: main.lines.join('<br>') },
       { label: 'Retour au calme', text: '50 à 200 Z1 libre, nages au choix, dont au moins les 25 derniers mètres en dos 2 bras.' },
