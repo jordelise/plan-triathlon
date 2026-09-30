@@ -1055,7 +1055,9 @@ function habitsSummaryHtml(preferences){
 }
 
 function contraintesSectionHtml(preferences, constraints, centerToggle = false){
-  const startLabel = preferences.plan_start_date ? formatDateShort(preferences.plan_start_date) : 'Demain (par défaut)';
+  const startLabel = preferences.plan_start_date
+    ? formatDateShort(preferences.plan_start_date)
+    : `Lundi ${formatDateShort(ymdFromDate(nextMondayDate()))} (par défaut)`;
   // Once the plan has started, moving its start would rewrite the
   // athlete's history - it's fixed from then on.
   const started = hasGeneratedPlan() && preferences.plan_start_date && preferences.plan_start_date <= ymdFromDate(new Date());
@@ -1630,6 +1632,16 @@ function tomorrowDate(){
   return d;
 }
 
+// The default plan start: the next Monday, so week 1 is a full week (a
+// Monday itself moves on to the following one).
+function nextMondayDate(){
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  const daysToMonday = ((8 - d.getDay()) % 7) || 7;
+  d.setDate(d.getDate() + daysToMonday);
+  return d;
+}
+
 function ymdFromDate(d){
   return ymd(d.getFullYear(), d.getMonth(), d.getDate());
 }
@@ -1637,7 +1649,7 @@ function ymdFromDate(d){
 function planStartDate(){
   return currentPreferences.plan_start_date
     ? new Date(currentPreferences.plan_start_date + 'T00:00:00')
-    : tomorrowDate();
+    : nextMondayDate();
 }
 
 // Effort zones shown on each session segment, described by feel (breathing
@@ -2250,9 +2262,9 @@ async function generatePersonalizedPlan(){
   const hasRealPlan = existing.some(row => !row.session_key.startsWith('gen-'));
   if (hasRealPlan) return;
 
-  // Save the default start ("demain") as a real date, so recalculating the
-  // plan later keeps the same first day.
-  if (!currentPreferences.plan_start_date && !(await savePlanStartDate(ymdFromDate(tomorrowDate())))) return;
+  // Save the default start (next Monday) as a real date, so recalculating
+  // the plan later keeps the same first day.
+  if (!currentPreferences.plan_start_date && !(await savePlanStartDate(ymdFromDate(nextMondayDate())))) return;
 
   const rows = buildGeneratedPlan();
   if (rows.length === 0) return;
@@ -2332,8 +2344,8 @@ async function doReplanFromToday(){
   }
   if (existing.length === 0 || existing.some(row => !row.session_key.startsWith('gen-'))) return;
 
-  // A plan generated with the default start ("demain") never saved that
-  // date, so rebuilding it would restart the plan from tomorrow instead of
+  // Plans generated before the default start was saved have no start date,
+  // so rebuilding them would restart the plan from the default instead of
   // its real first day. Pin it to the plan's first session.
   if (!currentPreferences.plan_start_date) {
     const firstDate = existing.map(row => row.session_date).filter(Boolean).sort()[0];
@@ -2725,16 +2737,16 @@ function raceInfoEditorHtml(goals){
 }
 
 // Why a race date can't be used, or null if it can: it must be in the
-// future, and after the plan's start date when one is set.
+// future, and after the plan's start (the default one when none is set).
 function raceDateProblem(raceDate){
   if (!raceDate || raceDate <= ymdFromDate(new Date())) return 'Choisis une date de course à venir.';
-  const planStart = currentPreferences?.plan_start_date;
-  if (planStart && raceDate <= planStart) return `La course doit être après le début du plan (${formatDateShort(planStart)}).`;
+  const planStart = currentPreferences?.plan_start_date || ymdFromDate(nextMondayDate());
+  if (raceDate <= planStart) return `La course doit être après le début du plan (${formatDateShort(planStart)}).`;
   return null;
 }
 
-// Same calendar as the contraintes, for a single date. Days before tomorrow,
-// and up to the plan's start when one is set, can't be picked (see
+// Same calendar as the contraintes, for a single date. Days up to the
+// plan's start (the default one when none is set) can't be picked (see
 // raceDateProblem). The choice lands in the hidden #race-info-date.
 function wireRaceDatePicker(){
   const input = document.getElementById('race-info-date');
@@ -2743,8 +2755,8 @@ function wireRaceDatePicker(){
   if (!input || !btn || !panel) return;
 
   let minDate = ymdFromDate(tomorrowDate());
-  const planStart = currentPreferences?.plan_start_date;
-  if (planStart && planStart >= minDate) {
+  const planStart = currentPreferences?.plan_start_date || ymdFromDate(nextMondayDate());
+  if (planStart >= minDate) {
     const dayAfterStart = new Date(planStart + 'T00:00:00');
     dayAfterStart.setDate(dayAfterStart.getDate() + 1);
     minDate = ymdFromDate(dayAfterStart);
