@@ -82,12 +82,14 @@ function sessionDetailHtml(s){
   const durationHtml = s.duration_min ? `<span class="tag">${formatDurationBadge(s.duration_min)}</span>` : '';
   const segments = s.segments || [];
   const zoneChip = zone => `<span class="zone-chip ${zone.toLowerCase()}">${zone}</span>`;
-  const keyPaceChip = '<span class="zone-chip zc">allure clé</span>';
-  // Zones written in a segment's text ("100 Z1", "allure clé") are shown as
-  // chips too — a swim set mixes several zones within one segment.
+  const keyPaceChip = '<span class="zone-chip zc">allure cible</span>';
+  // Zones written in a segment's text ("100 Z1", "allure cible") are shown
+  // as chips too — a swim set mixes several zones within one segment. Plans
+  // generated before the rename still say "allure clé".
+  const KEY_PACE_TEXT = /allure (?:cible|clé)/g;
   const withZoneChips = text => text
     .replace(/\bZ[1-5]\b/g, zone => zoneChip(zone))
-    .replace(/allure clé/g, keyPaceChip);
+    .replace(KEY_PACE_TEXT, keyPaceChip);
   const segsHtml = segments
     .map(seg => `<span class="seg"><b class="seg-label">${escapeHtml(seg.label)}</b>${ZONES[seg.zone] ? ' ' + zoneChip(seg.zone) : ''} ${withZoneChips(seg.text)}</span>`)
     .join('');
@@ -95,7 +97,7 @@ function sessionDetailHtml(s){
   // how hard to go without heart-rate or pace targets.
   const zonesUsed = Object.keys(ZONES).filter(z => segments.some(seg => seg.zone === z || new RegExp(`\\b${z}\\b`).test(seg.text)));
   const legendRows = zonesUsed.map(z => `<div class="zone-legend-row">${zoneChip(z)}<span><b>${ZONES[z].name}</b> · ${ZONES[z].feel}</span></div>`);
-  if (segments.some(seg => seg.text.includes('allure clé'))) {
+  if (segments.some(seg => /allure (?:cible|clé)/.test(seg.text))) {
     legendRows.push(`<div class="zone-legend-row">${keyPaceChip}<span>${KEY_PACE.feel}</span></div>`);
   }
   const zoneLegendHtml = legendRows.length ? `<div class="zone-legend">${legendRows.join('')}</div>` : '';
@@ -1590,7 +1592,7 @@ const ZONES = {
   Z5: { name: 'Fractionné', feel: 'Très dur, sur des efforts courts, impossible de parler.' },
 };
 const ZONE_FOR_TYPE = { 'Sortie longue': 'Z2', Tempo: 'Z3', Seuil: 'Z4', Fractionné: 'Z5' };
-const KEY_PACE = { name: 'Allure clé', feel: 'Allure que tu vises le jour de la course.' };
+const KEY_PACE = { name: 'Allure cible', feel: 'Allure que tu vises le jour de la course.' };
 
 // Season template for a full plan (16 weeks), read backward from the race —
 // the structure borrows from yootri's block model (github.com/nandocfz/yootri).
@@ -1733,15 +1735,15 @@ const SWIM_FORMATS = {
 // means depends on the phase (see cardioTypeFor / swimTypeFor); `null` means
 // the role has no session that week (the day is left free).
 function cardioTypeFor(week, role){
-  if (week.raceWeek) return role === 'clé' ? 'Allure clé' : null;
+  if (week.raceWeek) return role === 'clé' ? 'Allure cible' : null;
   if (role === 'longue') return 'Sortie longue';
   // Key sessions of Base 2, Développement and Spécifique are swapped for
   // their alternation in buildGeneratedPlan.
   switch (week.phase) {
     case 1: return 'Tempo';
     case 2: return role === 'clé' ? 'Seuil' : 'Tempo';
-    case 3: return role === 'clé' ? 'Allure clé' : 'Tempo';
-    default: return role === 'clé' ? 'Allure clé' : null; // taper: no complements
+    case 3: return role === 'clé' ? 'Allure cible' : 'Tempo';
+    default: return role === 'clé' ? 'Allure cible' : null; // taper: no complements
   }
 }
 
@@ -1759,11 +1761,11 @@ const KEY_PARTNER_BY_BLOCK = {
   'Développement': 'Seuil',
 };
 // Spécifique is about race pace: its key sessions alternate these, counted
-// within the block and starting with Allure clé, so even a sport with a
+// within the block and starting with Allure cible, so even a sport with a
 // single key session there gets its race-pace work.
-const SPECIFIC_KEY_ALTERNATION = ['Allure clé', 'Fractionné'];
+const SPECIFIC_KEY_ALTERNATION = ['Allure cible', 'Fractionné'];
 
-// Race-pace ("allure clé") main sets, sized from the race format. `reps`
+// Race-pace ("allure cible") main sets, sized from the race format. `reps`
 // grows from the first to the second Spécifique week; the taper uses
 // `taperReps`, race week a short reminder.
 const KEY_PACE_SETS = {
@@ -1976,21 +1978,21 @@ function buildGeneratedPlan(){
     if (type === 'Sortie longue') {
       const distanceKm = longDistanceKm(discipline, week);
       // In Spécifique the long session ends at race pace.
-      const finish = week.phase === 3 ? `, dont les ${paceSet.longFinishKm} derniers km à allure clé` : '';
+      const finish = week.phase === 3 ? `, dont les ${paceSet.longFinishKm} derniers km à allure cible` : '';
       row.tag = `≈${distanceKm} km`;
       row.segments = [{ label: 'Sortie longue', zone: ZONE_FOR_TYPE['Sortie longue'], text: `${distanceKm} km à allure ${discipline === 'run' ? 'confortable' : 'tranquille'}${finish}.` }];
       return;
     }
     const { warmup, cooldown } = CARDIO_WARMUP_COOLDOWN[discipline];
     let mainSet;
-    if (type === 'Allure clé') {
+    if (type === 'Allure cible') {
       if (week.raceWeek) mainSet = paceSet.raceWeek;
       else {
         const reps = week.phase === 4 ? paceSet.taperReps : paceSet.reps[Math.min(week.weekInBlock, paceSet.reps.length) - 1];
         mainSet = `${reps}×${paceSet.rep}`;
       }
       row.tag = mainSet;
-      mainSet = `${mainSet} allure clé (r = ${paceSet.rest})`;
+      mainSet = `${mainSet} allure cible (r = ${paceSet.rest})`;
     } else {
       mainSet = pickFormat(discipline, type, week).text;
       row.tag = mainSet;
