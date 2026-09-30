@@ -1054,21 +1054,34 @@ function habitsSummaryHtml(preferences){
     <button type="button" class="goal-save-btn btn-compact" id="habits-edit-btn">Modifier</button>`;
 }
 
-function contraintesSectionHtml(preferences, constraints, centerToggle = false){
-  const startLabel = preferences.plan_start_date
+function planStartLabel(preferences){
+  return preferences.plan_start_date
     ? formatDateShort(preferences.plan_start_date)
     : `Lundi ${formatDateShort(ymdFromDate(nextMondayDate()))} (par défaut)`;
-  // Once the plan has started, moving its start would rewrite the
-  // athlete's history - it's fixed from then on.
-  const started = hasGeneratedPlan() && preferences.plan_start_date && preferences.plan_start_date <= ymdFromDate(new Date());
-  const startField = started
-    ? `<p class="plan-start-fixed">📅 ${startLabel}<span>Le plan a commencé, sa date de début ne change plus.</span></p>`
-    : `<button type="button" class="calendar-trigger-btn" id="plan-start-date-btn">📅 ${startLabel}</button>
+}
+
+// Once the plan has started, moving its start would rewrite the athlete's
+// history - it's fixed from then on.
+function planStarted(preferences){
+  return hasGeneratedPlan() && preferences.plan_start_date && preferences.plan_start_date <= ymdFromDate(new Date());
+}
+
+// First field of the contraintes block: the plan runs from this date to
+// race day. Saved as soon as it's picked (see wireContraintesSection).
+function planStartFieldHtml(preferences){
+  const field = planStarted(preferences)
+    ? `<p class="plan-start-fixed">📅 ${planStartLabel(preferences)}<span>Le plan a commencé, sa date de début ne change plus.</span></p>`
+    : `<input type="hidden" id="plan-start-date" value="${preferences.plan_start_date || ''}">
+      <button type="button" class="calendar-trigger-btn" id="plan-start-date-btn">📅 ${planStartLabel(preferences)}</button>
       <div class="calendar-panel" id="plan-start-calendar-panel" hidden></div>`;
   return `<div class="goal-field">
       <label>Début du plan</label>
-      ${startField}
-    </div>
+      ${field}
+    </div>`;
+}
+
+function contraintesSectionHtml(preferences, constraints, centerToggle = false){
+  return `${planStartFieldHtml(preferences)}
 
     <div class="constraint-list" id="constraint-list">${constraints.map(constraintRowHtml).join('')}</div>
 
@@ -1229,7 +1242,9 @@ function betaPlanSectionHtml(){
 }
 
 function trainingPrefsFullFormHtml(preferences, constraints){
-  return prefsCardHtml('🎯', 'Habitudes', "Jours d'entraînement et sports pratiqués.",
+  return prefsCardHtml('🏁', 'Course', 'Nom, date et format.',
+    '<div id="course-view"></div>')
+    + prefsCardHtml('🎯', 'Habitudes', "Jours d'entraînement et sports pratiqués.",
     '<div id="habits-view"></div>')
     + prefsCardHtml('🗓️', 'Contraintes', 'Vacances, blessures, périodes particulières.',
     contraintesSectionHtml(preferences, constraints))
@@ -1349,27 +1364,27 @@ let trainingPrefsStep = 1;
 // think onboarding is done and skip straight past step 2.
 let trainingPrefsOnboardingDone = null;
 
-function wirePlanStartDatePicker(){
+function wirePlanStartDatePicker(onPick){
+  const input = document.getElementById('plan-start-date');
   const btn = document.getElementById('plan-start-date-btn');
   const panel = document.getElementById('plan-start-calendar-panel');
-  if (!btn || !panel) return;
+  if (!input || !btn || !panel) return;
 
-  let selectedDate = currentPreferences.plan_start_date;
   const today = new Date();
   let viewYear = today.getFullYear();
   let viewMonth = today.getMonth();
 
-  // The plan can't start in the past, nor on or after race day.
-  const minDate = ymdFromDate(new Date());
-  let maxDate = null;
-  if (currentGoals?.race_date) {
-    const dayBeforeRace = new Date(currentGoals.race_date + 'T00:00:00');
-    dayBeforeRace.setDate(dayBeforeRace.getDate() - 1);
-    maxDate = ymdFromDate(dayBeforeRace);
-  }
-
   function render(){
-    panel.innerHTML = calendarPanelHtml(viewYear, viewMonth, selectedDate, null, { minDate, maxDate });
+    // The plan can't start in the past, nor on or after race day.
+    const minDate = ymdFromDate(new Date());
+    const raceDate = currentGoals?.race_date;
+    let maxDate = null;
+    if (raceDate) {
+      const dayBeforeRace = new Date(raceDate + 'T00:00:00');
+      dayBeforeRace.setDate(dayBeforeRace.getDate() - 1);
+      maxDate = ymdFromDate(dayBeforeRace);
+    }
+    panel.innerHTML = calendarPanelHtml(viewYear, viewMonth, input.value || null, null, { minDate, maxDate });
 
     panel.querySelector('[data-nav="prev"]').addEventListener('click', () => {
       viewMonth--;
@@ -1382,19 +1397,11 @@ function wirePlanStartDatePicker(){
       render();
     });
     panel.querySelectorAll('.calendar-day:not(.empty):not(:disabled)').forEach(cell => {
-      cell.addEventListener('click', async () => {
-        selectedDate = cell.dataset.date;
-        btn.textContent = `📅 ${formatDateShort(selectedDate)}`;
+      cell.addEventListener('click', () => {
+        input.value = cell.dataset.date;
+        btn.textContent = `📅 ${formatDateShort(input.value)}`;
         panel.hidden = true;
-
-        const updated = { ...currentPreferences, plan_start_date: selectedDate, updated_at: new Date().toISOString() };
-        const { error } = await supabase.from('plan_preferences').upsert(updated);
-        if (error) {
-          console.error('Erreur de sauvegarde du début du plan', error);
-          return;
-        }
-        currentPreferences = updated;
-        askReplan();
+        if (onPick) onPick(input.value);
       });
     });
   }
@@ -1406,7 +1413,9 @@ function wirePlanStartDatePicker(){
 }
 
 function wireContraintesSection(){
-  wirePlanStartDatePicker();
+  wirePlanStartDatePicker(async dateStr => {
+    if (await savePlanStartDate(dateStr)) askReplan();
+  });
 
   // "Repos complet" and the sports exclude each other: picking one clears
   // the other side.
@@ -2538,21 +2547,7 @@ function renderTrainingPrefsPanel(){
       wireRaceDatePicker();
       const getSize = wireRaceSizeButtons(currentGoals.size);
       document.getElementById('prefs-race-next-btn').addEventListener('click', async () => {
-        const raceDate = document.getElementById('race-info-date').value;
-        const errorEl = document.getElementById('race-step-error');
-        const problem = raceDateProblem(raceDate);
-        if (problem) {
-          errorEl.textContent = problem;
-          errorEl.hidden = false;
-          return;
-        }
-        errorEl.hidden = true;
-        const saved = await saveRaceInfo({
-          name: document.getElementById('race-info-name').value.trim() || null,
-          raceDate,
-          size: getSize(),
-        });
-        if (!saved) return;
+        if (!(await saveRaceForm(getSize, document.getElementById('race-step-error')))) return;
         trainingPrefsStep = 2;
         renderTrainingPrefsPanel();
       });
@@ -2573,7 +2568,73 @@ function renderTrainingPrefsPanel(){
   });
   attachDayCardHandlers();
 
+  renderCourseView();
   renderHabitsView();
+}
+
+const FR_WEEKDAY_NAMES = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+
+function courseSummaryHtml(goals){
+  const raceDay = goals.race_date ? new Date(goals.race_date + 'T00:00:00') : null;
+  const daysLeft = raceDay ? Math.round((raceDay - new Date(ymdFromDate(new Date()) + 'T00:00:00')) / 86400000) : null;
+  const countdown = daysLeft == null ? ''
+    : daysLeft >= 14 ? `dans ${Math.floor(daysLeft / 7)} semaines`
+    : daysLeft > 1 ? `dans ${daysLeft} jours`
+    : daysLeft === 1 ? 'demain' : '';
+  const dateHtml = raceDay
+    ? `<div class="course-date">
+        <div class="course-date-tile"><span>${FR_MONTHS[raceDay.getMonth()].slice(0, 4)}</span><b>${raceDay.getDate()}</b></div>
+        <div class="course-date-text">${FR_WEEKDAY_NAMES[raceDay.getDay()]} ${raceDay.getDate()} ${FR_MONTHS[raceDay.getMonth()]} ${raceDay.getFullYear()}${countdown ? `<span>${countdown}</span>` : ''}</div>
+      </div>`
+    : '<p class="habits-empty">Pas encore de date</p>';
+  // Same pieces as the editor, shown disabled, like the habits.
+  return `<fieldset class="habits-readonly course-readonly" disabled>
+      <div class="goal-field">
+        <label>Nom</label>
+        <p class="course-name">${escapeHtml(goals.name || 'Sans nom')}</p>
+      </div>
+      <div class="goal-field">
+        <label>Date</label>
+        ${dateHtml}
+      </div>
+      <div class="goal-field">
+        <label>Format</label>
+        <div class="race-size-options">${['S', 'M']
+          .map(sz => `<button type="button" class="race-size-btn${goals.size === sz ? ' active' : ''}">${RACE_SIZE_LABELS[sz]}</button>`)
+          .join('')}</div>
+      </div>
+    </fieldset>
+    <button type="button" class="goal-save-btn btn-compact" id="course-edit-btn">Modifier</button>`;
+}
+
+function renderCourseView(){
+  const view = document.getElementById('course-view');
+  if (!view) return;
+  view.innerHTML = courseSummaryHtml(currentGoals);
+  document.getElementById('course-edit-btn').addEventListener('click', renderCourseEditor);
+}
+
+function renderCourseEditor(){
+  const view = document.getElementById('course-view');
+  view.innerHTML = `${raceInfoFieldsHtml(currentGoals)}
+    <p class="wizard-error" id="course-error" hidden></p>
+    <div class="constraint-add-actions">
+      <button type="button" class="goal-save-btn btn-compact" id="course-save-btn">Enregistrer</button>
+      <button type="button" class="constraint-cancel-btn" id="course-cancel-btn">Annuler</button>
+    </div>`;
+  wireRaceDatePicker();
+  const getSize = wireRaceSizeButtons(currentGoals.size);
+
+  document.getElementById('course-cancel-btn').addEventListener('click', renderCourseView);
+  document.getElementById('course-save-btn').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    const result = await saveRaceForm(getSize, document.getElementById('course-error'));
+    btn.disabled = false;
+    if (!result) return;
+    renderCourseView();
+    if (result.planChanged) askReplan();
+  });
 }
 
 function renderHabitsView(){
@@ -2754,18 +2815,23 @@ function wireRaceDatePicker(){
   const panel = document.getElementById('race-date-calendar-panel');
   if (!input || !btn || !panel) return;
 
-  let minDate = ymdFromDate(tomorrowDate());
-  const planStart = currentPreferences?.plan_start_date || ymdFromDate(nextMondayDate());
-  if (planStart >= minDate) {
-    const dayAfterStart = new Date(planStart + 'T00:00:00');
-    dayAfterStart.setDate(dayAfterStart.getDate() + 1);
-    minDate = ymdFromDate(dayAfterStart);
+  // Read on each open: the plan start may have changed since.
+  function minRaceDate(){
+    let minDate = ymdFromDate(tomorrowDate());
+    const planStart = currentPreferences?.plan_start_date || ymdFromDate(nextMondayDate());
+    if (planStart >= minDate) {
+      const dayAfterStart = new Date(planStart + 'T00:00:00');
+      dayAfterStart.setDate(dayAfterStart.getDate() + 1);
+      minDate = ymdFromDate(dayAfterStart);
+    }
+    return minDate;
   }
-  const shown = new Date((input.value || minDate) + 'T00:00:00');
+  const shown = new Date((input.value || minRaceDate()) + 'T00:00:00');
   let viewYear = shown.getFullYear();
   let viewMonth = shown.getMonth();
 
   function render(){
+    const minDate = minRaceDate();
     panel.innerHTML = calendarPanelHtml(viewYear, viewMonth, input.value || null, null, { minDate });
     panel.querySelector('[data-nav="prev"]').addEventListener('click', () => {
       viewMonth--;
@@ -2823,6 +2889,27 @@ async function saveRaceInfo({ name, raceDate, size }){
   return true;
 }
 
+// Saves the race form. Returns whether the plan is affected, or null when
+// it couldn't save.
+async function saveRaceForm(getSize, errorEl){
+  const raceDate = document.getElementById('race-info-date').value || currentGoals.race_date;
+  const problem = raceDateProblem(raceDate);
+  if (problem) {
+    errorEl.textContent = problem;
+    errorEl.hidden = false;
+    return null;
+  }
+  errorEl.hidden = true;
+  const previous = { raceDate: currentGoals.race_date, size: currentGoals.size };
+  const saved = await saveRaceInfo({
+    name: document.getElementById('race-info-name').value.trim() || null,
+    raceDate,
+    size: getSize(),
+  });
+  if (!saved) return null;
+  return { planChanged: previous.raceDate !== currentGoals.race_date || previous.size !== currentGoals.size };
+}
+
 function openRaceInfoEditor(){
   if (!currentGoals) return;
 
@@ -2831,31 +2918,17 @@ function openRaceInfoEditor(){
   const getSize = wireRaceSizeButtons(currentGoals.size);
 
   document.getElementById('save-race-info-btn').addEventListener('click', async () => {
-    const raceDate = document.getElementById('race-info-date').value || currentGoals.race_date;
-    const errorEl = document.getElementById('race-info-error');
-    const problem = raceDateProblem(raceDate);
-    if (problem) {
-      errorEl.textContent = problem;
-      errorEl.hidden = false;
-      return;
-    }
-    errorEl.hidden = true;
-    const previous = { raceDate: currentGoals.race_date, size: currentGoals.size };
-    const saved = await saveRaceInfo({
-      name: document.getElementById('race-info-name').value.trim() || null,
-      raceDate,
-      size: getSize(),
-    });
-    if (!saved) return;
+    const result = await saveRaceForm(getSize, document.getElementById('race-info-error'));
+    if (!result) return;
     closeDetail();
-    if (previous.raceDate !== currentGoals.race_date || previous.size !== currentGoals.size) askReplan();
+    renderCourseView();
+    if (result.planChanged) askReplan();
     maybeShowOnboardingPopup(currentGoals);
   });
 
   openDetailOverlay();
 }
 
-document.getElementById('race-info-settings-row').addEventListener('click', openRaceInfoEditor);
 
 const GOAL_SEGMENTS = {
   swim: { title: 'Natation', durationField: 'swim_duration_sec', durationFormat: 'mmss', pace: {
