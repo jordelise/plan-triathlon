@@ -997,7 +997,7 @@ function strengthSliderHtml(count){
 // Three priority tiers rather than a strict ranking — several sports can
 // share the same tier (equal priority), unlike an ordered list where every
 // position is necessarily distinct.
-const PRIORITY_LEVELS = [{ value: 1, label: 'Basse' }, { value: 2, label: 'Moyenne' }, { value: 3, label: 'Haute' }];
+const PRIORITY_LEVELS = [{ value: 1, label: 'Faible' }, { value: 2, label: 'Normale' }, { value: 3, label: 'Forte' }];
 const DEFAULT_PRIORITY_LEVEL = 2;
 
 function priorityListHtml(order, priorityMap){
@@ -1246,7 +1246,7 @@ function wirePreferredDisciplines(order, priorityMap, onChange){
     const container = document.getElementById('pref-priority-container');
     if (!container) return;
     container.innerHTML = order.length > 1
-      ? `<p class="priority-hint">Priorité (plusieurs sports peuvent partager le même niveau)</p>${priorityListHtml(order, priorityMap)}`
+      ? `<p class="priority-hint">Quelle intensité veux-tu mettre pour chaque sport ?<span class="priority-hint-sub">Plusieurs sports peuvent avoir la même intensité.</span></p>${priorityListHtml(order, priorityMap)}`
       : '';
     container.querySelectorAll('.priority-level-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1597,7 +1597,7 @@ const KEY_PACE = { name: 'Allure clé', feel: 'Allure que tu vises le jour de la
 const SEASON_BLOCKS = [
   { name: 'Base 1', phase: 1, weeks: 4, ramp: [0.70, 0.75], recovery: 0.60, presetLevel: 0 },
   { name: 'Base 2', phase: 1, weeks: 4, ramp: [0.80, 0.85], recovery: 0.65, presetLevel: 1 },
-  { name: 'Construction', phase: 2, weeks: 4, ramp: [0.90, 1.00], recovery: 0.70, presetLevel: 2 },
+  { name: 'Développement', phase: 2, weeks: 4, ramp: [0.90, 1.00], recovery: 0.70, presetLevel: 2 },
   { name: 'Spécifique', phase: 3, weeks: 2, ramp: [1.00, 0.90], presetLevel: 3 },
   { name: 'Affûtage', phase: 4, weeks: 1, ramp: [0.70, 0.70], presetLevel: 0 },
   { name: 'Course', phase: 4, weeks: 1, ramp: [0.50, 0.50], presetLevel: 0, raceWeek: true },
@@ -1648,7 +1648,7 @@ const SWIM_OBJECTIVE = {
   resistance: 'Résistance + Technique',
   technique: 'Technique + Endurance',
 };
-// Construction/Spécifique key swims alternate these, counted over the plan
+// Développement/Spécifique key swims alternate these, counted over the plan
 // like bike/run key sessions (see KEY_PARTNER_BY_BLOCK).
 const SWIM_KEY_ALTERNATION = [SWIM_OBJECTIVE.seuil, SWIM_OBJECTIVE.resistance];
 
@@ -1723,7 +1723,7 @@ const SWIM_MAIN_SETS = {
 function cardioTypeFor(week, role){
   if (week.raceWeek) return role === 'clé' ? 'Allure clé' : null;
   if (role === 'longue') return 'Sortie longue';
-  // Key sessions of Base 2, Construction and Spécifique are swapped for
+  // Key sessions of Base 2, Développement and Spécifique are swapped for
   // their alternation in buildGeneratedPlan.
   switch (week.phase) {
     case 1: return 'Tempo';
@@ -1733,7 +1733,7 @@ function cardioTypeFor(week, role){
   }
 }
 
-// In Base 2 and Construction, a sport's key sessions (bike/run) alternate
+// In Base 2 and Développement, a sport's key sessions (bike/run) alternate
 // Fractionné and the block's other key type, starting with Fractionné. The
 // alternation is counted per sport by its own key sessions across both
 // blocks (not by week, not restarting each block): a sport with one session
@@ -1744,7 +1744,7 @@ function cardioTypeFor(week, role){
 // pickFormat).
 const KEY_PARTNER_BY_BLOCK = {
   'Base 2': 'Tempo',
-  'Construction': 'Seuil',
+  'Développement': 'Seuil',
 };
 // Spécifique is about race pace: its key sessions alternate these, counted
 // within the block and starting with Allure clé, so even a sport with a
@@ -1765,7 +1765,7 @@ const KEY_PACE_SETS = {
   },
 };
 
-// Swim "type" is the session's objective. Construction/Spécifique key swims
+// Swim "type" is the session's objective. Développement/Spécifique key swims
 // are swapped for SWIM_KEY_ALTERNATION in buildGeneratedPlan.
 function swimTypeFor(week, role){
   if (week.raceWeek) return role === 'clé' ? SWIM_OBJECTIVE.endurance : null;
@@ -1841,15 +1841,15 @@ function buildGeneratedPlan(){
     return currentConstraints.find(c => dateStr >= c.start_date && dateStr <= c.end_date);
   }
 
-  // How many sessions each sport gets this week, by priority (Haute x3,
-  // Moyenne x2, Basse x1). Both cases use a smooth weighted round-robin whose
+  // How many sessions each sport gets this week, by the intensity the
+  // athlete wants for it (Forte x3, Normale x2, Faible x1). Both cases use a smooth weighted round-robin whose
   // credit carries over from week to week — restarting it each week would
   // settle ties between sports of the same priority the same way every week.
   //
   // With at least one day per sport, every sport gets one session, and the
   // extra days go by each sport's share of the week *beyond* that first
   // session: its fair share of all training days (days x weight / total)
-  // minus 1. So with 4 days, swim and run Haute and bike Basse, the extra
+  // minus 1. So with 4 days, swim and run on Forte and bike on Faible, the extra
   // day alternates between swim and run, and bike — whose fair share is
   // under one session — never gets it.
   //
