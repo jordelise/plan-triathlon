@@ -1121,6 +1121,9 @@ details[open] .chevron{transform:rotate(180deg);}
 .calendar-day.empty{visibility:hidden;cursor:default;}
 .calendar-day.in-range{background:var(--paper-2);}
 .calendar-day.selected{background:var(--coral);color:#fff;}
+.calendar-day.today{box-shadow:inset 0 0 0 2px var(--ink);font-weight:700;}
+.calendar-day.today.selected{box-shadow:inset 0 0 0 2px var(--ink), inset 0 0 0 4px #fff;}
+.calendar-day:disabled{color:var(--tarmac);opacity:.35;cursor:not-allowed;}
 .race-size-options{display:flex;gap:6px;}
 .race-size-btn{
   flex:1;

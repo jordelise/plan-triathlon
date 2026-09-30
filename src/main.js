@@ -912,9 +912,12 @@ function formatDateShort(dateStr){
   return `${d.getDate()} ${FR_MONTHS[d.getMonth()].slice(0, 3)}`;
 }
 
-function calendarPanelHtml(viewYear, viewMonth, startDate, endDate){
+// Days outside [minDate, maxDate] (inclusive, "YYYY-MM-DD", either optional)
+// are shown disabled and can't be picked. Today is always marked.
+function calendarPanelHtml(viewYear, viewMonth, startDate, endDate, { minDate = null, maxDate = null } = {}){
   const firstWeekday = (new Date(viewYear, viewMonth, 1).getDay() + 6) % 7;
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const todayStr = ymdFromDate(new Date());
 
   const cells = [];
   for (let i = 0; i < firstWeekday; i++) cells.push('<span class="calendar-day empty"></span>');
@@ -923,10 +926,13 @@ function calendarPanelHtml(viewYear, viewMonth, startDate, endDate){
     const isStart = dateStr === startDate;
     const isEnd = dateStr === endDate;
     const inRange = startDate && endDate && dateStr > startDate && dateStr < endDate;
+    const disabled = (minDate && dateStr < minDate) || (maxDate && dateStr > maxDate);
     const classes = ['calendar-day'];
     if (isStart || isEnd) classes.push('selected');
     if (inRange) classes.push('in-range');
-    cells.push(`<button type="button" class="${classes.join(' ')}" data-date="${dateStr}">${day}</button>`);
+    if (dateStr === todayStr) classes.push('today');
+    const todayLabel = dateStr === todayStr ? ' aria-label="Aujourd\'hui"' : '';
+    cells.push(`<button type="button" class="${classes.join(' ')}" data-date="${dateStr}"${disabled ? ' disabled' : ''}${todayLabel}>${day}</button>`);
   }
 
   return `<div class="calendar-header">
@@ -1309,8 +1315,17 @@ function wirePlanStartDatePicker(){
   let viewYear = today.getFullYear();
   let viewMonth = today.getMonth();
 
+  // The plan can't start in the past, nor on or after race day.
+  const minDate = ymdFromDate(new Date());
+  let maxDate = null;
+  if (currentGoals?.race_date) {
+    const dayBeforeRace = new Date(currentGoals.race_date + 'T00:00:00');
+    dayBeforeRace.setDate(dayBeforeRace.getDate() - 1);
+    maxDate = ymdFromDate(dayBeforeRace);
+  }
+
   function render(){
-    panel.innerHTML = calendarPanelHtml(viewYear, viewMonth, selectedDate, null);
+    panel.innerHTML = calendarPanelHtml(viewYear, viewMonth, selectedDate, null, { minDate, maxDate });
 
     panel.querySelector('[data-nav="prev"]').addEventListener('click', () => {
       viewMonth--;
@@ -1322,7 +1337,7 @@ function wirePlanStartDatePicker(){
       if (viewMonth > 11) { viewMonth = 0; viewYear++; }
       render();
     });
-    panel.querySelectorAll('.calendar-day:not(.empty)').forEach(cell => {
+    panel.querySelectorAll('.calendar-day:not(.empty):not(:disabled)').forEach(cell => {
       cell.addEventListener('click', async () => {
         selectedDate = cell.dataset.date;
         btn.textContent = `📅 ${formatDateShort(selectedDate)}`;
@@ -2306,8 +2321,9 @@ function renderTrainingPrefsPanel(){
       document.getElementById('prefs-race-next-btn').addEventListener('click', async () => {
         const raceDate = document.getElementById('race-info-date').value;
         const errorEl = document.getElementById('race-step-error');
-        if (!raceDate || raceDate <= ymdFromDate(new Date())) {
-          errorEl.textContent = 'Choisis une date de course à venir.';
+        const problem = raceDateProblem(raceDate);
+        if (problem) {
+          errorEl.textContent = problem;
           errorEl.hidden = false;
           return;
         }
@@ -2460,8 +2476,18 @@ function raceInfoFieldsHtml(goals, minDate = null){
 
 function raceInfoEditorHtml(goals){
   return `<div class="detail-title" style="margin-bottom:16px;">Mon triathlon</div>
-    ${raceInfoFieldsHtml(goals)}
+    ${raceInfoFieldsHtml(goals, ymdFromDate(tomorrowDate()))}
+    <p class="wizard-error" id="race-info-error" hidden></p>
     <button type="button" class="goal-save-btn" id="save-race-info-btn">Enregistrer</button>`;
+}
+
+// Why a race date can't be used, or null if it can: it must be in the
+// future, and after the plan's start date when one is set.
+function raceDateProblem(raceDate){
+  if (!raceDate || raceDate <= ymdFromDate(new Date())) return 'Choisis une date de course à venir.';
+  const planStart = currentPreferences?.plan_start_date;
+  if (planStart && raceDate <= planStart) return `La course doit être après le début du plan (${formatDateShort(planStart)}).`;
+  return null;
 }
 
 // Returns a getter for the currently selected size.
@@ -2502,9 +2528,18 @@ function openRaceInfoEditor(){
   const getSize = wireRaceSizeButtons(currentGoals.size);
 
   document.getElementById('save-race-info-btn').addEventListener('click', async () => {
+    const raceDate = document.getElementById('race-info-date').value || currentGoals.race_date;
+    const errorEl = document.getElementById('race-info-error');
+    const problem = raceDateProblem(raceDate);
+    if (problem) {
+      errorEl.textContent = problem;
+      errorEl.hidden = false;
+      return;
+    }
+    errorEl.hidden = true;
     const saved = await saveRaceInfo({
       name: document.getElementById('race-info-name').value.trim() || null,
-      raceDate: document.getElementById('race-info-date').value || currentGoals.race_date,
+      raceDate,
       size: getSize(),
     });
     if (!saved) return;
