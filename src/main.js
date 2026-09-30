@@ -1577,10 +1577,9 @@ function wireContraintesSection(){
 // aren't reliably parseable without pace assumptions, so these are
 // hand-estimated). The lowest-`min` entry in each type is used during
 // taper instead of continuing the normal cycle. Tempo is always blocks of
-// minutes and Fractionné always repetitions of a distance, for both sports:
-// the trees' continuous Tempo efforts, distance-based run Tempo and
-// time-based bike Fractionné were rewritten to that shape, keeping roughly
-// the same main-set volume so the light-to-hard ranking holds.
+// minutes. Fractionné is repetitions of a distance in running, but of a
+// time on the bike, where how long a kilometre takes depends too much on
+// wind and terrain. Every list is kept in a strict light-to-hard order.
 const SESSION_FORMATS = {
   bike: {
     M: {
@@ -1597,10 +1596,10 @@ const SESSION_FORMATS = {
         { text: '2x20min', min: 44 },
       ],
       Fractionné: [
-        { text: '6x1km', min: 20 },
-        { text: '8x1km', min: 26 },
-        { text: '5x1.5km', min: 28 },
-        { text: '6x1.5km', min: 33 },
+        { text: '6x2min', min: 20 },
+        { text: '8x2min', min: 26 },
+        { text: '5x3min', min: 28 },
+        { text: '6x3min', min: 33 },
       ],
     },
     S: {
@@ -1617,10 +1616,10 @@ const SESSION_FORMATS = {
         { text: '1x12min', min: 12 },
       ],
       Fractionné: [
-        { text: '6x500m', min: 12 },
-        { text: '8x500m', min: 15 },
-        { text: '5x1km', min: 18 },
-        { text: '6x1km', min: 21 },
+        { text: '6x1min', min: 12 },
+        { text: '8x1min', min: 15 },
+        { text: '5x2min', min: 18 },
+        { text: '6x2min', min: 21 },
       ],
     },
   },
