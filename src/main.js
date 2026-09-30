@@ -2409,21 +2409,49 @@ function buildGeneratedPlan(){
       });
   }
 
-  // Renfo: fixed frequency per week, placed on that week's first N training
-  // days (chronologically) rather than competing in the weekly split.
-  // Contraintes only restrict cardio disciplines (their picker doesn't offer
-  // Renfo), except a full-rest one, which skips its days.
+  // Renfo: a fixed number of sessions a week, added to training days after
+  // the cardio sessions are placed. One in the taper week, none in race week
+  // (fresh legs for the race). Two renfo sessions are never on consecutive
+  // days, and the day before a hard session or on a long session day is
+  // avoided when possible. Contraintes only restrict cardio disciplines
+  // (their picker doesn't offer Renfo), except a full-rest one, which skips
+  // its days.
   const strengthPerWeek = Math.min(currentPreferences.strength_sessions_per_week || 0, trainingDays.length);
   if (strengthPerWeek > 0) {
+    const sessionsOn = new Map(); // dateStr -> cardio rows that day
+    rows.forEach(row => {
+      if (!sessionsOn.has(row.session_date)) sessionsOn.set(row.session_date, []);
+      sessionsOn.get(row.session_date).push(row);
+    });
+    const isHard = row => HARD_TYPES.has(row.title);
+    const isLong = row => row.title === 'Sortie longue' || (row.discipline === 'swim' && row.title === SWIM_OBJECTIVE.endurance);
+    const dayAfter = dateStr => addDaysYmd(dateStr, 1);
+
     for (const [weekNumber, days] of weekDays) {
+      const week = season[weekNumber - 1];
+      const count = week.raceWeek ? 0 : week.phase === 4 ? Math.min(1, strengthPerWeek) : strengthPerWeek;
       // Full-rest contraintes (no discipline allowed) drop the renfo too.
-      const strengthDays = days.filter(day => constraintForDate(day.dateStr)?.allowed_disciplines.length !== 0);
-      strengthDays.slice(0, strengthPerWeek).forEach((day, i) => {
+      const candidates = days.filter(day => constraintForDate(day.dateStr)?.allowed_disciplines.length !== 0);
+      const chosen = [];
+      for (let k = 0; k < Math.min(count, candidates.length); k++) {
+        let best = null;
+        let bestScore = Infinity;
+        for (const day of candidates) {
+          if (chosen.includes(day)) continue;
+          let score = 0;
+          if (chosen.some(c => Math.abs(c.dayIndex - day.dayIndex) === 1)) score += 10;
+          if ((sessionsOn.get(dayAfter(day.dateStr)) || []).some(isHard)) score += 5;
+          if ((sessionsOn.get(day.dateStr) || []).some(isLong)) score += 2;
+          if (score < bestScore) { best = day; bestScore = score; }
+        }
+        chosen.push(best);
+      }
+      chosen.sort((x, y) => x.dayIndex - y.dayIndex).forEach((day, i) => {
         sessionCounter++;
         rows.push({
           session_key: `gen-${sessionCounter}`,
           week_number: weekNumber,
-          phase: season[weekNumber - 1].phase,
+          phase: week.phase,
           order_index: 1000 + i, // after that week's cardio sessions; exact value isn't meaningful, rendering sorts by date
           discipline: 'strength',
           icon: DISCIPLINE_EMOJI.strength,
