@@ -2009,6 +2009,10 @@ const KEY_PARTNER_BY_BLOCK = {
   'Base 2': 'Tempo',
   'Développement': 'Seuil',
 };
+// In the second half of Développement, key sessions alternate Allure cible
+// and Fractionné (starting with Allure cible, counted within that half), so
+// race pace is worked for longer than the two Spécifique weeks.
+const LATE_DEVELOPMENT_KEY_ALTERNATION = ['Allure cible', 'Fractionné'];
 // Spécifique is about race pace: its key sessions alternate these, counted
 // within the block and starting with Allure cible, so even a sport with a
 // single key session there gets its race-pace work.
@@ -2277,6 +2281,7 @@ function buildGeneratedPlan(){
     if (type === 'Allure cible') {
       if (week.raceWeek) mainSet = paceSet.raceWeek;
       else if (week.phase === 4) mainSet = paceSet.taper;
+      else if (week.phase === 2) mainSet = `${paceSet.reps[0]}×${paceSet.rep}`; // late Développement: the lighter amount
       else mainSet = `${paceSet.reps[Math.min(week.weekInBlock, paceSet.reps.length) - 1]}×${paceSet.rep}`;
       row.tag = mainSet;
       mainSet = `${mainSet} allure cible (r = ${paceSet.rest})`;
@@ -2316,6 +2321,8 @@ function buildGeneratedPlan(){
     ];
   }
 
+  const developmentWeeks = season.filter(week => week.name === 'Développement').length;
+  const lateDevelopmentKeyCount = {}; // discipline -> key sessions so far in the second half of Développement
   let sessionCounter = 0;
   const rows = [];
   const keySessionCount = {}; // discipline -> non-recovery key sessions so far, from Base 2 on
@@ -2366,10 +2373,16 @@ function buildGeneratedPlan(){
     for (const session of weekSessions) {
       let type = typeFor(session.discipline, week, session.role);
       if (!type) continue;
+      const lateDevelopment = week.name === 'Développement' && week.weekInBlock > developmentWeeks / 2;
       const partner = KEY_PARTNER_BY_BLOCK[week.name];
       if (partner && session.role === 'clé' && session.discipline !== 'swim') {
         if (week.recovery) {
           type = 'Tempo';
+        } else if (lateDevelopment) {
+          const count = lateDevelopmentKeyCount[session.discipline] || 0;
+          lateDevelopmentKeyCount[session.discipline] = count + 1;
+          session.counter = lateDevelopmentKeyCount;
+          type = LATE_DEVELOPMENT_KEY_ALTERNATION[count % LATE_DEVELOPMENT_KEY_ALTERNATION.length];
         } else {
           const count = keySessionCount[session.discipline] || 0;
           keySessionCount[session.discipline] = count + 1;
