@@ -2164,32 +2164,56 @@ function buildGeneratedPlan(){
     return discipline === 'swim' ? swimTypeFor(week, role) : cardioTypeFor(week, role);
   }
 
-  // Greedy placement, one session per day: each session takes the free day
-  // with the lowest penalty (earliest day on ties).
-  function placeWeek(sessions, days){
+  // Places the week's sessions, one per training day, by trying every way to
+  // spread them over the days and keeping the one with the lowest total
+  // penalty (at most 7 sessions on 7 days: 5040 ways). Placing them one by
+  // one instead left the last ones with whatever days were left - often next
+  // to the same sport. Penalties: the same sport on consecutive days, two
+  // hard sessions in a row (less when one is a swim, easier on the legs), a
+  // bike or run long session on a weekday (a long swim less so), a key
+  // session on the weekend. On a tie, the
+  // first way found wins: sessions in role order, then the earliest days.
+  function placeWeek(sessions, days, week){
     const isWeekend = day => day.date.getDay() === 0 || day.date.getDay() === 6;
     const adjacent = (a, b) => Math.abs(a.dayIndex - b.dayIndex) === 1;
-    const placed = [];
-    const ordered = [...sessions].sort((a, b) =>
-      ROLE_PLACEMENT_ORDER.indexOf(a.role) - ROLE_PLACEMENT_ORDER.indexOf(b.role)
-      || LONG_PLACEMENT_ORDER.indexOf(a.discipline) - LONG_PLACEMENT_ORDER.indexOf(b.discipline));
+    const list = [...sessions]
+      .sort((a, b) =>
+        ROLE_PLACEMENT_ORDER.indexOf(a.role) - ROLE_PLACEMENT_ORDER.indexOf(b.role)
+        || LONG_PLACEMENT_ORDER.indexOf(a.discipline) - LONG_PLACEMENT_ORDER.indexOf(b.discipline))
+      .slice(0, days.length)
+      .map(session => ({ ...session, hard: HARD_TYPES.has(typeFor(session.discipline, week, session.role)) }));
 
-    for (const session of ordered) {
-      const free = days.filter(day => !placed.some(p => p.day === day));
-      if (free.length === 0) break;
-      const penalty = day => {
-        const neighbours = placed.filter(p => adjacent(p.day, day));
-        let score = 0;
-        if (neighbours.some(p => p.discipline === session.discipline)) score += 10;
-        if (session.role === 'clé' && neighbours.some(p => p.role === 'clé')) score += 5;
-        if (session.role === 'longue' && !isWeekend(day)) score += 3;
-        if (session.role === 'clé' && isWeekend(day)) score += 2;
-        return score;
-      };
-      const day = free.reduce((best, d) => penalty(d) < penalty(best) ? d : best, free[0]);
-      placed.push({ ...session, day });
-    }
-    return placed;
+    // A long swim fits a weekday at the pool; bike and run long sessions
+    // need the weekend more.
+    const soloCost = (session, day) =>
+      (session.role === 'longue' && !isWeekend(day) ? (session.discipline === 'swim' ? 1 : 3) : 0)
+      + (session.role === 'clé' && isWeekend(day) ? 2 : 0);
+    const pairCost = (a, dayA, b, dayB) => {
+      if (!adjacent(dayA, dayB)) return 0;
+      let cost = a.discipline === b.discipline ? 10 : 0;
+      if (a.hard && b.hard) cost += a.discipline === 'swim' || b.discipline === 'swim' ? 3 : 6;
+      return cost;
+    };
+
+    const assignment = [];
+    const used = new Set();
+    let best = null;
+    let bestScore = Infinity;
+    (function search(i, score){
+      if (score >= bestScore) return;
+      if (i === list.length) { best = [...assignment]; bestScore = score; return; }
+      for (const day of days) {
+        if (used.has(day)) continue;
+        let cost = soloCost(list[i], day);
+        for (let j = 0; j < i; j++) cost += pairCost(list[i], day, list[j], assignment[j]);
+        used.add(day);
+        assignment[i] = day;
+        search(i + 1, score + cost);
+        used.delete(day);
+      }
+    })(0, 0);
+
+    return list.map(({ hard, ...session }, i) => ({ ...session, day: best[i] }));
   }
 
   // Presets are ranked by the curated `min` (used only to rank variants, not
@@ -2307,7 +2331,7 @@ function buildGeneratedPlan(){
         .filter(role => typeFor(discipline, week, role) !== null)
         .map(role => ({ discipline, role })));
 
-    const placed = placeWeek(sessions, days);
+    const placed = placeWeek(sessions, days, week);
 
     // A contrainte blocking a session's sport hands its day to an allowed
     // sport - the user's own first (highest priority first), else any allowed
