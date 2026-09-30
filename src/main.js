@@ -1898,10 +1898,14 @@ const SWIM_OBJECTIVE = {
   seuil: 'Seuil',
   vitesse: 'Vitesse',
   technique: 'Technique',
+  allureCible: 'Allure cible',
 };
-// Développement/Spécifique key swims alternate these, counted over the plan
+// First-half Développement key swims alternate these, counted over the plan
 // like bike/run key sessions (see KEY_PARTNER_BY_BLOCK).
 const SWIM_KEY_ALTERNATION = [SWIM_OBJECTIVE.seuil, SWIM_OBJECTIVE.vitesse];
+// From the second half of Développement, like bike/run, race pace takes
+// Seuil's place: key swims alternate these, starting with Allure cible.
+const SWIM_LATE_KEY_ALTERNATION = [SWIM_OBJECTIVE.allureCible, SWIM_OBJECTIVE.vitesse];
 
 // Gear assumed: kickboard, pull-buoy (PB) and paddles - no fins or snorkel.
 // Drills are never named: the athlete picks them from the exercise library.
@@ -1955,6 +1959,14 @@ const SWIM_FORMATS = {
       { text: '10x50m', m: 800, detail: 'Z5 (r = 30″), puis 300 Z2' },
       { text: '5x100m', m: 800, detail: 'Z5 (r = 45″), puis 300 Z2' },
     ],
+    // Race pace with short rests, the reps growing towards the race
+    // distance (1500 m): the race swim is continuous.
+    [SWIM_OBJECTIVE.allureCible]: [
+      { text: '8x100m', m: 800, detail: 'allure cible (r = 15″)' },
+      { text: '5x200m', m: 1000, detail: 'allure cible (r = 20″)' },
+      { text: '4x300m', m: 1200, detail: 'allure cible (r = 20″)' },
+      { text: '3x400m', m: 1200, detail: 'allure cible (r = 20″)' },
+    ],
   },
   S: {
     [SWIM_OBJECTIVE.technique]: [
@@ -1974,6 +1986,12 @@ const SWIM_FORMATS = {
       { text: '6x50m', m: 500, detail: 'Z5 (r = 30″), puis 200 Z2' },
       { text: '8x50m', m: 600, detail: 'Z5 (r = 30″), puis 200 Z2' },
       { text: '4x100m', m: 600, detail: 'Z5 (r = 45″), puis 200 Z2' },
+    ],
+    [SWIM_OBJECTIVE.allureCible]: [
+      { text: '6x100m', m: 600, detail: 'allure cible (r = 15″)' },
+      { text: '4x150m', m: 600, detail: 'allure cible (r = 15″)' },
+      { text: '3x200m', m: 600, detail: 'allure cible (r = 20″)' },
+      { text: '2x300m', m: 600, detail: 'allure cible (r = 20″)' },
     ],
   },
 };
@@ -2323,6 +2341,7 @@ function buildGeneratedPlan(){
 
   const developmentWeeks = season.filter(week => week.name === 'Développement').length;
   const lateDevelopmentKeyCount = {}; // discipline -> key sessions so far in the second half of Développement
+  const lateSwimKeyCount = {}; // swim -> key swims so far from the second half of Développement on
   let sessionCounter = 0;
   const rows = [];
   const keySessionCount = {}; // discipline -> non-recovery key sessions so far, from Base 2 on
@@ -2399,6 +2418,11 @@ function buildGeneratedPlan(){
       if (session.discipline === 'swim' && session.role === 'clé' && (week.phase === 2 || week.phase === 3)) {
         if (week.recovery) {
           type = SWIM_OBJECTIVE.technique;
+        } else if (lateDevelopment || week.phase === 3) {
+          const count = lateSwimKeyCount.swim || 0;
+          lateSwimKeyCount.swim = count + 1;
+          session.counter = lateSwimKeyCount;
+          type = SWIM_LATE_KEY_ALTERNATION[count % SWIM_LATE_KEY_ALTERNATION.length];
         } else {
           const count = keySessionCount.swim || 0;
           keySessionCount.swim = count + 1;
