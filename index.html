@@ -1406,6 +1406,22 @@ html:has(.detail-overlay.open, .sheet-overlay.open, .timeline-overlay.open) body
   animation:wizardFadeIn .35s ease;
 }
 .wizard-hero{font-size:38px;text-align:center;margin-bottom:8px;}
+.prefs-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
+.prefs-tile{
+  display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;
+  background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px 6px;
+  box-shadow:0 4px 16px rgba(22,41,43,0.06);cursor:pointer;color:var(--ink);font:inherit;
+}
+.prefs-tile.open{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink);}
+.prefs-tile:focus-visible{outline:2px solid var(--coral);outline-offset:2px;}
+.prefs-tile-icon{font-size:20px;line-height:1;}
+.prefs-tile-title{font-family:'Oswald',sans-serif;font-weight:600;font-size:14.5px;}
+.prefs-tile-sub{font-size:11.5px;color:var(--tarmac);text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
+.prefs-panel{
+  background:#fff;border:1px solid var(--line);border-radius:20px;padding:20px;
+  box-shadow:0 8px 28px rgba(22,41,43,0.08);margin-bottom:16px;animation:wizardFadeIn .25s ease;
+}
+.prefs-panel[hidden]{display:none;}
 .prefs-card{
   background:#fff;
   border:1px solid var(--line);

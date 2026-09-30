@@ -1166,20 +1166,6 @@ function trainingPrefsStep3Html(){
   </div>`;
 }
 
-function prefsCardHtml(icon, title, subtitle, bodyHtml, openByDefault = false){
-  return `<details class="prefs-card"${openByDefault ? ' open' : ''}>
-    <summary class="prefs-card-header">
-      <span class="prefs-card-icon">${icon}</span>
-      <div class="prefs-card-header-text">
-        <div class="prefs-card-title">${title}</div>
-        <p class="prefs-card-subtitle">${subtitle}</p>
-      </div>
-      <svg class="chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
-    </summary>
-    <div class="prefs-card-body">${bodyHtml}</div>
-  </details>`;
-}
-
 function activeGeneratedWeek(weeks, weekNumbers){
   const today = new Date();
   const todayStr = ymd(today.getFullYear(), today.getMonth(), today.getDate());
@@ -1241,13 +1227,26 @@ function betaPlanSectionHtml(){
   return `<div class="detail-title" style="margin:24px 0 12px;">Ton plan</div>${body}`;
 }
 
+// The three settings blocks sit side by side as tiles; the open one shows
+// its content below, full width.
+const PREFS_TILES = [
+  { id: 'course', icon: '🏁', title: 'Course' },
+  { id: 'habits', icon: '🎯', title: 'Habitudes' },
+  { id: 'constraints', icon: '🗓️', title: 'Contraintes' },
+];
+let openPrefsTile = null;
+
 function trainingPrefsFullFormHtml(preferences, constraints){
-  return prefsCardHtml('🏁', 'Course', 'Nom, date et format.',
-    '<div id="course-view"></div>')
-    + prefsCardHtml('🎯', 'Habitudes', "Jours d'entraînement et sports pratiqués.",
-    '<div id="habits-view"></div>')
-    + prefsCardHtml('🗓️', 'Contraintes', 'Vacances, blessures, périodes particulières.',
-    contraintesSectionHtml(preferences, constraints))
+  const tiles = PREFS_TILES.map(t => `<button type="button" class="prefs-tile${openPrefsTile === t.id ? ' open' : ''}" data-tile="${t.id}" aria-expanded="${openPrefsTile === t.id}" aria-controls="prefs-panel-${t.id}">
+      <span class="prefs-tile-icon">${t.icon}</span>
+      <span class="prefs-tile-title">${t.title}</span>
+      <span class="prefs-tile-sub" id="prefs-tile-sub-${t.id}"></span>
+    </button>`).join('');
+  const panel = (id, body) => `<div class="prefs-panel" id="prefs-panel-${id}"${openPrefsTile === id ? '' : ' hidden'}>${body}</div>`;
+  return `<div class="prefs-tiles">${tiles}</div>`
+    + panel('course', '<div id="course-view"></div>')
+    + panel('habits', '<div id="habits-view"></div>')
+    + panel('constraints', contraintesSectionHtml(preferences, constraints))
     + betaPlanSectionHtml()
     + resetPlanSectionHtml();
 }
@@ -1263,6 +1262,7 @@ function renderConstraintList(){
   const list = document.getElementById('constraint-list');
   if (!list) return;
   list.innerHTML = currentConstraints.map(constraintRowHtml).join('');
+  refreshPrefsTiles();
   list.querySelectorAll('.constraint-delete-btn').forEach(btn => {
     btn.addEventListener('click', () => deleteConstraint(Number(btn.dataset.id)));
   });
@@ -2568,8 +2568,38 @@ function renderTrainingPrefsPanel(){
   });
   attachDayCardHandlers();
 
+  document.querySelectorAll('.prefs-tile').forEach(tile => {
+    tile.addEventListener('click', () => {
+      openPrefsTile = openPrefsTile === tile.dataset.tile ? null : tile.dataset.tile;
+      document.querySelectorAll('.prefs-tile').forEach(t => {
+        const open = t.dataset.tile === openPrefsTile;
+        t.classList.toggle('open', open);
+        t.setAttribute('aria-expanded', open);
+        document.getElementById(`prefs-panel-${t.dataset.tile}`).hidden = !open;
+      });
+    });
+  });
+
   renderCourseView();
   renderHabitsView();
+}
+
+// One-line summary under each tile's title.
+function refreshPrefsTiles(){
+  const set = (id, text) => {
+    const el = document.getElementById(`prefs-tile-sub-${id}`);
+    if (el) el.textContent = text;
+  };
+  if (currentGoals) {
+    set('course', [currentGoals.race_date && formatDateShort(currentGoals.race_date), RACE_SIZE_LABELS[currentGoals.size]].filter(Boolean).join(' · ') || 'À configurer');
+  }
+  if (currentPreferences) {
+    const days = currentPreferences.training_days.length;
+    const sports = currentPreferences.preferred_disciplines.filter(d => CARDIO_DISCIPLINES.includes(d)).length;
+    set('habits', `${days} jour${days > 1 ? 's' : ''} · ${sports} sport${sports > 1 ? 's' : ''}`);
+  }
+  const n = currentConstraints.length;
+  set('constraints', n === 0 ? 'Aucune' : `${n} période${n > 1 ? 's' : ''}`);
 }
 
 const FR_WEEKDAY_NAMES = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
@@ -2611,6 +2641,7 @@ function renderCourseView(){
   const view = document.getElementById('course-view');
   if (!view) return;
   view.innerHTML = courseSummaryHtml(currentGoals);
+  refreshPrefsTiles();
   document.getElementById('course-edit-btn').addEventListener('click', renderCourseEditor);
 }
 
@@ -2641,6 +2672,7 @@ function renderHabitsView(){
   const view = document.getElementById('habits-view');
   if (!view) return;
   view.innerHTML = habitsSummaryHtml(currentPreferences);
+  refreshPrefsTiles();
   document.getElementById('habits-edit-btn').addEventListener('click', renderHabitsEditor);
 }
 
