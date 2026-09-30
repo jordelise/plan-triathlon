@@ -1770,6 +1770,9 @@ const SEASON_BLOCKS = [
   { name: 'Course', phase: 4, weeks: 1, ramp: [0.50, 0.50], presetLevel: 0, raceWeek: true },
 ];
 
+// Load of the taper week (the one before race week), by race format.
+const TAPER_LOAD = { S: 0.70, M: 0.60 };
+
 function expandSeasonBlock(block){
   const loadingWeeks = block.recovery != null ? block.weeks - 1 : block.weeks;
   return Array.from({ length: block.weeks }, (_, i) => {
@@ -2011,16 +2014,17 @@ const KEY_PARTNER_BY_BLOCK = {
 const SPECIFIC_KEY_ALTERNATION = ['Allure cible', 'Fractionné'];
 
 // Race-pace ("allure cible") main sets, sized from the race format. `reps`
-// grows from the first to the second Spécifique week; the taper uses
-// `taperReps`, race week a short reminder.
+// grows from the first to the second Spécifique week; the taper week keeps
+// some race pace but about half the Spécifique volume (`taper`), race week
+// a short reminder.
 const KEY_PACE_SETS = {
   run: {
-    S: { rep: '1 km', reps: [4, 5], taperReps: 3, rest: '1′30', raceWeek: '3×500 m', longFinishKm: 1.5 },
-    M: { rep: '2 km', reps: [3, 4], taperReps: 2, rest: '2′', raceWeek: '3×1 km', longFinishKm: 3 },
+    S: { rep: '1 km', reps: [4, 5], taper: '3×1 km', rest: '1′30', raceWeek: '3×500 m', longFinishKm: 1.5 },
+    M: { rep: '2 km', reps: [3, 4], taper: '3×1,5 km', rest: '2′', raceWeek: '3×1 km', longFinishKm: 3 },
   },
   bike: {
-    S: { rep: '5 km', reps: [2, 3], taperReps: 2, rest: '3′', raceWeek: '3×2 km', longFinishKm: 5 },
-    M: { rep: '10 km', reps: [2, 3], taperReps: 2, rest: '5′', raceWeek: '3×3 km', longFinishKm: 10 },
+    S: { rep: '5 km', reps: [2, 3], taper: '3×3 km', rest: '3′', raceWeek: '3×2 km', longFinishKm: 5 },
+    M: { rep: '10 km', reps: [2, 3], taper: '3×5 km', rest: '5′', raceWeek: '3×3 km', longFinishKm: 10 },
   },
 };
 
@@ -2030,7 +2034,9 @@ function swimTypeFor(week, role){
   if (week.raceWeek) return role === 'clé' ? SWIM_OBJECTIVE.endurance : null;
   if (role === 'longue') return SWIM_OBJECTIVE.endurance;
   if (role === 'clé') {
-    if (week.phase === 1) return SWIM_OBJECTIVE.technique;
+    // Base builds technique; the taper keeps the swim easy, leaving the
+    // week's intensity to the bike and run race-pace sessions.
+    if (week.phase === 1 || week.phase === 4) return SWIM_OBJECTIVE.technique;
     return SWIM_OBJECTIVE.seuil;
   }
   return week.phase === 4 ? null : SWIM_OBJECTIVE.technique;
@@ -2092,8 +2098,10 @@ function buildGeneratedPlan(){
     weekDays.get(weekNumber).push({ date, dateStr: ymd(date.getFullYear(), date.getMonth(), date.getDate()), dayIndex });
   }
 
-  const season = fitSeasonToRace(weeksTotal);
   const raceSize = currentGoals?.size === 'S' ? 'S' : 'M';
+  // An olympic race is longer, so its taper week goes lower than a sprint's.
+  const season = fitSeasonToRace(weeksTotal)
+    .map(week => (week.phase === 4 && !week.raceWeek ? { ...week, load: TAPER_LOAD[raceSize] } : week));
   const disciplineWeights = disciplines.map(d => currentPreferences.discipline_priority?.[d] || DEFAULT_PRIORITY_LEVEL);
 
   function constraintForDate(dateStr){
@@ -2243,10 +2251,8 @@ function buildGeneratedPlan(){
     let mainSet;
     if (type === 'Allure cible') {
       if (week.raceWeek) mainSet = paceSet.raceWeek;
-      else {
-        const reps = week.phase === 4 ? paceSet.taperReps : paceSet.reps[Math.min(week.weekInBlock, paceSet.reps.length) - 1];
-        mainSet = `${reps}×${paceSet.rep}`;
-      }
+      else if (week.phase === 4) mainSet = paceSet.taper;
+      else mainSet = `${paceSet.reps[Math.min(week.weekInBlock, paceSet.reps.length) - 1]}×${paceSet.rep}`;
       row.tag = mainSet;
       mainSet = `${mainSet} allure cible (r = ${paceSet.rest})`;
     } else {
