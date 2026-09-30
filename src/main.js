@@ -1466,15 +1466,19 @@ function wireContraintesSection(){
 // (not runtime-parsed from the text — formats like "8x30/30" or "6x400m"
 // aren't reliably parseable without pace assumptions, so these are
 // hand-estimated). The lowest-`min` entry in each type is used during
-// taper instead of continuing the normal cycle.
+// taper instead of continuing the normal cycle. Tempo is always blocks of
+// minutes and Fractionné always repetitions of a distance, for both sports:
+// the trees' continuous Tempo efforts, distance-based run Tempo and
+// time-based bike Fractionné were rewritten to that shape, keeping roughly
+// the same main-set volume so the light-to-hard ranking holds.
 const SESSION_FORMATS = {
   bike: {
     M: {
       Tempo: [
         { text: '3x15min', min: 50 },
         { text: '4x10min', min: 45 },
-        { text: '1x30min continu', min: 30 },
-        { text: '1x40min continu', min: 40 },
+        { text: '2x15min', min: 30 },
+        { text: '2x20min', min: 40 },
       ],
       Seuil: [
         { text: '3x10min', min: 35 },
@@ -1483,18 +1487,18 @@ const SESSION_FORMATS = {
         { text: '2x18min', min: 40 },
       ],
       Fractionné: [
-        { text: '6x3min', min: 25 },
-        { text: '8x30/30', min: 10 },
-        { text: '5x4min', min: 25 },
-        { text: '10x2min', min: 25 },
+        { text: '6x1.5km', min: 25 },
+        { text: '8x300m', min: 10 },
+        { text: '5x2km', min: 25 },
+        { text: '10x1km', min: 25 },
       ],
     },
     S: {
       Tempo: [
         { text: '2x10min', min: 24 },
         { text: '3x7min', min: 25 },
-        { text: '20min continu', min: 20 },
-        { text: '25min continu', min: 25 },
+        { text: '4x5min', min: 20 },
+        { text: '5x5min', min: 25 },
       ],
       Seuil: [
         { text: '3x6min', min: 22 },
@@ -1503,20 +1507,20 @@ const SESSION_FORMATS = {
         { text: '1x12min', min: 12 },
       ],
       Fractionné: [
-        { text: '5x2min', min: 14 },
-        { text: '6x20/20', min: 8 },
-        { text: '4x3min', min: 16 },
-        { text: '8x1min', min: 14 },
+        { text: '5x1km', min: 14 },
+        { text: '6x200m', min: 8 },
+        { text: '4x1.5km', min: 16 },
+        { text: '8x500m', min: 14 },
       ],
     },
   },
   run: {
     M: {
       Tempo: [
-        { text: '3x2km', min: 32 },
-        { text: '4x1.5km', min: 32 },
-        { text: '5km continu', min: 26 },
-        { text: '6km continu', min: 31 },
+        { text: '3x10min', min: 30 },
+        { text: '4x8min', min: 32 },
+        { text: '2x12min', min: 24 },
+        { text: '3x12min', min: 36 },
       ],
       Seuil: [
         { text: '4x1.5km', min: 30 },
@@ -1533,10 +1537,10 @@ const SESSION_FORMATS = {
     },
     S: {
       Tempo: [
-        { text: '3x1km', min: 17 },
-        { text: '4x600m', min: 16 },
-        { text: '2.5km continu', min: 14 },
-        { text: '3km continu', min: 17 },
+        { text: '3x6min', min: 18 },
+        { text: '2x8min', min: 16 },
+        { text: '3x5min', min: 15 },
+        { text: '2x10min', min: 20 },
       ],
       Seuil: [
         { text: '4x750m', min: 16 },
@@ -1981,7 +1985,7 @@ function buildGeneratedPlan(){
       mainSet = pickFormat(discipline, type, week).text;
       row.tag = mainSet;
     }
-    const recoveryNote = type === 'Tempo' ? '' : ' Récupération entre les répétitions en Z1.';
+    const recoveryNote = type === 'Tempo' ? ' Récupération courte entre les blocs en Z1.' : ' Récupération entre les répétitions en Z1.';
     row.segments = [
       { label: 'Échauffement', zone: 'Z1', text: `${warmup} min à allure facile.` },
       { label: 'Corps de séance', zone: ZONE_FOR_TYPE[type], text: `${mainSet}.${recoveryNote}` },
