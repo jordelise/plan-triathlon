@@ -1903,6 +1903,9 @@ const SWIM_OBJECTIVE = {
 // First-half Développement key swims alternate these, counted over the plan
 // like bike/run key sessions (see KEY_PARTNER_BY_BLOCK).
 const SWIM_KEY_ALTERNATION = [SWIM_OBJECTIVE.seuil, SWIM_OBJECTIVE.vitesse];
+// Base 2 key swims, like bike/run Fractionné / Tempo: Vitesse (lightest
+// presets) first, then Seuil.
+const SWIM_BASE_KEY_ALTERNATION = [SWIM_OBJECTIVE.vitesse, SWIM_OBJECTIVE.seuil];
 // From the second half of Développement, like bike/run, race pace takes
 // Seuil's place: key swims alternate these, starting with Allure cible.
 const SWIM_LATE_KEY_ALTERNATION = [SWIM_OBJECTIVE.allureCible, SWIM_OBJECTIVE.vitesse];
@@ -2057,9 +2060,10 @@ function swimTypeFor(week, role){
   if (week.raceWeek) return role === 'clé' ? SWIM_OBJECTIVE.endurance : null;
   if (role === 'longue') return SWIM_OBJECTIVE.endurance;
   if (role === 'clé') {
-    // Base builds technique; the taper keeps the swim easy, leaving the
-    // week's intensity to the bike and run race-pace sessions.
-    if (week.phase === 1 || week.phase === 4) return SWIM_OBJECTIVE.technique;
+    // Base 1 works threshold, like bike/run Tempo (Base 2 alternates it
+    // with Vitesse, see buildGeneratedPlan). The taper keeps the swim easy,
+    // leaving the week's intensity to the bike and run race-pace sessions.
+    if (week.phase === 4) return SWIM_OBJECTIVE.technique;
     return SWIM_OBJECTIVE.seuil;
   }
   return week.phase === 4 ? null : SWIM_OBJECTIVE.technique;
@@ -2255,7 +2259,7 @@ function buildGeneratedPlan(){
     let choices;
     if (week.phase === 4) choices = [0];
     else if (week.recovery) choices = [Math.max(0, week.presetLevel - 1)];
-    else if (week.phase === 1 && type === 'Fractionné') choices = [0, 1];
+    else if (week.phase === 1 && (type === 'Fractionné' || type === SWIM_OBJECTIVE.vitesse)) choices = [0, 1];
     else if (week.presetLevel >= top) choices = [top, top - 1];
     else choices = [week.presetLevel, week.presetLevel + 1];
     // Restarts each block, so a block always opens on its own level.
@@ -2342,6 +2346,7 @@ function buildGeneratedPlan(){
   const developmentWeeks = season.filter(week => week.name === 'Développement').length;
   const lateDevelopmentKeyCount = {}; // discipline -> key sessions so far in the second half of Développement
   const lateSwimKeyCount = {}; // swim -> key swims so far from the second half of Développement on
+  const baseSwimKeyCount = {}; // swim -> key swims so far in Base 2
   let sessionCounter = 0;
   const rows = [];
   const keySessionCount = {}; // discipline -> non-recovery key sessions so far, from Base 2 on
@@ -2415,6 +2420,16 @@ function buildGeneratedPlan(){
         session.counter = specificKeyCount;
         type = SPECIFIC_KEY_ALTERNATION[count % SPECIFIC_KEY_ALTERNATION.length];
       }
+      if (session.discipline === 'swim' && session.role === 'clé' && week.phase === 1) {
+        if (week.recovery) {
+          type = SWIM_OBJECTIVE.technique;
+        } else if (week.name === 'Base 2') {
+          const count = baseSwimKeyCount.swim || 0;
+          baseSwimKeyCount.swim = count + 1;
+          session.counter = baseSwimKeyCount;
+          type = SWIM_BASE_KEY_ALTERNATION[count % SWIM_BASE_KEY_ALTERNATION.length];
+        }
+      }
       if (session.discipline === 'swim' && session.role === 'clé' && (week.phase === 2 || week.phase === 3)) {
         if (week.recovery) {
           type = SWIM_OBJECTIVE.technique;
@@ -2433,14 +2448,16 @@ function buildGeneratedPlan(){
       session.type = type;
     }
 
-    // Keep only a few hard sessions this week. The ones dropped are the
-    // swim ones first (the other sports need the intensity more for a
-    // triathlon), then those of the lowest-priority sports. A dropped key
-    // session doesn't count in its alternation, so the type it would have
-    // had comes next time.
+    // Keep only a few hard sessions this week. The ones dropped are those of
+    // the sports with the lowest intensity (Faible before Normale before
+    // Forte); on a tie, the swim goes first (the other sports need the
+    // intensity more for a triathlon). A dropped key session doesn't count
+    // in its alternation, so the type it would have had comes next time.
+    const weightOf = discipline => disciplineWeights[disciplines.indexOf(discipline)];
     const hardSessions = weekSessions.filter(s => HARD_TYPES.has(s.type));
     const dropOrder = [...hardSessions].sort((a, b) =>
-      (b.discipline === 'swim') - (a.discipline === 'swim')
+      weightOf(a.discipline) - weightOf(b.discipline)
+      || (b.discipline === 'swim') - (a.discipline === 'swim')
       || disciplines.indexOf(b.discipline) - disciplines.indexOf(a.discipline));
     dropOrder.slice(0, Math.max(0, hardSessions.length - hardSessionCap(week, days.length))).forEach(session => {
       if (session.counter) session.counter[session.discipline]--;
