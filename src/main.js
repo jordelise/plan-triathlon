@@ -1086,8 +1086,12 @@ function contraintesSectionHtml(preferences, constraints, centerToggle = false){
       </div>
       <div class="goal-field">
         <label>Disciplines autorisées</label>
-        <div class="picker-grid sport-picker-grid small">${sportPickerHtml([], 'constraint-discipline-btn')}</div>
-        <p class="constraint-hint">Aucune discipline choisie : repos complet sur ces dates.</p>
+        <div class="picker-grid sport-picker-grid small constraint-picker-grid">${sportPickerHtml([], 'constraint-discipline-btn')}
+          <button type="button" class="picker-chip constraint-rest-btn" id="constraint-rest-btn">
+            <span class="picker-chip-icon">🛌</span>
+            <span class="picker-chip-label">Repos complet</span>
+          </button>
+        </div>
       </div>
       <div class="constraint-add-actions">
         <button type="button" class="goal-save-btn btn-compact" id="add-constraint-btn">Ajouter</button>
@@ -1104,7 +1108,7 @@ function trainingPrefsRaceStepHtml(goals){
     <div class="detail-title" style="margin-bottom:4px;text-align:center;">Configurons ton plan</div>
     <p class="settings-sub" style="text-align:center;">Quelle course prépares-tu ? Le plan se termine le jour de la course.</p>
     ${wizardStepsHtml(1)}
-    ${raceInfoFieldsHtml(goals, ymdFromDate(tomorrowDate()))}
+    ${raceInfoFieldsHtml(goals)}
     <p class="wizard-error" id="race-step-error" hidden></p>
     <button type="button" class="goal-save-btn wizard-next-btn" id="prefs-race-next-btn">Suivant →</button>
   </div>`;
@@ -1115,7 +1119,7 @@ function trainingPrefsStep1Html(preferences){
     <button type="button" class="wizard-back-link" id="prefs-back-btn">← Précédent</button>
     <div class="wizard-hero">🎯</div>
     <div class="detail-title" style="margin-bottom:4px;text-align:center;">Tes habitudes</div>
-    <p class="settings-sub" style="text-align:center;">Dis-nous quand et quoi tu aimes t'entraîner.</p>
+    <p class="settings-sub" style="text-align:center;">Dis-nous quand et comment tu aimes t'entraîner.</p>
     ${wizardStepsHtml(2)}
     ${prefsFieldsHtml(preferences)}
     <button type="button" class="goal-save-btn wizard-next-btn" id="prefs-next-btn">Suivant →</button>
@@ -1402,8 +1406,21 @@ function wirePlanStartDatePicker(){
 function wireContraintesSection(){
   wirePlanStartDatePicker();
 
+  // "Repos complet" and the sports exclude each other: picking one clears
+  // the other side.
   const selectedConstraintDisciplines = new Set();
-  toggleChipGroup('.constraint-discipline-btn', selectedConstraintDisciplines, 'discipline');
+  let constraintFullRest = false;
+  const restBtn = document.getElementById('constraint-rest-btn');
+  toggleChipGroup('.constraint-discipline-btn', selectedConstraintDisciplines, 'discipline', () => {
+    constraintFullRest = false;
+    restBtn.classList.remove('active');
+  });
+  restBtn.addEventListener('click', () => {
+    constraintFullRest = !constraintFullRest;
+    restBtn.classList.toggle('active', constraintFullRest);
+    selectedConstraintDisciplines.clear();
+    document.querySelectorAll('.constraint-discipline-btn').forEach(btn => btn.classList.remove('active'));
+  });
 
   let constraintStart = null;
   let constraintEnd = null;
@@ -1466,6 +1483,8 @@ function wireContraintesSection(){
     document.getElementById('new-constraint-title').value = '';
     selectedConstraintDisciplines.clear();
     document.querySelectorAll('.constraint-discipline-btn').forEach(btn => btn.classList.remove('active'));
+    constraintFullRest = false;
+    restBtn.classList.remove('active');
     document.getElementById('constraint-add-form').hidden = true;
     document.getElementById('constraint-add-toggle-btn').hidden = false;
   }
@@ -1479,6 +1498,7 @@ function wireContraintesSection(){
 
   document.getElementById('add-constraint-btn').addEventListener('click', async () => {
     if (!constraintStart || !constraintEnd) return;
+    if (!constraintFullRest && selectedConstraintDisciplines.size === 0) return;
 
     const title = document.getElementById('new-constraint-title').value.trim() || null;
     const { data: { session } } = await supabase.auth.getSession();
@@ -2503,6 +2523,7 @@ function renderTrainingPrefsPanel(){
       });
     } else {
       container.innerHTML = trainingPrefsRaceStepHtml(currentGoals);
+      wireRaceDatePicker();
       const getSize = wireRaceSizeButtons(currentGoals.size);
       document.getElementById('prefs-race-next-btn').addEventListener('click', async () => {
         const raceDate = document.getElementById('race-info-date').value;
@@ -2677,14 +2698,16 @@ const RACE_SIZE_DISTANCES = {
   M: { swim_distance_m: 1500, bike_distance_km: 40, run_distance_km: 10 },
 };
 
-function raceInfoFieldsHtml(goals, minDate = null){
+function raceInfoFieldsHtml(goals){
   return `<div class="goal-field">
       <label>Nom</label>
       <input type="text" id="race-info-name" value="${escapeHtml(goals.name || '')}">
     </div>
     <div class="goal-field">
       <label>Date</label>
-      <input type="date" id="race-info-date" value="${goals.race_date || ''}"${minDate ? ` min="${minDate}"` : ''}>
+      <input type="hidden" id="race-info-date" value="${goals.race_date || ''}">
+      <button type="button" class="calendar-trigger-btn" id="race-date-btn">📅 ${goals.race_date ? formatDateShort(goals.race_date) : 'Choisir la date'}</button>
+      <div class="calendar-panel" id="race-date-calendar-panel" hidden></div>
     </div>
     <div class="goal-field">
       <label>Format</label>
@@ -2696,7 +2719,7 @@ function raceInfoFieldsHtml(goals, minDate = null){
 
 function raceInfoEditorHtml(goals){
   return `<div class="detail-title" style="margin-bottom:16px;">Mon triathlon</div>
-    ${raceInfoFieldsHtml(goals, ymdFromDate(tomorrowDate()))}
+    ${raceInfoFieldsHtml(goals)}
     <p class="wizard-error" id="race-info-error" hidden></p>
     <button type="button" class="goal-save-btn" id="save-race-info-btn">Enregistrer</button>`;
 }
@@ -2708,6 +2731,53 @@ function raceDateProblem(raceDate){
   const planStart = currentPreferences?.plan_start_date;
   if (planStart && raceDate <= planStart) return `La course doit être après le début du plan (${formatDateShort(planStart)}).`;
   return null;
+}
+
+// Same calendar as the contraintes, for a single date. Days before tomorrow,
+// and up to the plan's start when one is set, can't be picked (see
+// raceDateProblem). The choice lands in the hidden #race-info-date.
+function wireRaceDatePicker(){
+  const input = document.getElementById('race-info-date');
+  const btn = document.getElementById('race-date-btn');
+  const panel = document.getElementById('race-date-calendar-panel');
+  if (!input || !btn || !panel) return;
+
+  let minDate = ymdFromDate(tomorrowDate());
+  const planStart = currentPreferences?.plan_start_date;
+  if (planStart && planStart >= minDate) {
+    const dayAfterStart = new Date(planStart + 'T00:00:00');
+    dayAfterStart.setDate(dayAfterStart.getDate() + 1);
+    minDate = ymdFromDate(dayAfterStart);
+  }
+  const shown = new Date((input.value || minDate) + 'T00:00:00');
+  let viewYear = shown.getFullYear();
+  let viewMonth = shown.getMonth();
+
+  function render(){
+    panel.innerHTML = calendarPanelHtml(viewYear, viewMonth, input.value || null, null, { minDate });
+    panel.querySelector('[data-nav="prev"]').addEventListener('click', () => {
+      viewMonth--;
+      if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+      render();
+    });
+    panel.querySelector('[data-nav="next"]').addEventListener('click', () => {
+      viewMonth++;
+      if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+      render();
+    });
+    panel.querySelectorAll('.calendar-day:not(.empty):not(:disabled)').forEach(cell => {
+      cell.addEventListener('click', () => {
+        input.value = cell.dataset.date;
+        btn.textContent = `📅 ${formatDateShort(input.value)}`;
+        panel.hidden = true;
+      });
+    });
+  }
+
+  btn.addEventListener('click', () => {
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) render();
+  });
 }
 
 // Returns a getter for the currently selected size.
@@ -2745,6 +2815,7 @@ function openRaceInfoEditor(){
   if (!currentGoals) return;
 
   document.getElementById('detail-content').innerHTML = raceInfoEditorHtml(currentGoals);
+  wireRaceDatePicker();
   const getSize = wireRaceSizeButtons(currentGoals.size);
 
   document.getElementById('save-race-info-btn').addEventListener('click', async () => {
