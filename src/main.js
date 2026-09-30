@@ -84,7 +84,7 @@ function sessionDetailHtml(s){
   const zoneChip = zone => `<span class="zone-chip ${zone.toLowerCase()}">${zone}</span>`;
   const keyPaceChip = '<span class="zone-chip zc">allure cible</span>';
   // Zones written in a segment's text ("100 Z1", "allure cible") are shown
-  // as chips too — a swim set mixes several zones within one segment. Plans
+  // as chips too - a swim set mixes several zones within one segment. Plans
   // generated before the rename still say "allure clé".
   const KEY_PACE_TEXT = /allure (?:cible|clé)/g;
   const withZoneChips = text => text
@@ -177,7 +177,7 @@ function renderStravaState(data, ok){
     return;
   }
   if (data.future) {
-    el.innerHTML = `<p class="detail-strava-status">Séance à venir — pas encore réalisée.</p>`;
+    el.innerHTML = `<p class="detail-strava-status">Séance à venir - pas encore réalisée.</p>`;
     return;
   }
   if (!data.matches.length) {
@@ -270,7 +270,7 @@ function weekBlockHtml(weekNumber, sessions, isOpen){
   const sorted = [...sessions].sort((a, b) => (a.session_date || '').localeCompare(b.session_date || ''));
   // Derive the displayed range from the sessions themselves rather than the
   // hardcoded WEEK_DATE_RANGES map, which only covers the real hand-written
-  // plan's calendar — a generated plan's own week N would otherwise show
+  // plan's calendar - a generated plan's own week N would otherwise show
   // that plan's unrelated dates.
   const sessionDates = sorted.map(s => s.session_date).filter(Boolean);
   const range = sessionDates.length ? [sessionDates[0], sessionDates[sessionDates.length - 1]] : null;
@@ -288,7 +288,7 @@ async function loadAndRenderSessions(){
     .order('order_index', { ascending: true });
 
   // On error, still fall through with an empty session set instead of
-  // bailing out — otherwise whichever account's sessions were on screen
+  // bailing out - otherwise whichever account's sessions were on screen
   // before (a previous account switched from, in the same page session)
   // stay there indefinitely instead of clearing.
   if (error) console.error('Erreur de chargement', error);
@@ -501,7 +501,7 @@ document.getElementById('timeline-overlay').addEventListener('click', (e) => {
 
 async function initApp(){
   // Awaited so the caller can keep the auth gate up until this account's
-  // real data is loaded and rendered — otherwise whatever was already in
+  // real data is loaded and rendered - otherwise whatever was already in
   // the DOM (a previous account's data, or the static placeholder markup
   // on first load) stays visible for a moment before being replaced.
   await Promise.all([
@@ -640,7 +640,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
   if (session) {
     // Re-run on first login and whenever a different account signs in
     // within the same page session (sign out then back in as someone
-    // else) — not on every token refresh for the same user. The gate
+    // else) - not on every token refresh for the same user. The gate
     // stays up until the fetch resolves, so the previous account's (or
     // the static placeholder's) data is never revealed even briefly.
     if (session.user.id !== initializedUserId) {
@@ -662,7 +662,7 @@ function formatMMSS(totalSec){
 }
 
 // Mobile numeric keypads (inputmode="numeric") have no ':' or "'" key, so
-// digit-only input (e.g. "530") must still parse — treat the last two
+// digit-only input (e.g. "530") must still parse - treat the last two
 // digits as the minor unit (seconds/minutes) and the rest as the major
 // unit (minutes/hours), the same convention stopwatch/timer keypads use.
 function splitDigitPair(str){
@@ -765,8 +765,8 @@ let currentPreferences = null;
 let currentConstraints = [];
 
 function renderGoals(goals){
-  const durationOrDash = (sec, formatter) => (sec == null ? '–' : '~' + formatter(sec));
-  const paceOrDash = (sec, dist, formatter, unit) => (sec == null || dist == null ? '–' : formatter(sec, dist) + unit);
+  const durationOrDash = (sec, formatter) => (sec == null ? '-' : '~' + formatter(sec));
+  const paceOrDash = (sec, dist, formatter, unit) => (sec == null || dist == null ? '-' : formatter(sec, dist) + unit);
 
   document.getElementById('split-swim-duration').textContent = durationOrDash(goals.swim_duration_sec, formatMMSS);
   document.getElementById('split-swim-pace').textContent = paceOrDash(goals.swim_duration_sec, goals.swim_distance_m, formatPacePer100, '/100m');
@@ -779,7 +779,7 @@ function renderGoals(goals){
 
   const durations = [goals.swim_duration_sec, goals.t1_duration_sec, goals.bike_duration_sec, goals.t2_duration_sec, goals.run_duration_sec];
   if (durations.some(v => v == null)) {
-    document.getElementById('split-total').textContent = '–';
+    document.getElementById('split-total').textContent = '-';
     return;
   }
   const totalMin = Math.round(durations.reduce((a, b) => a + b, 0) / 60);
@@ -789,9 +789,9 @@ function renderGoals(goals){
 }
 
 function updateSplitLabels(goals){
-  document.getElementById('split-swim-label').textContent = goals.swim_distance_m == null ? '–' : `${goals.swim_distance_m} m`;
-  document.getElementById('split-bike-label').textContent = goals.bike_distance_km == null ? '–' : `${goals.bike_distance_km} km`;
-  document.getElementById('split-run-label').textContent = goals.run_distance_km == null ? '–' : `${goals.run_distance_km} km`;
+  document.getElementById('split-swim-label').textContent = goals.swim_distance_m == null ? '-' : `${goals.swim_distance_m} m`;
+  document.getElementById('split-bike-label').textContent = goals.bike_distance_km == null ? '-' : `${goals.bike_distance_km} km`;
+  document.getElementById('split-run-label').textContent = goals.run_distance_km == null ? '-' : `${goals.run_distance_km} km`;
 }
 
 function setHomeRaceConfigurable(configurable){
@@ -802,7 +802,7 @@ function setHomeRaceConfigurable(configurable){
 function renderRaceInfo(goals){
   if (!goals.race_date) {
     document.getElementById('home-race-name').innerHTML = `<em>Mon</em> triathlon`;
-    document.getElementById('home-race-day').textContent = '–';
+    document.getElementById('home-race-day').textContent = '-';
     document.getElementById('home-race-month').textContent = '';
     document.title = 'Plan Triathlon';
     raceTargetDate = null;
@@ -822,9 +822,9 @@ function renderRaceInfo(goals){
   const d = new Date(goals.race_date + 'T00:00:00');
   document.getElementById('home-race-day').textContent = d.getDate();
   document.getElementById('home-race-month').textContent = FR_MONTHS[d.getMonth()];
-  document.title = `Plan Triathlon ${goals.size} — ${d.getDate()} ${FR_MONTHS[d.getMonth()]}`;
+  document.title = `Plan Triathlon ${goals.size} - ${d.getDate()} ${FR_MONTHS[d.getMonth()]}`;
   raceTargetDate = new Date(goals.race_date + 'T10:00:00');
-  // Refresh the displayed digits immediately — otherwise they keep
+  // Refresh the displayed digits immediately - otherwise they keep
   // showing whichever account's countdown was on screen before (or the
   // initial "--") until the next 1s setInterval tick fires.
   updateCountdown();
@@ -841,7 +841,7 @@ document.getElementById('countdown-block').addEventListener('click', openRaceInf
 async function loadAndRenderGoals(){
   const { data, error } = await supabase.from('plan_race_goals').select('*').single();
   if (error) {
-    // No row for this account (e.g. it was never created, or got deleted) —
+    // No row for this account (e.g. it was never created, or got deleted) -
     // PostgREST's .single() 406s on zero rows. Fall back to a blank goals
     // object instead of just logging and bailing: otherwise every render
     // function below never runs, leaving whichever account's data was on
@@ -899,7 +899,7 @@ const DISCIPLINE_LABELS = { swim: 'Natation', bike: 'Vélo', run: 'Course', stre
 const DISCIPLINE_EMOJI = { swim: '🏊', bike: '🚴', run: '🏃', strength: '💪' };
 const DISCIPLINE_OPTIONS = ['swim', 'bike', 'run', 'strength'];
 // Renfo is deliberately excluded from the sport-priority ranking and from
-// contrainte discipline pickers — it doesn't compete for rotation weight
+// contrainte discipline pickers - it doesn't compete for rotation weight
 // like swim/bike/run, it's a separate fixed-frequency question instead.
 const CARDIO_DISCIPLINES = DISCIPLINE_OPTIONS.filter(d => d !== 'strength');
 
@@ -996,7 +996,7 @@ function strengthSliderHtml(count){
     <div class="strength-slider-label" id="strength-slider-label">${strengthSliderLabel(count)}</div>`;
 }
 
-// Three priority tiers rather than a strict ranking — several sports can
+// Three priority tiers rather than a strict ranking - several sports can
 // share the same tier (equal priority), unlike an ordered list where every
 // position is necessarily distinct.
 const PRIORITY_LEVELS = [{ value: 1, label: 'Faible' }, { value: 2, label: 'Normale' }, { value: 3, label: 'Forte' }];
@@ -1158,7 +1158,7 @@ function betaPlanSectionHtml(){
   }
   const weekNumbers = Array.from(weeks.keys()).sort((a, b) => a - b);
   // Computed from this plan's own session dates rather than
-  // currentWeekNumber(), which is tied to WEEK_DATE_RANGES — the real
+  // currentWeekNumber(), which is tied to WEEK_DATE_RANGES - the real
   // hand-written plan's calendar, unrelated to a generated plan's dates.
   const activeWeek = activeGeneratedWeek(weeks, weekNumbers);
 
@@ -1176,7 +1176,7 @@ function betaPlanSectionHtml(){
       <div class="plan-phase-head">
         <span class="plan-phase-icon">${PHASE_ICONS[phase] || ''}</span>
         <div>
-          <h3>Phase ${phase} — ${PHASE_NAMES[phase] || ''}</h3>
+          <h3>Phase ${phase} - ${PHASE_NAMES[phase] || ''}</h3>
           <p class="plan-phase-goal">${PHASE_GOALS[phase] || ''}</p>
         </div>
       </div>
@@ -1280,7 +1280,7 @@ function wirePreferredDisciplines(order, priorityMap, onChange){
   renderPriorityList();
 }
 
-// A single 0-5 slider for Renfo frequency — a separate question from the
+// A single 0-5 slider for Renfo frequency - a separate question from the
 // sport priority ranking, not another entry competing in it.
 function wireStrengthFrequency(state, onChange){
   const slider = document.getElementById('strength-slider');
@@ -1465,7 +1465,7 @@ function wireContraintesSection(){
 
 // Tempo/Seuil/Fractionné presets per discipline and race size, transcribed
 // from the decision trees. `min` is a curated approximate main-set duration
-// (not runtime-parsed from the text — formats like "8x30/30" or "6x400m"
+// (not runtime-parsed from the text - formats like "8x30/30" or "6x400m"
 // aren't reliably parseable without pace assumptions, so these are
 // hand-estimated). The lowest-`min` entry in each type is used during
 // taper instead of continuing the normal cycle. Tempo is always blocks of
@@ -1594,7 +1594,7 @@ const ZONES = {
 const ZONE_FOR_TYPE = { 'Sortie longue': 'Z2', Tempo: 'Z3', Seuil: 'Z4', Fractionné: 'Z5' };
 const KEY_PACE = { name: 'Allure cible', feel: 'Allure que tu vises le jour de la course.' };
 
-// Season template for a full plan (16 weeks), read backward from the race —
+// Season template for a full plan (16 weeks), read backward from the race -
 // the structure borrows from yootri's block model (github.com/nandocfz/yootri).
 // `ramp` is the load across the block's loading weeks, as a share of the
 // season's heaviest week; 4-week blocks end on a recovery week at `recovery`.
@@ -1643,7 +1643,7 @@ const LONG_SESSION_RATIO = { S: { bike: 2, run: 1.6 }, M: { bike: 1.5, run: 1.2 
 const STRENGTH_DURATION = 30;
 
 // Swim sessions are built like a coach's pool session: warm-up, drills,
-// a main set given by the session's objective, cool-down — all in metres.
+// a main set given by the session's objective, cool-down - all in metres.
 // The long swim aims at peak distance x the week's load; the others take
 // their main set from presets (SWIM_FORMATS).
 const SWIM_PEAK_DISTANCE_M = { S: 2000, M: 3000 };
@@ -1657,7 +1657,7 @@ const SWIM_OBJECTIVE = {
 // like bike/run key sessions (see KEY_PARTNER_BY_BLOCK).
 const SWIM_KEY_ALTERNATION = [SWIM_OBJECTIVE.seuil, SWIM_OBJECTIVE.vitesse];
 
-// Gear assumed: kickboard, pull-buoy (PB) and paddles — no fins or snorkel.
+// Gear assumed: kickboard, pull-buoy (PB) and paddles - no fins or snorkel.
 // Drills are never named: the athlete picks them from the exercise library.
 const SWIM_DRILL_CHOICE = 'éducatifs au choix dans la bibliothèque';
 const SWIM_WARMUP_M = 200;
@@ -1676,10 +1676,10 @@ function swimEnduranceSet(budget, light){
     meters: blocks * 600 + finalM,
     lines: [
       blocks === 1 ? 'Bloc :' : `Bloc, ${blocks} fois :`,
-      '– 100 Z2 (r = 15″)',
-      '– 200 Z3 avec PB + plaquettes (r = 20″)',
-      '– 2×100 Z4 (r = 10″)',
-      '– 100 Z1 (r = 15″)',
+      '- 100 Z2 (r = 15″)',
+      '- 200 Z3 avec PB + plaquettes (r = 20″)',
+      '- 2×100 Z4 (r = 10″)',
+      '- 100 Z1 (r = 15″)',
       `${finalM} Z3 (r = 45″)`,
     ],
   };
@@ -1690,7 +1690,7 @@ function swimEnduranceSet(budget, light){
 const SWIM_FORMATS = {
   M: {
     [SWIM_OBJECTIVE.technique]: [
-      { text: '8x100m', m: 800, detail: 'Z2 : 50 m jambes avec planche – 50 m nage complète (r = 15″)' },
+      { text: '8x100m', m: 800, detail: 'Z2 : 50 m jambes avec planche - 50 m nage complète (r = 15″)' },
       { text: '5x200m', m: 1000, detail: 'Z2, 1 sur 2 avec PB (r = 20″)' },
       { text: '4x300m', m: 1200, detail: 'Z2, le dernier avec PB + plaquettes (r = 20″)' },
       { text: '3x400m', m: 1200, detail: 'Z2, 1 sur 2 avec PB (r = 30″)' },
@@ -1710,7 +1710,7 @@ const SWIM_FORMATS = {
   },
   S: {
     [SWIM_OBJECTIVE.technique]: [
-      { text: '6x100m', m: 600, detail: 'Z2 : 50 m jambes avec planche – 50 m nage complète (r = 15″)' },
+      { text: '6x100m', m: 600, detail: 'Z2 : 50 m jambes avec planche - 50 m nage complète (r = 15″)' },
       { text: '4x200m', m: 800, detail: 'Z2, 1 sur 2 avec PB (r = 20″)' },
       { text: '3x300m', m: 900, detail: 'Z2, le dernier avec PB + plaquettes (r = 20″)' },
       { text: '5x200m', m: 1000, detail: 'Z2, 1 sur 2 avec PB (r = 20″)' },
@@ -1792,7 +1792,7 @@ function swimTypeFor(week, role){
 }
 
 // A sport with a single session that week can't be long *and* key, so its
-// role alternates week to week — offset between sports, so the week still
+// role alternates week to week - offset between sports, so the week still
 // holds a mix (bike long while run does its key session, then the reverse).
 const SINGLE_SESSION_ROTATION = {
   1: ['longue', 'clé'],
@@ -1811,7 +1811,7 @@ function buildGeneratedPlan(){
   const trainingDays = DAY_OPTIONS.filter(d => currentPreferences.training_days.includes(d));
   // Order matters here: preferred_disciplines is saved in priority order
   // (highest priority first), used to break ties below. Renfo never takes
-  // part in the weekly split — it's scheduled separately at the end.
+  // part in the weekly split - it's scheduled separately at the end.
   const disciplines = currentPreferences.preferred_disciplines.filter(d => CARDIO_DISCIPLINES.includes(d));
   if (trainingDays.length === 0 || disciplines.length === 0) return [];
 
@@ -1857,15 +1857,15 @@ function buildGeneratedPlan(){
 
   // How many sessions each sport gets this week, by the intensity the
   // athlete wants for it (Forte x3, Normale x2, Faible x1). Both cases use a smooth weighted round-robin whose
-  // credit carries over from week to week — restarting it each week would
+  // credit carries over from week to week - restarting it each week would
   // settle ties between sports of the same priority the same way every week.
   //
   // With at least one day per sport, every sport gets one session, and the
   // extra days go by each sport's share of the week *beyond* that first
   // session: its fair share of all training days (days x weight / total)
   // minus 1. So with 4 days, swim and run on Forte and bike on Faible, the extra
-  // day alternates between swim and run, and bike — whose fair share is
-  // under one session — never gets it.
+  // day alternates between swim and run, and bike - whose fair share is
+  // under one session - never gets it.
   //
   // With fewer days than sports, the round-robin runs on the priority
   // weights themselves, so lower-priority sports still come up in turn.
@@ -1938,8 +1938,8 @@ function buildGeneratedPlan(){
 
   // Presets are ranked by the curated `min` (used only to rank variants, not
   // to display a duration). For variety, each block alternates between two
-  // neighbouring presets — its own level and the next one up (the two
-  // hardest at the top, hardest first) — so sessions change within a block
+  // neighbouring presets - its own level and the next one up (the two
+  // hardest at the top, hardest first) - so sessions change within a block
   // while still getting harder block to block. Recovery weeks and the taper
   // use a single light preset; Fractionné in Base (its introduction)
   // alternates between the two lightest.
@@ -1968,7 +1968,7 @@ function buildGeneratedPlan(){
     return discipline === 'bike' ? Math.round(km) : Math.round(km * 2) / 2;
   }
 
-  // Duration is intentionally left null for bike/run — estimating it means
+  // Duration is intentionally left null for bike/run - estimating it means
   // guessing at paces we don't have. Distance, format text and segment
   // structure are real (from the rules/trees), so those are filled in.
   function fillCardio(row, discipline, week, role, type){
@@ -2023,7 +2023,7 @@ function buildGeneratedPlan(){
     row.duration_min = null;
     row.segments = [
       { label: 'Échauffement', text: '100 Z1 nages au choix<br>100 Z2 nages au choix' },
-      { label: 'Éducatifs', text: `${drillReps}×50 (25 m éducatif – 25 m Z1), r = 15″ : ${SWIM_DRILL_CHOICE}` },
+      { label: 'Éducatifs', text: `${drillReps}×50 (25 m éducatif - 25 m Z1), r = 15″ : ${SWIM_DRILL_CHOICE}` },
       { label: 'Corps de séance', text: main.lines.join('<br>') },
       { label: 'Retour au calme', text: '50 à 200 Z1 libre, nages au choix, dont au moins les 25 derniers mètres en dos 2 bras.' },
     ];
@@ -2048,7 +2048,7 @@ function buildGeneratedPlan(){
     const placed = placeWeek(sessions, days);
 
     // A contrainte blocking a session's sport hands its day to an allowed
-    // sport — the user's own first (highest priority first), else any allowed
+    // sport - the user's own first (highest priority first), else any allowed
     // cardio sport. Nothing allowed: the day stays free. The replacement keeps
     // the role unless that sport already has it this week (one long and one
     // key session per sport), in which case it takes the next role down.
@@ -2125,7 +2125,7 @@ function buildGeneratedPlan(){
 
   // Renfo: fixed frequency per week, placed on that week's first N training
   // days (chronologically) rather than competing in the weekly split.
-  // Not filtered by contraintes — those only ever restrict cardio disciplines
+  // Not filtered by contraintes - those only ever restrict cardio disciplines
   // in the UI (the contrainte discipline picker no longer offers Renfo).
   const strengthPerWeek = Math.min(currentPreferences.strength_sessions_per_week || 0, trainingDays.length);
   if (strengthPerWeek > 0) {
@@ -2163,7 +2163,7 @@ async function generatePersonalizedPlan(){
   }
 
   // Only ever skip when a real hand-written plan exists (any session_key not
-  // prefixed "gen-") — never touch that. A previously *generated* plan is
+  // prefixed "gen-") - never touch that. A previously *generated* plan is
   // safe to replace, so re-running onboarding actually regenerates instead
   // of silently keeping stale results from an earlier run.
   const hasRealPlan = existing.some(row => !row.session_key.startsWith('gen-'));
@@ -2196,7 +2196,7 @@ async function generatePersonalizedPlan(){
   await loadAndRenderSessions();
 }
 
-// Only ever deletes *generated* sessions (session_key prefixed "gen-") —
+// Only ever deletes *generated* sessions (session_key prefixed "gen-") -
 // never a real hand-written plan, same safeguard as generatePersonalizedPlan.
 async function resetGeneratedPlan(){
   const { data: { session } } = await supabase.auth.getSession();
@@ -2407,7 +2407,7 @@ let onboardingPrimaryHandler = null;
 let onboardingDismissHandler = null;
 
 function showOnboardingPopup({ title, text, primaryLabel, onPrimary, onDismiss }){
-  // These popups are about the home page (race info / splits) — only show
+  // These popups are about the home page (race info / splits) - only show
   // them there. Saving Mon triathlon from Réglages, for instance, should
   // not pop something up on top of Réglages.
   if (!document.getElementById('m1').checked) return;
@@ -2421,7 +2421,7 @@ function showOnboardingPopup({ title, text, primaryLabel, onPrimary, onDismiss }
   const dismissBtn = document.getElementById('onboarding-dismiss-btn');
   dismissBtn.hidden = !onDismiss;
 
-  // Swap the handlers directly instead of cloning/replacing the buttons —
+  // Swap the handlers directly instead of cloning/replacing the buttons -
   // simpler to reason about, especially since this popup can re-open
   // itself from inside its own dismiss handler (the "show the next popup"
   // chaining below).
@@ -2665,7 +2665,7 @@ document.querySelectorAll('.split.editable').forEach(el => {
 
 function exerciseItemHtml(ex){
   const tagsHtml = (ex.tags || []).map(tag => `<span class="exo-tag">${escapeHtml(tag)}</span>`).join('');
-  return `<div class="exo-item"><b>${escapeHtml(ex.name)}</b>${tagsHtml} — ${escapeHtml(ex.description)}</div>`;
+  return `<div class="exo-item"><b>${escapeHtml(ex.name)}</b>${tagsHtml} - ${escapeHtml(ex.description)}</div>`;
 }
 
 let exercisesByCategory = new Map();

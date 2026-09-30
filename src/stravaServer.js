@@ -5,7 +5,7 @@
 // trimmed activity JSON back, never a token.
 //
 // Tokens are stored per Supabase user (tokensKey below), not in one shared
-// KV entry — otherwise whoever connects Strava last would overwrite
+// KV entry - otherwise whoever connects Strava last would overwrite
 // everyone else's connection.
 
 class StravaNotConnectedError extends Error {}
@@ -22,7 +22,7 @@ function tokensKey(userId) {
   return `strava_tokens:${userId}`;
 }
 
-// Verifies a Supabase access token by asking Supabase who it belongs to —
+// Verifies a Supabase access token by asking Supabase who it belongs to -
 // avoids needing the project's JWT secret in this Worker.
 async function getUserId(accessToken, env) {
   if (!accessToken) return null;
@@ -135,7 +135,7 @@ export async function handleStatus(request, env) {
 
   // Strava's app is capped at a single authorized athlete while it's in
   // dev mode (not published), regardless of how many accounts this app
-  // has — so once any other account has claimed that one slot, hide the
+  // has - so once any other account has claimed that one slot, hide the
   // Strava settings from everyone else instead of showing a connect
   // button that would just fail.
   const list = await env.STRAVA_KV.list({ prefix: 'strava_tokens:' });
@@ -174,7 +174,7 @@ export async function handleActivities(request, env) {
   const after = dayStart - 86400;
   const before = dayStart + 2 * 86400;
 
-  // Strava rejects `after` timestamps in the future outright — and a
+  // Strava rejects `after` timestamps in the future outright - and a
   // session dated in the future obviously has no activity yet, so skip
   // the call entirely rather than surface that as an error.
   if (after * 1000 > Date.now()) {
@@ -221,7 +221,7 @@ export async function handleActivities(request, env) {
 
   // The list endpoint above only returns summary activities: no free-text
   // description (only on the single-activity detail endpoint) and no laps
-  // (their own endpoint) — fetch both per matched activity, in parallel.
+  // (their own endpoint) - fetch both per matched activity, in parallel.
   const authHeaders = { headers: { Authorization: `Bearer ${accessToken}` } };
   matches = await Promise.all(matches.map(async (m) => {
     const [detail, laps] = await Promise.all([

@@ -1,10 +1,10 @@
 // Cloudflare Worker entry point. Handles the small set of /api/strava/*
 // routes server-side (where the OAuth client secret and tokens must stay),
 // and falls through to the static build (dist/, via the ASSETS binding)
-// for everything else — this is what actually serves the Vite app.
+// for everything else - this is what actually serves the Vite app.
 //
 // Access control lives in Supabase Auth (email/password) now, enforced by
-// RLS policies on every table, not at this layer — see supabase/require_auth.sql.
+// RLS policies on every table, not at this layer - see supabase/require_auth.sql.
 import { handleConnect, handleCallback, handleStatus, handleActivities, handleDisconnect } from './stravaServer.js';
 
 export default {

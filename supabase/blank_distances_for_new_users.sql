@@ -18,4 +18,4 @@ alter table plan_race_goals alter column run_distance_km drop not null;
 alter table plan_race_goals alter column run_duration_sec drop default;
 alter table plan_race_goals alter column run_duration_sec drop not null;
 
--- Existing rows (Elise's) are untouched — this only changes future inserts.
+-- Existing rows (Elise's) are untouched - this only changes future inserts.

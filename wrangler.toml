@@ -2,7 +2,7 @@ name = "plan-triathlon"
 compatibility_date = "2024-09-23"
 main = "src/worker.js"
 
-# Public values (same ones baked into the client bundle) — needed here to
+# Public values (same ones baked into the client bundle) - needed here to
 # verify a caller's Supabase access token before touching Strava's KV store.
 [vars]
 SUPABASE_URL = "https://zrcnvwbrnbnghmuigdwu.supabase.co"

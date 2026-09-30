@@ -24,7 +24,7 @@ update plan_session_completions set duration_min = 143 where session_key in ('s2
 update plan_session_completions set duration_min = 87 where session_key in ('s9-2', 's10-2', 's11-2');
 update plan_session_completions set duration_min = 60 where session_key = 's12-2';
 
--- Swim (roughest estimates — see note above)
+-- Swim (roughest estimates - see note above)
 update plan_session_completions set duration_min = 47 where session_key = 's1-1';
 update plan_session_completions set duration_min = 55 where session_key = 's2-1';
 update plan_session_completions set duration_min = 42 where session_key in ('s3-1', 's5-1');

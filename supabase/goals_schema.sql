@@ -15,7 +15,7 @@ create table if not exists plan_race_goals (
   constraint plan_race_goals_size_check check (size in ('S', 'M'))
 );
 
--- L and Iron Man are no longer offered — fold any existing rows into M
+-- L and Iron Man are no longer offered - fold any existing rows into M
 -- before tightening the constraint, so this doesn't fail on old data.
 update plan_race_goals set size = 'M' where size not in ('S', 'M');
 alter table plan_race_goals drop constraint if exists plan_race_goals_size_check;
@@ -29,7 +29,7 @@ create policy "Owner read/write access"
   with check (user_id = auth.uid());
 
 -- Every new signup gets an empty goals row automatically (a placeholder
--- to upsert into later) — the home page shows "–" for every split until
+-- to upsert into later) - the home page shows "-" for every split until
 -- Mon triathlon / the split editors are filled in.
 create or replace function public.handle_new_user_goals()
 returns trigger as $$

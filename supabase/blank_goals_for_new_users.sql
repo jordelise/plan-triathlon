@@ -7,5 +7,5 @@ alter table plan_race_goals alter column name drop not null;
 alter table plan_race_goals alter column race_date drop default;
 alter table plan_race_goals alter column race_date drop not null;
 
--- Existing rows (i.e. Elise's) are untouched — this only changes what
+-- Existing rows (i.e. Elise's) are untouched - this only changes what
 -- future inserts get by default.
