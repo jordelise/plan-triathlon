@@ -1301,7 +1301,8 @@ function renderConstraintList(){
   });
 }
 
-async function deleteConstraint(id){
+async function deleteConstraint(id, { ask = true } = {}){
+  const removed = currentConstraints.find(c => c.id === id);
   const { error } = await supabase.from('plan_constraints').delete().eq('id', id);
   if (error) {
     console.error('Erreur de suppression de la contrainte', error);
@@ -1309,7 +1310,21 @@ async function deleteConstraint(id){
   }
   currentConstraints = currentConstraints.filter(c => c.id !== id);
   renderConstraintList();
-  askReplan();
+  if (ask && removed) askReplan(() => insertConstraint(removed));
+}
+
+async function insertConstraint({ start_date, end_date, allowed_disciplines, title }){
+  const { data: { session } } = await supabase.auth.getSession();
+  const { data, error } = await supabase.from('plan_constraints').insert({
+    user_id: session?.user?.id, start_date, end_date, allowed_disciplines, title,
+  }).select().single();
+  if (error) {
+    console.error('Erreur d\'ajout de la contrainte', error);
+    return null;
+  }
+  currentConstraints = [...currentConstraints, data].sort((a, b) => a.start_date.localeCompare(b.start_date));
+  renderConstraintList();
+  return data;
 }
 
 function toggleChipGroup(selector, selectedSet, datasetKey, onChange){
@@ -1445,7 +1460,8 @@ function wirePlanStartDatePicker(onPick){
 
 function wireContraintesSection(){
   wirePlanStartDatePicker(async dateStr => {
-    if (await savePlanStartDate(dateStr)) askReplan();
+    const previous = currentPreferences.plan_start_date;
+    if (await savePlanStartDate(dateStr)) askReplan(() => savePlanStartDate(previous));
   });
 
   // "Repos complet" and the sports exclude each other: picking one clears
@@ -1543,23 +1559,15 @@ function wireContraintesSection(){
     if (!constraintFullRest && selectedConstraintDisciplines.size === 0) return;
 
     const title = document.getElementById('new-constraint-title').value.trim() || null;
-    const { data: { session } } = await supabase.auth.getSession();
-    const { data, error } = await supabase.from('plan_constraints').insert({
-      user_id: session?.user?.id,
+    const data = await insertConstraint({
       start_date: constraintStart,
       end_date: constraintEnd,
       allowed_disciplines: Array.from(selectedConstraintDisciplines),
       title,
-    }).select().single();
-
-    if (error) {
-      console.error('Erreur d\'ajout de la contrainte', error);
-      return;
-    }
-    currentConstraints = [...currentConstraints, data].sort((a, b) => a.start_date.localeCompare(b.start_date));
-    renderConstraintList();
+    });
+    if (!data) return;
     resetConstraintForm();
-    askReplan();
+    askReplan(() => deleteConstraint(data.id, { ask: false }));
   });
 }
 
@@ -2516,19 +2524,53 @@ function hasGeneratedPlan(){
   return keys.length > 0 && keys.every(key => key.startsWith('gen-'));
 }
 
-function askReplan(){
+// `undo` puts back what the change replaced: saying no to the recalculation
+// abandons the change itself.
+let pendingReplanUndo = null;
+function askReplan(undo = null){
   if (!hasGeneratedPlan()) return;
+  pendingReplanUndo = undo;
   document.getElementById('replan-popup').hidden = false;
 }
 
-document.getElementById('replan-no-btn').addEventListener('click', () => {
+document.getElementById('replan-no-btn').addEventListener('click', async () => {
   document.getElementById('replan-popup').hidden = true;
+  const undo = pendingReplanUndo;
+  pendingReplanUndo = null;
+  if (!undo) return;
+  await undo();
+  renderTrainingPrefsPanel();
+  showToast('Modification annulée');
 });
+
+async function restorePreferences(previous){
+  const restored = { ...previous, updated_at: new Date().toISOString() };
+  const { error } = await supabase.from('plan_preferences').upsert(restored);
+  if (error) {
+    console.error('Erreur de restauration des préférences', error);
+    return;
+  }
+  currentPreferences = restored;
+}
+
+async function restoreGoals(previous){
+  const restored = { ...previous, updated_at: new Date().toISOString() };
+  const { error } = await supabase.from('plan_race_goals').upsert(restored);
+  if (error) {
+    console.error('Erreur de restauration de la course', error);
+    return;
+  }
+  currentGoals = restored;
+  renderRaceInfo(currentGoals);
+  renderGoals(currentGoals);
+  updateSplitLabels(currentGoals);
+}
 
 document.getElementById('replan-yes-btn').addEventListener('click', async (e) => {
   const btn = e.currentTarget;
   btn.disabled = true;
   btn.textContent = 'Recalcul…';
+  pendingReplanUndo = null;
   const done = await replanFromToday();
   btn.disabled = false;
   btn.textContent = 'Recalculer';
@@ -2864,7 +2906,7 @@ function renderCourseEditor(){
     btn.disabled = false;
     if (!result) return;
     renderCourseView();
-    if (result.planChanged) askReplan();
+    if (result.planChanged) askReplan(result.undo);
   });
 }
 
@@ -2905,6 +2947,7 @@ function renderHabitsEditor(){
     }
     const btn = e.currentTarget;
     btn.disabled = true;
+    const previous = currentPreferences;
     const updated = {
       ...currentPreferences,
       training_days: DAY_OPTIONS.filter(d => selectedDays.has(d)),
@@ -2923,7 +2966,7 @@ function renderHabitsEditor(){
     }
     currentPreferences = updated;
     renderHabitsView();
-    askReplan();
+    askReplan(() => restorePreferences(previous));
   });
 }
 
@@ -3169,6 +3212,8 @@ async function saveRaceForm(getSize, errorEl){
   }
   errorEl.hidden = true;
   const previous = { raceDate: currentGoals.race_date, size: currentGoals.size };
+  const previousGoals = currentGoals;
+  const previousPreferences = currentPreferences;
   const saved = await saveRaceInfo({
     name: document.getElementById('race-info-name').value.trim() || null,
     raceDate,
@@ -3178,7 +3223,13 @@ async function saveRaceForm(getSize, errorEl){
   const start = currentPreferences.plan_start_date;
   const newStart = planStartForRace(raceDate);
   if (start && newStart !== start && !(await savePlanStartDate(newStart))) return null;
-  return { planChanged: previous.raceDate !== currentGoals.race_date || previous.size !== currentGoals.size || (start && newStart !== start) };
+  return {
+    planChanged: previous.raceDate !== currentGoals.race_date || previous.size !== currentGoals.size || (start && newStart !== start),
+    undo: async () => {
+      await restoreGoals(previousGoals);
+      if (currentPreferences.plan_start_date !== previousPreferences.plan_start_date) await savePlanStartDate(previousPreferences.plan_start_date);
+    },
+  };
 }
 
 function openRaceInfoEditor(){
@@ -3193,7 +3244,7 @@ function openRaceInfoEditor(){
     if (!result) return;
     closeDetail();
     renderCourseView();
-    if (result.planChanged) askReplan();
+    if (result.planChanged) askReplan(result.undo);
     maybeShowOnboardingPopup(currentGoals);
   });
 
