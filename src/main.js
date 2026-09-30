@@ -948,7 +948,9 @@ function calendarPanelHtml(viewYear, viewMonth, startDate, endDate, { minDate = 
 
 function constraintRowHtml(constraint){
   const dates = `${formatDateShort(constraint.start_date)} → ${formatDateShort(constraint.end_date)}`;
-  const disciplines = constraint.allowed_disciplines.map(d => `${DISCIPLINE_EMOJI[d] || ''} ${DISCIPLINE_LABELS[d] || d}`).join('  ');
+  const disciplines = constraint.allowed_disciplines.length === 0
+    ? 'Repos complet'
+    : constraint.allowed_disciplines.map(d => `${DISCIPLINE_EMOJI[d] || ''} ${DISCIPLINE_LABELS[d] || d}`).join('  ');
   return `<div class="constraint-row" data-id="${constraint.id}">
     <div class="constraint-row-icon">🗓️</div>
     <div class="constraint-row-info">
@@ -1026,12 +1028,44 @@ function prefsFieldsHtml(preferences){
     </div>`;
 }
 
+// Réglages show the habits read-only; changing them is a deliberate
+// "Modifier" -> "Enregistrer", followed by one recalculation prompt.
+function habitsSummaryHtml(preferences){
+  const order = preferences.preferred_disciplines.filter(d => CARDIO_DISCIPLINES.includes(d));
+  const priorityMap = Object.fromEntries(order.map(d => [d, preferences.discipline_priority?.[d] || DEFAULT_PRIORITY_LEVEL]));
+  const strength = preferences.strength_sessions_per_week || 0;
+  const strengthDots = Array.from({ length: 5 }, (_, i) => `<span class="strength-dot${i < strength ? ' on' : ''}"></span>`).join('');
+  // Same pieces as the editor, shown disabled, so reading and editing look
+  // alike.
+  return `<fieldset class="habits-readonly" disabled>
+      <div class="goal-field">
+        <label>Jours d'entraînement</label>
+        <div class="picker-grid day-picker-grid">${dayPickerHtml(preferences.training_days)}</div>
+      </div>
+      <div class="goal-field">
+        <label>Intensité par sport</label>
+        ${order.length ? priorityListHtml(order, priorityMap) : '<p class="habits-empty">Aucun sport</p>'}
+      </div>
+      <div class="goal-field">
+        <label>Renforcement</label>
+        <div class="strength-readonly"><span class="strength-dots">${strengthDots}</span>${strengthSliderLabel(strength)}</div>
+      </div>
+    </fieldset>
+    <button type="button" class="goal-save-btn btn-compact" id="habits-edit-btn">Modifier</button>`;
+}
+
 function contraintesSectionHtml(preferences, constraints, centerToggle = false){
   const startLabel = preferences.plan_start_date ? formatDateShort(preferences.plan_start_date) : 'Demain (par défaut)';
+  // Once the plan has started, moving its start would rewrite the
+  // athlete's history - it's fixed from then on.
+  const started = hasGeneratedPlan() && preferences.plan_start_date && preferences.plan_start_date <= ymdFromDate(new Date());
+  const startField = started
+    ? `<p class="plan-start-fixed">📅 ${startLabel}<span>Le plan a commencé, sa date de début ne change plus.</span></p>`
+    : `<button type="button" class="calendar-trigger-btn" id="plan-start-date-btn">📅 ${startLabel}</button>
+      <div class="calendar-panel" id="plan-start-calendar-panel" hidden></div>`;
   return `<div class="goal-field">
       <label>Début du plan</label>
-      <button type="button" class="calendar-trigger-btn" id="plan-start-date-btn">📅 ${startLabel}</button>
-      <div class="calendar-panel" id="plan-start-calendar-panel" hidden></div>
+      ${startField}
     </div>
 
     <div class="constraint-list" id="constraint-list">${constraints.map(constraintRowHtml).join('')}</div>
@@ -1053,6 +1087,7 @@ function contraintesSectionHtml(preferences, constraints, centerToggle = false){
       <div class="goal-field">
         <label>Disciplines autorisées</label>
         <div class="picker-grid sport-picker-grid small">${sportPickerHtml([], 'constraint-discipline-btn')}</div>
+        <p class="constraint-hint">Aucune discipline choisie : repos complet sur ces dates.</p>
       </div>
       <div class="constraint-add-actions">
         <button type="button" class="goal-save-btn btn-compact" id="add-constraint-btn">Ajouter</button>
@@ -1189,7 +1224,7 @@ function betaPlanSectionHtml(){
 
 function trainingPrefsFullFormHtml(preferences, constraints){
   return prefsCardHtml('🎯', 'Habitudes', "Jours d'entraînement et sports pratiqués.",
-    prefsFieldsHtml(preferences))
+    '<div id="habits-view"></div>')
     + prefsCardHtml('🗓️', 'Contraintes', 'Vacances, blessures, périodes particulières.',
     contraintesSectionHtml(preferences, constraints))
     + betaPlanSectionHtml()
@@ -1220,6 +1255,7 @@ async function deleteConstraint(id){
   }
   currentConstraints = currentConstraints.filter(c => c.id !== id);
   renderConstraintList();
+  askReplan();
 }
 
 function toggleChipGroup(selector, selectedSet, datasetKey, onChange){
@@ -1352,6 +1388,7 @@ function wirePlanStartDatePicker(){
           return;
         }
         currentPreferences = updated;
+        askReplan();
       });
     });
   }
@@ -1441,7 +1478,7 @@ function wireContraintesSection(){
   document.getElementById('cancel-constraint-btn').addEventListener('click', resetConstraintForm);
 
   document.getElementById('add-constraint-btn').addEventListener('click', async () => {
-    if (!constraintStart || !constraintEnd || selectedConstraintDisciplines.size === 0) return;
+    if (!constraintStart || !constraintEnd) return;
 
     const title = document.getElementById('new-constraint-title').value.trim() || null;
     const { data: { session } } = await supabase.auth.getSession();
@@ -1460,6 +1497,7 @@ function wireContraintesSection(){
     currentConstraints = [...currentConstraints, data].sort((a, b) => a.start_date.localeCompare(b.start_date));
     renderConstraintList();
     resetConstraintForm();
+    askReplan();
   });
 }
 
@@ -2125,12 +2163,14 @@ function buildGeneratedPlan(){
 
   // Renfo: fixed frequency per week, placed on that week's first N training
   // days (chronologically) rather than competing in the weekly split.
-  // Not filtered by contraintes - those only ever restrict cardio disciplines
-  // in the UI (the contrainte discipline picker no longer offers Renfo).
+  // Contraintes only restrict cardio disciplines (their picker doesn't offer
+  // Renfo), except a full-rest one, which skips its days.
   const strengthPerWeek = Math.min(currentPreferences.strength_sessions_per_week || 0, trainingDays.length);
   if (strengthPerWeek > 0) {
     for (const [weekNumber, days] of weekDays) {
-      days.slice(0, strengthPerWeek).forEach((day, i) => {
+      // Full-rest contraintes (no discipline allowed) drop the renfo too.
+      const strengthDays = days.filter(day => constraintForDate(day.dateStr)?.allowed_disciplines.length !== 0);
+      strengthDays.slice(0, strengthPerWeek).forEach((day, i) => {
         sessionCounter++;
         rows.push({
           session_key: `gen-${sessionCounter}`,
@@ -2152,6 +2192,27 @@ function buildGeneratedPlan(){
   return rows;
 }
 
+async function savePlanStartDate(dateStr){
+  const updated = { ...currentPreferences, plan_start_date: dateStr, updated_at: new Date().toISOString() };
+  const { error } = await supabase.from('plan_preferences').upsert(updated);
+  if (error) {
+    console.error('Erreur de sauvegarde du début du plan', error);
+    return false;
+  }
+  currentPreferences = updated;
+  return true;
+}
+
+let toastTimer = null;
+function showToast(message){
+  const el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = message;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
 async function generatePersonalizedPlan(){
   const { data: existing, error: fetchError } = await supabase
     .from('plan_sessions')
@@ -2168,6 +2229,10 @@ async function generatePersonalizedPlan(){
   // of silently keeping stale results from an earlier run.
   const hasRealPlan = existing.some(row => !row.session_key.startsWith('gen-'));
   if (hasRealPlan) return;
+
+  // Save the default start ("demain") as a real date, so recalculating the
+  // plan later keeps the same first day.
+  if (!currentPreferences.plan_start_date && !(await savePlanStartDate(ymdFromDate(tomorrowDate())))) return;
 
   const rows = buildGeneratedPlan();
   if (rows.length === 0) return;
@@ -2194,6 +2259,105 @@ async function generatePersonalizedPlan(){
   }
 
   await loadAndRenderSessions();
+}
+
+// Recomputes an existing generated plan after a change made along the way
+// (a contrainte, the race, the habits), when the athlete asks for it from
+// the popup (see askReplan). The whole plan is rebuilt from its
+// start so phases and progression stay right, but only what's ahead is
+// replaced: sessions before today and sessions already done are kept as
+// they are, since they're the athlete's history. Does nothing before
+// onboarding has generated a plan, or next to a hand-written plan.
+let replanQueue = Promise.resolve();
+function replanFromToday(){
+  replanQueue = replanQueue.then(doReplanFromToday, doReplanFromToday);
+  return replanQueue;
+}
+
+// A change that affects the plan doesn't rebuild it on its own: a popup
+// asks first. Saying no keeps the plan as it is (the change stays saved
+// in the réglages and is taken into account at the next recalculation).
+function hasGeneratedPlan(){
+  const keys = [...sessionsByKey.keys()];
+  return keys.length > 0 && keys.every(key => key.startsWith('gen-'));
+}
+
+function askReplan(){
+  if (!hasGeneratedPlan()) return;
+  document.getElementById('replan-popup').hidden = false;
+}
+
+document.getElementById('replan-no-btn').addEventListener('click', () => {
+  document.getElementById('replan-popup').hidden = true;
+});
+
+document.getElementById('replan-yes-btn').addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  btn.textContent = 'Recalcul…';
+  const done = await replanFromToday();
+  btn.disabled = false;
+  btn.textContent = 'Recalculer';
+  document.getElementById('replan-popup').hidden = true;
+  if (done) showToast('Plan mis à jour à partir d\'aujourd\'hui');
+});
+
+async function doReplanFromToday(){
+  const { data: existing, error: fetchError } = await supabase
+    .from('plan_sessions')
+    .select('session_key, session_date, discipline, done');
+  if (fetchError) {
+    console.error('Erreur de vérification du plan existant', fetchError);
+    return;
+  }
+  if (existing.length === 0 || existing.some(row => !row.session_key.startsWith('gen-'))) return;
+
+  // A plan generated with the default start ("demain") never saved that
+  // date, so rebuilding it would restart the plan from tomorrow instead of
+  // its real first day. Pin it to the plan's first session.
+  if (!currentPreferences.plan_start_date) {
+    const firstDate = existing.map(row => row.session_date).filter(Boolean).sort()[0];
+    if (firstDate && !(await savePlanStartDate(firstDate))) return;
+  }
+
+  const rows = buildGeneratedPlan();
+  if (rows.length === 0) return;
+
+  const today = ymdFromDate(new Date());
+  const isKept = row => (row.session_date && row.session_date < today) || row.done;
+  const kept = existing.filter(isKept);
+  const replaced = existing.filter(row => !isKept(row));
+  // A session already done today stays; don't add the new plan's session of
+  // the same sport that day on top of it.
+  const keptToday = new Set(kept.filter(row => row.session_date >= today).map(row => `${row.session_date}-${row.discipline}`));
+  // Fresh keys, so a new session never takes the key of a kept one.
+  const batch = Date.now().toString(36);
+  const upcoming = rows
+    .filter(row => row.session_date >= today && !keptToday.has(`${row.session_date}-${row.discipline}`))
+    .map((row, i) => ({ ...row, session_key: `gen-${batch}-${i + 1}` }));
+
+  if (replaced.length > 0) {
+    const { error: deleteError } = await supabase
+      .from('plan_sessions')
+      .delete()
+      .in('session_key', replaced.map(row => row.session_key));
+    if (deleteError) {
+      console.error('Erreur de suppression des séances à venir', deleteError);
+      return;
+    }
+  }
+
+  const { data: { session } } = await supabase.auth.getSession();
+  const { error } = await supabase
+    .from('plan_sessions')
+    .insert(upcoming.map(row => ({ ...row, user_id: session?.user?.id })));
+  if (error) {
+    console.error('Erreur de recalcul du plan', error);
+    return;
+  }
+
+  await loadAndRenderSessions();
+  return true;
 }
 
 // Only ever deletes *generated* sessions (session_key prefixed "gen-") -
@@ -2376,12 +2540,45 @@ function renderTrainingPrefsPanel(){
   });
   attachDayCardHandlers();
 
+  renderHabitsView();
+}
+
+function renderHabitsView(){
+  const view = document.getElementById('habits-view');
+  if (!view) return;
+  view.innerHTML = habitsSummaryHtml(currentPreferences);
+  document.getElementById('habits-edit-btn').addEventListener('click', renderHabitsEditor);
+}
+
+function renderHabitsEditor(){
+  const view = document.getElementById('habits-view');
+  view.innerHTML = `${prefsFieldsHtml(currentPreferences)}
+    <p class="wizard-error" id="habits-error" hidden></p>
+    <div class="constraint-add-actions">
+      <button type="button" class="goal-save-btn btn-compact" id="habits-save-btn">Enregistrer</button>
+      <button type="button" class="constraint-cancel-btn" id="habits-cancel-btn">Annuler</button>
+    </div>`;
+
+  // Edited locally, saved only on "Enregistrer".
   const selectedDays = new Set(currentPreferences.training_days);
   const preferredOrder = currentPreferences.preferred_disciplines.filter(d => CARDIO_DISCIPLINES.includes(d));
   const priorityMap = Object.fromEntries(preferredOrder.map(d => [d, currentPreferences.discipline_priority?.[d] || DEFAULT_PRIORITY_LEVEL]));
   const strengthState = { value: currentPreferences.strength_sessions_per_week || 0 };
 
-  async function autoSavePrefs(){
+  toggleChipGroup('.day-check-btn', selectedDays, 'day');
+  wirePreferredDisciplines(preferredOrder, priorityMap);
+  wireStrengthFrequency(strengthState);
+
+  document.getElementById('habits-cancel-btn').addEventListener('click', renderHabitsView);
+  document.getElementById('habits-save-btn').addEventListener('click', async (e) => {
+    const errorEl = document.getElementById('habits-error');
+    if (selectedDays.size === 0 || preferredOrder.length === 0) {
+      errorEl.textContent = 'Choisis au moins un jour et un sport.';
+      errorEl.hidden = false;
+      return;
+    }
+    const btn = e.currentTarget;
+    btn.disabled = true;
     const updated = {
       ...currentPreferences,
       training_days: DAY_OPTIONS.filter(d => selectedDays.has(d)),
@@ -2393,14 +2590,15 @@ function renderTrainingPrefsPanel(){
     const { error } = await supabase.from('plan_preferences').upsert(updated);
     if (error) {
       console.error('Erreur de sauvegarde des préférences', error);
+      errorEl.textContent = 'L\'enregistrement a échoué, réessaie.';
+      errorEl.hidden = false;
+      btn.disabled = false;
       return;
     }
     currentPreferences = updated;
-  }
-
-  toggleChipGroup('.day-check-btn', selectedDays, 'day', autoSavePrefs);
-  wirePreferredDisciplines(preferredOrder, priorityMap, autoSavePrefs);
-  wireStrengthFrequency(strengthState, autoSavePrefs);
+    renderHabitsView();
+    askReplan();
+  });
 }
 
 let onboardingPrimaryHandler = null;
@@ -2559,6 +2757,7 @@ function openRaceInfoEditor(){
       return;
     }
     errorEl.hidden = true;
+    const previous = { raceDate: currentGoals.race_date, size: currentGoals.size };
     const saved = await saveRaceInfo({
       name: document.getElementById('race-info-name').value.trim() || null,
       raceDate,
@@ -2566,6 +2765,7 @@ function openRaceInfoEditor(){
     });
     if (!saved) return;
     closeDetail();
+    if (previous.raceDate !== currentGoals.race_date || previous.size !== currentGoals.size) askReplan();
     maybeShowOnboardingPopup(currentGoals);
   });
 

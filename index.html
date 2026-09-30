@@ -1232,6 +1232,28 @@ html:has(.detail-overlay.open, .sheet-overlay.open, .timeline-overlay.open) body
 .constraint-row-title{font-family:'Oswald',sans-serif;font-weight:600;font-size:14px;color:var(--ink);}
 .constraint-row-dates{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink);}
 .constraint-row-disciplines{font-size:12px;color:var(--tarmac);}
+.constraint-hint{margin:6px 0 0;font-size:12px;color:var(--tarmac);}
+.habits-readonly{border:0;margin:0 0 12px;padding:0;min-width:0;}
+.habits-readonly button{cursor:default;}
+.habits-readonly .picker-chip:not(.active){opacity:.45;}
+.habits-readonly .picker-chip:active{transform:none;}
+.habits-readonly .priority-level-btn:not(.active){opacity:.5;}
+.habits-empty{margin:0;font-size:13.5px;color:var(--tarmac);}
+.strength-readonly{display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--ink);}
+.strength-dots{display:inline-flex;gap:4px;}
+.strength-dot{width:10px;height:10px;border-radius:50%;background:var(--line);}
+.strength-dot.on{background:var(--coral);}
+.plan-start-fixed{margin:0;font-size:14px;color:var(--ink);}
+.plan-start-fixed span{display:block;margin-top:3px;font-size:12px;color:var(--tarmac);}
+.toast{
+  position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));z-index:500;
+  transform:translate(-50%,16px);opacity:0;pointer-events:none;
+  background:var(--ink);color:#fff;padding:10px 16px;border-radius:999px;
+  font-size:13.5px;box-shadow:0 4px 16px rgba(22,41,43,.25);
+  transition:opacity .2s ease,transform .2s ease;
+}
+.toast.show{opacity:1;transform:translate(-50%,0);}
+.replan-popup{z-index:320;}
 .constraint-delete-btn{
   border:none;
   background:var(--paper-2);
@@ -1792,6 +1814,15 @@ html:has(.detail-overlay.open, .sheet-overlay.open, .timeline-overlay.open) body
   </label>
 </nav>
 
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="onboarding-popup replan-popup" id="replan-popup" role="dialog" aria-modal="true" aria-labelledby="replan-title" hidden>
+  <div class="onboarding-card">
+    <h2 class="onboarding-title" id="replan-title">Recalculer ton plan ?</h2>
+    <p class="onboarding-text">Tes réglages ont changé. Le recalcul adapte les séances à partir d'aujourd'hui. Les séances passées et celles déjà faites ne bougent pas.</p>
+    <button type="button" class="goal-save-btn" id="replan-yes-btn">Recalculer</button>
+    <button type="button" class="onboarding-dismiss" id="replan-no-btn">Non, garder mon plan</button>
+  </div>
+</div>
 <div class="detail-overlay" id="detail-overlay">
   <div class="detail-panel">
     <button type="button" class="detail-close" id="detail-close" aria-label="Fermer">✕</button>
