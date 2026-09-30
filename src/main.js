@@ -1703,7 +1703,20 @@ const ZONES = {
   Z4: { name: 'Seuil', feel: 'Dur mais tenable plusieurs minutes, seulement quelques mots.' },
   Z5: { name: 'Fractionné', feel: 'Très dur, sur des efforts courts, impossible de parler.' },
 };
-const ZONE_FOR_TYPE = { 'Sortie longue': 'Z2', Tempo: 'Z3', Seuil: 'Z4', Fractionné: 'Z5' };
+const ZONE_FOR_TYPE = { 'Sortie longue': 'Z2', Endurance: 'Z2', Tempo: 'Z3', Seuil: 'Z4', Fractionné: 'Z5' };
+
+// Most training should be easy (polarised / pyramidal distribution, about
+// 75-80% of the time in Z1-Z2), so a week holds only a few hard sessions:
+// the extra ones are turned easy (see buildGeneratedPlan). A recovery week
+// keeps a single one.
+const HARD_TYPES = new Set(['Tempo', 'Seuil', 'Fractionné', 'Allure cible', 'Vitesse']);
+function hardSessionCap(week, trainingDaysThisWeek){
+  if (week.recovery) return 1;
+  return trainingDaysThisWeek <= 5 ? 2 : 3;
+}
+// An easy bike/run session (complément) is this share of the week's long
+// session distance.
+const ENDURANCE_SHARE = 0.6;
 const KEY_PACE = { name: 'Allure cible', feel: 'Allure que tu vises le jour de la course.' };
 
 // Season template for a full plan (16 weeks), read backward from the race -
@@ -1789,10 +1802,10 @@ function swimEnduranceSet(budget, light){
     lines: [
       blocks === 1 ? 'Bloc :' : `Bloc, ${blocks} fois :`,
       '- 100 Z2 (r = 15″)',
-      '- 200 Z3 avec PB + plaquettes (r = 20″)',
-      '- 2×100 Z4 (r = 10″)',
+      '- 200 Z2 avec PB (r = 20″)',
+      '- 2×100 Z3 (r = 10″)',
       '- 100 Z1 (r = 15″)',
-      `${finalM} Z3 (r = 45″)`,
+      `${finalM} Z2 (r = 45″)`,
     ],
   };
 }
@@ -1851,10 +1864,11 @@ function cardioTypeFor(week, role){
   if (role === 'longue') return 'Sortie longue';
   // Key sessions of Base 2, Développement and Spécifique are swapped for
   // their alternation in buildGeneratedPlan.
+  // Compléments are easy Z2 sessions in every phase.
   switch (week.phase) {
-    case 1: return 'Tempo';
-    case 2: return role === 'clé' ? 'Seuil' : 'Tempo';
-    case 3: return role === 'clé' ? 'Allure cible' : 'Tempo';
+    case 1: return role === 'clé' ? 'Tempo' : 'Endurance';
+    case 2: return role === 'clé' ? 'Seuil' : 'Endurance';
+    case 3: return role === 'clé' ? 'Allure cible' : 'Endurance';
     default: return role === 'clé' ? 'Allure cible' : null; // taper: no complements
   }
 }
@@ -2010,6 +2024,9 @@ function buildGeneratedPlan(){
     if (count === 0) return [];
     if (count === 1) {
       if (week.raceWeek) return ['clé'];
+      // A recovery week must be lighter: no long or key session for a sport
+      // that only has one, just an easy one.
+      if (week.recovery) return ['complément'];
       const rotation = SINGLE_SESSION_ROTATION[week.phase];
       return [rotation[(weekNumber + SINGLE_SESSION_OFFSET[discipline]) % rotation.length]];
     }
@@ -2093,6 +2110,14 @@ function buildGeneratedPlan(){
       const finish = week.phase === 3 ? `, dont les ${paceSet.longFinishKm} derniers km à allure cible` : '';
       row.tag = `≈${distanceKm} km`;
       row.segments = [{ label: 'Sortie longue', zone: ZONE_FOR_TYPE['Sortie longue'], text: `${distanceKm} km à allure ${discipline === 'run' ? 'confortable' : 'tranquille'}${finish}.` }];
+      return;
+    }
+    if (type === 'Endurance') {
+      const km = discipline === 'bike'
+        ? Math.round(longDistanceKm(discipline, week) * ENDURANCE_SHARE)
+        : Math.round(longDistanceKm(discipline, week) * ENDURANCE_SHARE * 2) / 2;
+      row.tag = `≈${km} km`;
+      row.segments = [{ label: 'Endurance', zone: ZONE_FOR_TYPE.Endurance, text: `${km} km à allure facile, en aisance respiratoire.` }];
       return;
     }
     const { warmup, cooldown } = CARDIO_WARMUP_COOLDOWN[discipline];
@@ -2185,36 +2210,60 @@ function buildGeneratedPlan(){
       markRole(session.discipline, session.role);
     }
 
-    placed
+    const weekSessions = placed
       .filter(s => s.discipline)
-      .sort((a, b) => a.day.dayIndex - b.day.dayIndex)
+      .sort((a, b) => a.day.dayIndex - b.day.dayIndex);
+    for (const session of weekSessions) {
+      let type = typeFor(session.discipline, week, session.role);
+      if (!type) continue;
+      const partner = KEY_PARTNER_BY_BLOCK[week.name];
+      if (partner && session.role === 'clé' && session.discipline !== 'swim') {
+        if (week.recovery) {
+          type = 'Tempo';
+        } else {
+          const count = keySessionCount[session.discipline] || 0;
+          keySessionCount[session.discipline] = count + 1;
+          session.counter = keySessionCount;
+          type = count % 2 === 0 ? 'Fractionné' : partner;
+        }
+      }
+      if (week.name === 'Spécifique' && session.role === 'clé' && session.discipline !== 'swim') {
+        const count = specificKeyCount[session.discipline] || 0;
+        specificKeyCount[session.discipline] = count + 1;
+        session.counter = specificKeyCount;
+        type = SPECIFIC_KEY_ALTERNATION[count % SPECIFIC_KEY_ALTERNATION.length];
+      }
+      if (session.discipline === 'swim' && session.role === 'clé' && (week.phase === 2 || week.phase === 3)) {
+        if (week.recovery) {
+          type = SWIM_OBJECTIVE.technique;
+        } else {
+          const count = keySessionCount.swim || 0;
+          keySessionCount.swim = count + 1;
+          session.counter = keySessionCount;
+          type = SWIM_KEY_ALTERNATION[count % SWIM_KEY_ALTERNATION.length];
+        }
+      }
+      session.type = type;
+    }
+
+    // Keep only a few hard sessions this week. The ones dropped are the
+    // swim ones first (the other sports need the intensity more for a
+    // triathlon), then those of the lowest-priority sports. A dropped key
+    // session doesn't count in its alternation, so the type it would have
+    // had comes next time.
+    const hardSessions = weekSessions.filter(s => HARD_TYPES.has(s.type));
+    const dropOrder = [...hardSessions].sort((a, b) =>
+      (b.discipline === 'swim') - (a.discipline === 'swim')
+      || disciplines.indexOf(b.discipline) - disciplines.indexOf(a.discipline));
+    dropOrder.slice(0, Math.max(0, hardSessions.length - hardSessionCap(week, days.length))).forEach(session => {
+      if (session.counter) session.counter[session.discipline]--;
+      session.type = session.discipline === 'swim' ? SWIM_OBJECTIVE.technique : 'Endurance';
+    });
+
+    weekSessions
+      .filter(s => s.type)
       .forEach((session, orderIndex) => {
-        let type = typeFor(session.discipline, week, session.role);
-        if (!type) return;
-        const partner = KEY_PARTNER_BY_BLOCK[week.name];
-        if (partner && session.role === 'clé' && session.discipline !== 'swim') {
-          if (week.recovery) {
-            type = 'Tempo';
-          } else {
-            const count = keySessionCount[session.discipline] || 0;
-            keySessionCount[session.discipline] = count + 1;
-            type = count % 2 === 0 ? 'Fractionné' : partner;
-          }
-        }
-        if (week.name === 'Spécifique' && session.role === 'clé' && session.discipline !== 'swim') {
-          const count = specificKeyCount[session.discipline] || 0;
-          specificKeyCount[session.discipline] = count + 1;
-          type = SPECIFIC_KEY_ALTERNATION[count % SPECIFIC_KEY_ALTERNATION.length];
-        }
-        if (session.discipline === 'swim' && session.role === 'clé' && (week.phase === 2 || week.phase === 3)) {
-          if (week.recovery) {
-            type = SWIM_OBJECTIVE.technique;
-          } else {
-            const count = keySessionCount.swim || 0;
-            keySessionCount.swim = count + 1;
-            type = SWIM_KEY_ALTERNATION[count % SWIM_KEY_ALTERNATION.length];
-          }
-        }
+        const type = session.type;
         sessionCounter++;
         const row = {
           session_key: `gen-${sessionCounter}`,
