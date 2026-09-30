@@ -426,13 +426,35 @@ function progressIncludesRenfo(){
   try { return localStorage.getItem(PROGRESS_RENFO_KEY) !== '0'; } catch { return true; }
 }
 
-const progressRenfoToggle = document.getElementById('progress-renfo-toggle');
-if (progressRenfoToggle) {
-  progressRenfoToggle.checked = progressIncludesRenfo();
-  progressRenfoToggle.addEventListener('change', () => {
-    try { localStorage.setItem(PROGRESS_RENFO_KEY, progressRenfoToggle.checked ? '1' : '0'); } catch {}
+// Both progress cards (Plan tab, Beta tab) share the "Renfo inclus" choice.
+function wireProgressRenfoToggle(toggle){
+  if (!toggle) return;
+  toggle.checked = progressIncludesRenfo();
+  toggle.addEventListener('change', () => {
+    try { localStorage.setItem(PROGRESS_RENFO_KEY, toggle.checked ? '1' : '0'); } catch {}
+    document.querySelectorAll('.progress-renfo-toggle input').forEach(t => { t.checked = toggle.checked; });
     refreshProgress();
   });
+}
+wireProgressRenfoToggle(document.getElementById('progress-renfo-toggle'));
+
+// The Beta tab's copy of the Plan tab's progress card.
+function betaProgressCardHtml(){
+  return `<div class="section-title">Progression</div>
+    <div class="progress-card">
+      <div class="progress-head">
+        <label class="progress-renfo-toggle"><input type="checkbox" id="beta-progress-renfo-toggle"${progressIncludesRenfo() ? ' checked' : ''}><span class="switch"></span>Renfo inclus</label>
+        <span class="pg-values"><b id="beta-progress-actual-val">0%</b> réalisé · <b id="beta-progress-expected-val">0%</b> prévu</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill expected" id="beta-progress-expected-fill" style="width:0%"></div>
+        <div class="progress-fill actual" id="beta-progress-actual-fill" style="width:0%"></div>
+      </div>
+      <div class="progress-legend">
+        <span><span class="dot" style="background:var(--sand)"></span>Prévu</span>
+        <span><span class="dot" style="background:var(--ink)"></span>Réalisé</span>
+      </div>
+    </div>`;
 }
 
 function refreshProgress(){
@@ -466,6 +488,16 @@ function refreshProgress(){
   if (actualFill) actualFill.style.width = actualPct + '%';
   if (expectedVal) expectedVal.textContent = Math.round(expectedPct) + '%';
   if (actualVal) actualVal.textContent = Math.round(actualPct) + '%';
+
+  // Beta tab: a generated plan has no WEEK_DATE_RANGES calendar, so
+  // "prévu" counts the sessions dated up to today.
+  const today = ymdFromDate(now);
+  const betaExpectedPct = totalSessions ? (counted.filter(s => s.session_date && s.session_date <= today).length / totalSessions * 100) : 0;
+  const set = (id, apply) => { const el = document.getElementById(id); if (el) apply(el); };
+  set('beta-progress-expected-fill', el => { el.style.width = betaExpectedPct + '%'; });
+  set('beta-progress-actual-fill', el => { el.style.width = actualPct + '%'; });
+  set('beta-progress-expected-val', el => { el.textContent = Math.round(betaExpectedPct) + '%'; });
+  set('beta-progress-actual-val', el => { el.textContent = Math.round(actualPct) + '%'; });
 }
 
 async function saveCompletion(sessionKey, done){
@@ -1224,7 +1256,7 @@ function betaPlanSectionHtml(){
     </div>`;
   }).join('');
 
-  return `<div class="detail-title" style="margin:24px 0 12px;">Ton plan</div>${body}`;
+  return `<div class="section-title">Plan d'entraînement</div>${body}`;
 }
 
 // The three settings blocks sit side by side as tiles; the open one shows
@@ -1247,6 +1279,7 @@ function trainingPrefsFullFormHtml(preferences, constraints){
     + panel('course', '<div id="course-view"></div>')
     + panel('habits', '<div id="habits-view"></div>')
     + panel('constraints', contraintesSectionHtml(preferences, constraints))
+    + (sessionsByKey.size > 0 ? betaProgressCardHtml() : '')
     + betaPlanSectionHtml()
     + resetPlanSectionHtml();
 }
@@ -2580,6 +2613,8 @@ function renderTrainingPrefsPanel(){
     });
   });
 
+  wireProgressRenfoToggle(document.getElementById('beta-progress-renfo-toggle'));
+  refreshProgress();
   renderCourseView();
   renderHabitsView();
 }
