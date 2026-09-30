@@ -1948,11 +1948,13 @@ const SWIM_FORMATS = {
       { text: '4x300m', m: 1200, detail: 'Z4 (r = 30″)' },
       { text: '4x400m', m: 1600, detail: 'Z4 (r = 30″)' },
     ],
+    // Z5 is kept to 300-500 m, what speed work needs; it gets harder with
+    // more reps, then with longer ones. An easy swim follows.
     [SWIM_OBJECTIVE.vitesse]: [
-      { text: '12x50m', m: 600, detail: 'Z5 (r = 30″)' },
-      { text: '16x50m', m: 800, detail: 'Z5 (r = 30″)' },
-      { text: '10x100m', m: 1000, detail: 'Z5 (r = 40″)' },
-      { text: '12x100m', m: 1200, detail: 'Z5 (r = 40″)' },
+      { text: '6x50m', m: 600, detail: 'Z5 (r = 30″), puis 300 Z2' },
+      { text: '8x50m', m: 700, detail: 'Z5 (r = 30″), puis 300 Z2' },
+      { text: '10x50m', m: 800, detail: 'Z5 (r = 30″), puis 300 Z2' },
+      { text: '5x100m', m: 800, detail: 'Z5 (r = 45″), puis 300 Z2' },
     ],
   },
   S: {
@@ -1969,10 +1971,10 @@ const SWIM_FORMATS = {
       { text: '3x300m', m: 900, detail: 'Z4 (r = 30″)' },
     ],
     [SWIM_OBJECTIVE.vitesse]: [
-      { text: '8x50m', m: 400, detail: 'Z5 (r = 30″)' },
-      { text: '12x50m', m: 600, detail: 'Z5 (r = 30″)' },
-      { text: '6x100m', m: 600, detail: 'Z5 (r = 40″)' },
-      { text: '8x100m', m: 800, detail: 'Z5 (r = 40″)' },
+      { text: '4x50m', m: 400, detail: 'Z5 (r = 30″), puis 200 Z2' },
+      { text: '6x50m', m: 500, detail: 'Z5 (r = 30″), puis 200 Z2' },
+      { text: '8x50m', m: 600, detail: 'Z5 (r = 30″), puis 200 Z2' },
+      { text: '4x100m', m: 600, detail: 'Z5 (r = 45″), puis 200 Z2' },
     ],
   },
 };
