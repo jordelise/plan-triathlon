@@ -1408,15 +1408,11 @@ function wirePlanStartDatePicker(onPick){
   let viewMonth = today.getMonth();
 
   function render(){
-    // The plan can't start in the past, nor on or after race day.
+    // The plan can't start in the past, and runs at least MIN_PLAN_WEEKS
+    // weeks before the race.
     const minDate = ymdFromDate(new Date());
     const raceDate = currentGoals?.race_date;
-    let maxDate = null;
-    if (raceDate) {
-      const dayBeforeRace = new Date(raceDate + 'T00:00:00');
-      dayBeforeRace.setDate(dayBeforeRace.getDate() - 1);
-      maxDate = ymdFromDate(dayBeforeRace);
-    }
+    const maxDate = raceDate ? addDaysYmd(raceDate, -MIN_PLAN_DAYS) : null;
     panel.innerHTML = calendarPanelHtml(viewYear, viewMonth, input.value || null, null, { minDate, maxDate });
 
     panel.querySelector('[data-nav="prev"]').addEventListener('click', () => {
@@ -1684,6 +1680,16 @@ function nextMondayDate(){
   return d;
 }
 
+function addDaysYmd(dateStr, days){
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + days);
+  return ymdFromDate(d);
+}
+
+function effectivePlanStart(){
+  return currentPreferences?.plan_start_date || ymdFromDate(nextMondayDate());
+}
+
 function ymdFromDate(d){
   return ymd(d.getFullYear(), d.getMonth(), d.getDate());
 }
@@ -1746,13 +1752,64 @@ function expandSeasonBlock(block){
   });
 }
 
+// A shorter plan keeps every phase, only shorter (see compressSeason): cutting
+// the template's first weeks would start the athlete at 85-90% of the peak
+// load, or on a recovery week.
+const MIN_PLAN_WEEKS = 6;
+// MIN_PLAN_WEEKS weeks from a Monday start, race on the last Sunday.
+const MIN_PLAN_DAYS = MIN_PLAN_WEEKS * 7 - 1;
+const RECOMMENDED_PLAN_WEEKS = { S: 10, M: 12 };
+
+function compressSeason(weeksTotal){
+  const [taper, race] = SEASON_BLOCKS.slice(-2).map(block => expandSeasonBlock(block)[0]);
+  const ending = [taper, race].slice(Math.max(0, 2 - weeksTotal));
+  const specificWeeks = Math.max(0, Math.min(weeksTotal >= 8 ? 2 : 1, weeksTotal - ending.length));
+  const buildWeeks = weeksTotal - ending.length - specificWeeks;
+
+  // Base then Développement (about 60/40), a recovery week after every 3
+  // loading weeks, the load rising steadily from 70% towards 95% of the
+  // peak - by at most 8 points a week, so a short plan peaks lower rather
+  // than jumping.
+  const baseWeeks = Math.round(buildWeeks * 0.6);
+  const isRecovery = i => i % 4 === 3;
+  const loadingCount = Array.from({ length: buildWeeks }, (_, i) => i).filter(i => !isRecovery(i)).length;
+  let loadingIndex = 0;
+  let lastLoad = 0.70;
+  const blockCounts = {};
+  const build = Array.from({ length: buildWeeks }, (_, i) => {
+    const phase = i < baseWeeks ? 1 : 2;
+    const name = phase === 2 ? 'Développement' : i < Math.ceil(baseWeeks / 2) ? 'Base 1' : 'Base 2';
+    const presetLevel = { 'Base 1': 0, 'Base 2': 1, 'Développement': 2 }[name];
+    blockCounts[name] = (blockCounts[name] || 0) + 1;
+    const recovery = isRecovery(i);
+    let load;
+    if (recovery) {
+      load = Math.round(lastLoad * 0.8 * 100) / 100;
+    } else {
+      const step = loadingCount <= 1 ? 0 : Math.min(0.08, 0.25 / (loadingCount - 1));
+      load = Math.round((0.70 + step * loadingIndex) * 100) / 100;
+      loadingIndex++;
+      lastLoad = load;
+    }
+    return { name, phase, presetLevel, weekInBlock: blockCounts[name], recovery, load };
+  });
+  const specific = SEASON_BLOCKS.find(block => block.name === 'Spécifique');
+  // Spécifique peaks one step above the build, then eases off.
+  const specificPeak = Math.min(1.00, Math.round((lastLoad + 0.08) * 100) / 100);
+  const specificPart = Array.from({ length: specificWeeks }, (_, i) => ({
+    ...specific, weekInBlock: i + 1, recovery: false, load: i === 0 ? specificPeak : Math.round((specificPeak - 0.10) * 100) / 100,
+  }));
+  return [...build, ...specificPart, ...ending];
+}
+
 // Lands the template on a plan of `weeksTotal` weeks ending on race week. A
-// shorter plan drops weeks from the front (taper and specific work are what
-// can't be skipped); a longer one pads the front with extra Base weeks,
-// repeating Base 1's 3+1 pattern so the padding ends on a recovery week.
+// shorter plan is compressed (see compressSeason); a longer one pads the
+// front with extra Base weeks, repeating Base 1's 3+1 pattern so the padding
+// ends on a recovery week.
 function fitSeasonToRace(weeksTotal){
   const full = SEASON_BLOCKS.flatMap(expandSeasonBlock);
-  if (weeksTotal <= full.length) return full.slice(full.length - weeksTotal);
+  if (weeksTotal === full.length) return full;
+  if (weeksTotal < full.length) return compressSeason(weeksTotal);
   const baseCycle = expandSeasonBlock(SEASON_BLOCKS[0]).map(w => ({ ...w, name: 'Base' }));
   const padLength = weeksTotal - full.length;
   const pad = Array.from({ length: padLength }, (_, i) => {
@@ -2578,8 +2635,8 @@ function renderTrainingPrefsPanel(){
       document.getElementById('prefs-step2-next-btn').addEventListener('click', async () => {
         const nextBtn = document.getElementById('prefs-step2-next-btn');
         const errorEl = document.getElementById('contraintes-step-error');
-        if (ymdFromDate(planStartDate()) >= currentGoals.race_date) {
-          errorEl.textContent = `Le plan doit commencer avant la course (${formatDateShort(currentGoals.race_date)}).`;
+        if (ymdFromDate(planStartDate()) > addDaysYmd(currentGoals.race_date, -MIN_PLAN_DAYS)) {
+          errorEl.textContent = `Le plan doit commencer au moins ${MIN_PLAN_WEEKS} semaines avant la course (${formatDateShort(currentGoals.race_date)}).`;
           errorEl.hidden = false;
           return;
         }
@@ -2903,7 +2960,8 @@ function raceInfoFieldsHtml(goals){
       <div class="race-size-options">${['S', 'M']
         .map(sz => `<button type="button" class="race-size-btn${goals.size === sz ? ' active' : ''}" data-size="${sz}">${RACE_SIZE_LABELS[sz]}</button>`)
         .join('')}</div>
-    </div>`;
+    </div>
+    <p class="plan-length-hint" id="plan-length-hint" hidden></p>`;
 }
 
 function raceInfoEditorHtml(goals){
@@ -2917,8 +2975,8 @@ function raceInfoEditorHtml(goals){
 // future, and after the plan's start (the default one when none is set).
 function raceDateProblem(raceDate){
   if (!raceDate || raceDate <= ymdFromDate(new Date())) return 'Choisis une date de course à venir.';
-  const planStart = currentPreferences?.plan_start_date || ymdFromDate(nextMondayDate());
-  if (raceDate <= planStart) return `La course doit être après le début du plan (${formatDateShort(planStart)}).`;
+  const planStart = effectivePlanStart();
+  if (raceDate < addDaysYmd(planStart, MIN_PLAN_DAYS)) return `La course doit être au moins ${MIN_PLAN_WEEKS} semaines après le début du plan (${formatDateShort(planStart)}).`;
   return null;
 }
 
@@ -2933,14 +2991,9 @@ function wireRaceDatePicker(){
 
   // Read on each open: the plan start may have changed since.
   function minRaceDate(){
-    let minDate = ymdFromDate(tomorrowDate());
-    const planStart = currentPreferences?.plan_start_date || ymdFromDate(nextMondayDate());
-    if (planStart >= minDate) {
-      const dayAfterStart = new Date(planStart + 'T00:00:00');
-      dayAfterStart.setDate(dayAfterStart.getDate() + 1);
-      minDate = ymdFromDate(dayAfterStart);
-    }
-    return minDate;
+    const tomorrow = ymdFromDate(tomorrowDate());
+    const earliest = addDaysYmd(effectivePlanStart(), MIN_PLAN_DAYS);
+    return earliest > tomorrow ? earliest : tomorrow;
   }
   const shown = new Date((input.value || minRaceDate()) + 'T00:00:00');
   let viewYear = shown.getFullYear();
@@ -2964,6 +3017,7 @@ function wireRaceDatePicker(){
         input.value = cell.dataset.date;
         btn.textContent = `📅 ${formatDateShort(input.value)}`;
         panel.hidden = true;
+        updatePlanLengthHint();
       });
     });
   }
@@ -2972,6 +3026,22 @@ function wireRaceDatePicker(){
     panel.hidden = !panel.hidden;
     if (!panel.hidden) render();
   });
+  updatePlanLengthHint();
+}
+
+// Under the race form: a plan shorter than advised for the format still
+// works, but assumes the athlete already trains regularly.
+function updatePlanLengthHint(){
+  const hint = document.getElementById('plan-length-hint');
+  const raceDate = document.getElementById('race-info-date')?.value;
+  const size = document.querySelector('.race-size-btn.active')?.dataset.size;
+  if (!hint) return;
+  const weeks = raceDate ? Math.ceil((new Date(raceDate + 'T00:00:00') - new Date(effectivePlanStart() + 'T00:00:00')) / (7 * 86400000)) : null;
+  const advised = RECOMMENDED_PLAN_WEEKS[size];
+  hint.hidden = !(weeks && advised && weeks < advised);
+  if (!hint.hidden) {
+    hint.textContent = `Plan court (${weeks} semaines) : il suppose que tu t'entraînes déjà régulièrement. ${advised} semaines minimum sont conseillées pour un ${RACE_SIZE_LABELS[size]}.`;
+  }
 }
 
 // Returns a getter for the currently selected size.
@@ -2982,6 +3052,7 @@ function wireRaceSizeButtons(initialSize){
       selectedSize = btn.dataset.size;
       document.querySelectorAll('.race-size-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+      updatePlanLengthHint();
     });
   });
   return () => selectedSize;
