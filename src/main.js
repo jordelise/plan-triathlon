@@ -1092,6 +1092,7 @@ function prefsFieldsHtml(preferences){
     <div class="goal-field">
       <label>Renforcement</label>
       <div class="strength-slider-row">${strengthSliderHtml(preferences.strength_sessions_per_week || 0)}</div>
+      <p class="field-hint">Le renfo ne compte pas dans tes jours d'entraînement : il s'ajoute à la séance d'un de ces jours.</p>
     </div>`;
 }
 
