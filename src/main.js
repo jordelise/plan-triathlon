@@ -3201,6 +3201,7 @@ function raceInfoFieldsHtml(goals){
       <input type="hidden" id="race-info-date" value="${goals.race_date || ''}">
       <button type="button" class="calendar-trigger-btn" id="race-date-btn">📅 ${goals.race_date ? formatDateShort(goals.race_date) : 'Choisir la date'}</button>
       <div class="calendar-panel" id="race-date-calendar-panel" hidden></div>
+      <p class="field-hint">Il faut au moins ${MIN_PLAN_WEEKS} semaines pour préparer une course : les dates plus proches du début du plan ne sont pas proposées.</p>
     </div>
     <div class="goal-field">
       <label>Format</label>
