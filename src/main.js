@@ -531,7 +531,10 @@ document.getElementById('timeline-overlay').addEventListener('click', (e) => {
   if (e.target.id === 'timeline-overlay') closeTimelineOverlay();
 });
 
+let onboardingShown = false;
+
 async function initApp(){
+  onboardingShown = false;
   // Awaited so the caller can keep the auth gate up until this account's
   // real data is loaded and rendered - otherwise whatever was already in
   // the DOM (a previous account's data, or the static placeholder markup
@@ -863,8 +866,14 @@ function renderRaceInfo(goals){
   setHomeRaceConfigurable(false);
 }
 
+// The race is set up in the onboarding wizard (Beta tab): an unconfigured
+// home page leads there.
+function goToOnboarding(){
+  document.getElementById('m5').checked = true;
+}
+
 function openRaceInfoEditorIfUnconfigured(){
-  if (currentGoals && !currentGoals.race_date) openRaceInfoEditor();
+  if (currentGoals && !currentGoals.race_date) goToOnboarding();
 }
 
 document.querySelector('.home-header').addEventListener('click', openRaceInfoEditorIfUnconfigured);
@@ -893,7 +902,7 @@ async function loadAndRenderGoals(){
   renderGoals(currentGoals);
   updateSplitLabels(currentGoals);
   renderRaceInfo(currentGoals);
-  maybeShowOnboardingPopup(currentGoals);
+  maybeShowGoalsReminder(currentGoals);
   renderTrainingPrefsPanel();
 }
 
@@ -2814,6 +2823,12 @@ function renderTrainingPrefsPanel(){
   const container = document.getElementById('training-prefs-container');
 
   if (trainingPrefsOnboardingDone === null) trainingPrefsOnboardingDone = isPrefsConfigured();
+  // An account that hasn't done the onboarding lands on it directly, once
+  // per sign-in.
+  if (!trainingPrefsOnboardingDone && !onboardingShown) {
+    onboardingShown = true;
+    goToOnboarding();
+  }
 
   async function finishOnboarding(button){
     button.disabled = true;
@@ -3134,24 +3149,12 @@ function showGoalsReminderPopup(){
   });
 }
 
-function maybeShowOnboardingPopup(goals){
+// Once the race is set up, reminds the athlete to set their split goals on
+// the home page. Race setup itself goes through the onboarding wizard.
+function maybeShowGoalsReminder(goals){
+  if (!goals.race_date || goals.swim_distance_m == null) return;
   const durations = [goals.swim_duration_sec, goals.t1_duration_sec, goals.bike_duration_sec, goals.t2_duration_sec, goals.run_duration_sec];
-  const goalsMissing = durations.some(v => v == null);
-
-  if (!goals.race_date || goals.swim_distance_m == null) {
-    showOnboardingPopup({
-      title: 'Configure ta course',
-      text: 'Renseigne le nom, la date et le format de ton triathlon pour personnaliser ton plan et tes objectifs.',
-      primaryLabel: 'Configurer maintenant',
-      onPrimary: openRaceInfoEditor,
-      // Dismissing without configuring still shows the goals reminder
-      // right after, if goals are not set either.
-      onDismiss: goalsMissing ? showGoalsReminderPopup : undefined,
-    });
-    return;
-  }
-
-  if (goalsMissing) showGoalsReminderPopup();
+  if (durations.some(v => v == null)) showGoalsReminderPopup();
 }
 
 const RACE_SIZE_LABELS = { S: 'Sprint', M: 'M' };
@@ -3179,13 +3182,6 @@ function raceInfoFieldsHtml(goals){
         .join('')}</div>
     </div>
     <p class="plan-length-hint" id="plan-length-hint" hidden></p>`;
-}
-
-function raceInfoEditorHtml(goals){
-  return `<div class="detail-title" style="margin-bottom:16px;">Mon triathlon</div>
-    ${raceInfoFieldsHtml(goals)}
-    <p class="wizard-error" id="race-info-error" hidden></p>
-    <button type="button" class="goal-save-btn" id="save-race-info-btn">Enregistrer</button>`;
 }
 
 // Why a race date can't be used, or null if it can: it must be in the
@@ -3346,26 +3342,6 @@ async function saveRaceForm(getSize, errorEl){
     },
   };
 }
-
-function openRaceInfoEditor(){
-  if (!currentGoals) return;
-
-  document.getElementById('detail-content').innerHTML = raceInfoEditorHtml(currentGoals);
-  wireRaceDatePicker();
-  const getSize = wireRaceSizeButtons(currentGoals.size);
-
-  document.getElementById('save-race-info-btn').addEventListener('click', async () => {
-    const result = await saveRaceForm(getSize, document.getElementById('race-info-error'));
-    if (!result) return;
-    closeDetail();
-    renderCourseView();
-    if (result.planChanged) askReplan(result.undo);
-    maybeShowOnboardingPopup(currentGoals);
-  });
-
-  openDetailOverlay();
-}
-
 
 const GOAL_SEGMENTS = {
   swim: { title: 'Natation', durationField: 'swim_duration_sec', durationFormat: 'mmss', pace: {
