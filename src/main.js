@@ -558,6 +558,7 @@ let onboardingShown = false;
 
 async function initApp(){
   onboardingShown = false;
+  goalsReminderShown = false;
   // Awaited so the caller can keep the auth gate up until this account's
   // real data is loaded and rendered - otherwise whatever was already in
   // the DOM (a previous account's data, or the static placeholder markup
@@ -3212,11 +3213,19 @@ function showGoalsReminderPopup(){
 
 // Once the race is set up, reminds the athlete to set their split goals on
 // the home page. Race setup itself goes through the onboarding wizard.
+// Shown when the home page is on screen (at load, or when coming back to
+// it, e.g. right after the onboarding), at most once per sign-in.
+let goalsReminderShown = false;
 function maybeShowGoalsReminder(goals){
+  if (goalsReminderShown || !goals || !document.getElementById('m1').checked) return;
   if (!goals.race_date || goals.swim_distance_m == null) return;
   const durations = [goals.swim_duration_sec, goals.t1_duration_sec, goals.bike_duration_sec, goals.t2_duration_sec, goals.run_duration_sec];
-  if (durations.some(v => v == null)) showGoalsReminderPopup();
+  if (!durations.some(v => v == null)) return;
+  goalsReminderShown = true;
+  showGoalsReminderPopup();
 }
+
+document.getElementById('m1').addEventListener('change', () => maybeShowGoalsReminder(currentGoals));
 
 const RACE_SIZE_LABELS = { S: 'Sprint', M: 'M' };
 
