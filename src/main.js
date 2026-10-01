@@ -84,9 +84,12 @@ function sessionDetailHtml(s){
   const withZoneChips = text => text
     .replace(/\bZ[1-5]\b/g, zone => zoneChip(zone))
     .replace(KEY_PACE_TEXT, keyPaceChip);
-  const segsHtml = segments
-    .map(seg => `<span class="seg"><b class="seg-label">${escapeHtml(seg.label)}</b>${ZONES[seg.zone] ? ' ' + zoneChip(seg.zone) : ''} ${withZoneChips(seg.text)}</span>`)
-    .join('');
+  // Renfo sessions carry no content on purpose: just a nudge to do it.
+  const segsHtml = s.discipline === 'strength' && !segments.length
+    ? RENFO_NUDGE
+    : segments
+      .map(seg => `<span class="seg"><b class="seg-label">${escapeHtml(seg.label)}</b>${ZONES[seg.zone] ? ' ' + zoneChip(seg.zone) : ''} ${withZoneChips(seg.text)}</span>`)
+      .join('');
   // What each zone used in this session feels like, so the athlete knows
   // how hard to go without heart-rate or pace targets.
   const zonesUsed = Object.keys(ZONES).filter(z => segments.some(seg => seg.zone === z || new RegExp(`\\b${z}\\b`).test(seg.text)));
@@ -1928,6 +1931,7 @@ function fitSeasonToRace(weeksTotal){
 // long session is this x the week's load.
 const LONG_SESSION_RATIO = { S: { bike: 2, run: 1.6 }, M: { bike: 1.5, run: 1.2 } };
 const STRENGTH_DURATION = 30;
+const RENFO_NUDGE = "Prends 20 à 30 minutes pour ton renfo : gainage, squats, fentes, pompes... Ce sont ces séances qui te rendent plus solide et t'aident à éviter les blessures, alors ne les saute pas !";
 
 // Swim sessions are built like a coach's pool session: warm-up, drills,
 // a main set given by the session's objective, cool-down - all in metres.
