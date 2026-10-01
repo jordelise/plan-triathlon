@@ -1745,6 +1745,12 @@ const ZONE_FOR_TYPE = { 'Sortie longue': 'Z2', Endurance: 'Z2', Tempo: 'Z3', Seu
 // the extra ones are turned easy (see buildGeneratedPlan). A recovery week
 // keeps a single one.
 const HARD_TYPES = new Set(['Tempo', 'Seuil', 'Fractionné', 'Allure cible', 'Vitesse']);
+const Z5_TYPES = new Set(['Fractionné', 'Vitesse']);
+// Where each sport starts its key-session alternations: the run one step
+// after the bike, so they don't both do their Fractionné the same week.
+// The swim shares the run's offset; with two-type alternations, some weeks
+// still pair two Z5 sessions, which the Z5 cap then sorts out.
+const ALTERNATION_OFFSET = { bike: 0, run: 1, swim: 1 };
 function hardSessionCap(week, trainingDaysThisWeek){
   if (week.recovery) return 1;
   return trainingDaysThisWeek <= 5 ? 2 : 3;
@@ -2034,9 +2040,10 @@ const KEY_PARTNER_BY_BLOCK = {
 // and Fractionné (starting with Allure cible, counted within that half), so
 // race pace is worked for longer than the two Spécifique weeks.
 const LATE_DEVELOPMENT_KEY_ALTERNATION = ['Allure cible', 'Fractionné'];
-// Spécifique is about race pace: its key sessions alternate these, counted
-// within the block and starting with Allure cible, so even a sport with a
-// single key session there gets its race-pace work.
+// Spécifique is about race pace: its key sessions keep alternating these,
+// continuing the second-half Développement count (sports offset by
+// ALTERNATION_OFFSET), so every sport alternates race pace and Fractionné
+// from late Développement to the taper.
 const SPECIFIC_KEY_ALTERNATION = ['Allure cible', 'Fractionné'];
 
 // Race-pace ("allure cible") main sets, sized from the race format. `reps`
@@ -2350,7 +2357,6 @@ function buildGeneratedPlan(){
   let sessionCounter = 0;
   const rows = [];
   const keySessionCount = {}; // discipline -> non-recovery key sessions so far, from Base 2 on
-  const specificKeyCount = {}; // discipline -> key sessions so far in Spécifique
 
   for (let weekNumber = 1; weekNumber <= weeksTotal; weekNumber++) {
     const days = weekDays.get(weekNumber) || [];
@@ -2394,72 +2400,68 @@ function buildGeneratedPlan(){
     const weekSessions = placed
       .filter(s => s.discipline)
       .sort((a, b) => a.day.dayIndex - b.day.dayIndex);
+    // Steps a sport through one of its key-session alternations. Each sport
+    // starts at its own offset (ALTERNATION_OFFSET), so the sports don't all
+    // land on the same type in the same week.
+    const alternate = (session, counter, list) => {
+      const count = counter[session.discipline] || 0;
+      counter[session.discipline] = count + 1;
+      session.counter = counter;
+      session.alternation = list;
+      return list[(count + ALTERNATION_OFFSET[session.discipline]) % list.length];
+    };
+
     for (const session of weekSessions) {
       let type = typeFor(session.discipline, week, session.role);
       if (!type) continue;
       const lateDevelopment = week.name === 'Développement' && week.weekInBlock > developmentWeeks / 2;
       const partner = KEY_PARTNER_BY_BLOCK[week.name];
       if (partner && session.role === 'clé' && session.discipline !== 'swim') {
-        if (week.recovery) {
-          type = 'Tempo';
-        } else if (lateDevelopment) {
-          const count = lateDevelopmentKeyCount[session.discipline] || 0;
-          lateDevelopmentKeyCount[session.discipline] = count + 1;
-          session.counter = lateDevelopmentKeyCount;
-          type = LATE_DEVELOPMENT_KEY_ALTERNATION[count % LATE_DEVELOPMENT_KEY_ALTERNATION.length];
-        } else {
-          const count = keySessionCount[session.discipline] || 0;
-          keySessionCount[session.discipline] = count + 1;
-          session.counter = keySessionCount;
-          type = count % 2 === 0 ? 'Fractionné' : partner;
-        }
+        if (week.recovery) type = 'Tempo';
+        else if (lateDevelopment) type = alternate(session, lateDevelopmentKeyCount, LATE_DEVELOPMENT_KEY_ALTERNATION);
+        else type = alternate(session, keySessionCount, ['Fractionné', partner]);
       }
       if (week.name === 'Spécifique' && session.role === 'clé' && session.discipline !== 'swim') {
-        const count = specificKeyCount[session.discipline] || 0;
-        specificKeyCount[session.discipline] = count + 1;
-        session.counter = specificKeyCount;
-        type = SPECIFIC_KEY_ALTERNATION[count % SPECIFIC_KEY_ALTERNATION.length];
+        // Continues the second-half Développement alternation (same types).
+        type = alternate(session, lateDevelopmentKeyCount, SPECIFIC_KEY_ALTERNATION);
       }
       if (session.discipline === 'swim' && session.role === 'clé' && week.phase === 1) {
-        if (week.recovery) {
-          type = SWIM_OBJECTIVE.technique;
-        } else if (week.name === 'Base 2') {
-          const count = baseSwimKeyCount.swim || 0;
-          baseSwimKeyCount.swim = count + 1;
-          session.counter = baseSwimKeyCount;
-          type = SWIM_BASE_KEY_ALTERNATION[count % SWIM_BASE_KEY_ALTERNATION.length];
-        }
+        if (week.recovery) type = SWIM_OBJECTIVE.technique;
+        else if (week.name === 'Base 2') type = alternate(session, baseSwimKeyCount, SWIM_BASE_KEY_ALTERNATION);
       }
       if (session.discipline === 'swim' && session.role === 'clé' && (week.phase === 2 || week.phase === 3)) {
-        if (week.recovery) {
-          type = SWIM_OBJECTIVE.technique;
-        } else if (lateDevelopment || week.phase === 3) {
-          const count = lateSwimKeyCount.swim || 0;
-          lateSwimKeyCount.swim = count + 1;
-          session.counter = lateSwimKeyCount;
-          type = SWIM_LATE_KEY_ALTERNATION[count % SWIM_LATE_KEY_ALTERNATION.length];
-        } else {
-          const count = keySessionCount.swim || 0;
-          keySessionCount.swim = count + 1;
-          session.counter = keySessionCount;
-          type = SWIM_KEY_ALTERNATION[count % SWIM_KEY_ALTERNATION.length];
-        }
+        if (week.recovery) type = SWIM_OBJECTIVE.technique;
+        else if (lateDevelopment || week.phase === 3) type = alternate(session, lateSwimKeyCount, SWIM_LATE_KEY_ALTERNATION);
+        else type = alternate(session, keySessionCount, SWIM_KEY_ALTERNATION);
       }
       session.type = type;
     }
+
+    // Very hard (Z5) sessions are capped too: 1 a week in Base, where
+    // intensity is still coming in, 2 later. An extra one takes the other
+    // type of its alternation instead (Fractionné becomes Tempo, Seuil or
+    // Allure cible; Vitesse becomes Seuil or Allure cible), and doesn't
+    // count, so it comes back next time. Same order as below: the lowest
+    // intensity sport gives way first, the swim on a tie.
+    const weightOf = discipline => disciplineWeights[disciplines.indexOf(discipline)];
+    const giveWayOrder = list => [...list].sort((a, b) =>
+      weightOf(a.discipline) - weightOf(b.discipline)
+      || (b.discipline === 'swim') - (a.discipline === 'swim')
+      || disciplines.indexOf(b.discipline) - disciplines.indexOf(a.discipline));
+    const z5Sessions = weekSessions.filter(s => Z5_TYPES.has(s.type) && s.alternation);
+    giveWayOrder(z5Sessions).slice(0, Math.max(0, z5Sessions.length - (week.phase === 1 ? 1 : 2))).forEach(session => {
+      session.counter[session.discipline]--;
+      session.counter = null; // already given back; the cap below mustn't do it again
+      session.type = session.alternation.find(t => !Z5_TYPES.has(t));
+    });
 
     // Keep only a few hard sessions this week. The ones dropped are those of
     // the sports with the lowest intensity (Faible before Normale before
     // Forte); on a tie, the swim goes first (the other sports need the
     // intensity more for a triathlon). A dropped key session doesn't count
     // in its alternation, so the type it would have had comes next time.
-    const weightOf = discipline => disciplineWeights[disciplines.indexOf(discipline)];
     const hardSessions = weekSessions.filter(s => HARD_TYPES.has(s.type));
-    const dropOrder = [...hardSessions].sort((a, b) =>
-      weightOf(a.discipline) - weightOf(b.discipline)
-      || (b.discipline === 'swim') - (a.discipline === 'swim')
-      || disciplines.indexOf(b.discipline) - disciplines.indexOf(a.discipline));
-    dropOrder.slice(0, Math.max(0, hardSessions.length - hardSessionCap(week, days.length))).forEach(session => {
+    giveWayOrder(hardSessions).slice(0, Math.max(0, hardSessions.length - hardSessionCap(week, days.length))).forEach(session => {
       if (session.counter) session.counter[session.discipline]--;
       session.type = session.discipline === 'swim' ? SWIM_OBJECTIVE.technique : 'Endurance';
     });
