@@ -63,8 +63,13 @@ let raceTargetDate = null;
 
 const CHECK_ICON_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square" stroke-linejoin="miter"><polyline points="4 12 9 17 20 6"/></svg>';
 
+// A full-rest contrainte day (discipline 'rest') shows in the plan, but
+// isn't a session: no detail to open, nothing to check.
 function dayRowHtml(s){
   const d = new Date(s.session_date + 'T00:00:00');
+  if (s.discipline === 'rest') {
+    return `<div class="day-row"><div class="day-badge"><div class="day-name">${FR_WEEKDAYS[d.getDay()]}</div><div class="day-num">${d.getDate()}</div></div><div class="day-card rest"><span class="day-card-icon">${s.icon}</span><span class="day-card-title">${escapeHtml(s.title)}</span>${s.tag ? `<span class="day-card-tag">${escapeHtml(s.tag)}</span>` : ''}</div></div>`;
+  }
   return `<div class="day-row"><div class="day-badge"><div class="day-name">${FR_WEEKDAYS[d.getDay()]}</div><div class="day-num">${d.getDate()}</div></div><button type="button" class="day-card ${s.discipline}${s.done ? ' done' : ''}" data-key="${s.session_key}"><span class="day-card-icon">${s.icon}</span><span class="day-card-title">${escapeHtml(s.title)}</span><span class="day-card-check">${s.done ? CHECK_ICON_SVG : ''}</span></button></div>`;
 }
 
@@ -276,8 +281,12 @@ function weekBlockHtml(weekNumber, sessions, isOpen){
   const range = sessionDates.length ? [sessionDates[0], sessionDates[sessionDates.length - 1]] : null;
   const datesHtml = range ? `<span class="week-dates">${formatWeekDates(range)}</span>` : '';
   const doneCount = sessions.filter(s => s.done).length;
+  const trainingCount = sessions.filter(s => s.discipline !== 'rest').length;
+  const countHtml = trainingCount === 0
+    ? '<span class="week-count">Repos</span>'
+    : `<span class="week-count"><span class="wc-done">${doneCount}</span>/${trainingCount}</span>`;
 
-  return `<details class="week-block" data-week="wk${weekNumber}"${isOpen ? ' open' : ''}><summary class="week-heading"><span>${label} ${datesHtml}</span><span class="week-right"><span class="week-count"><span class="wc-done">${doneCount}</span>/${sessions.length}</span><svg class="chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span></summary><div class="day-list">${sorted.map(dayRowHtml).join('')}</div></details>`;
+  return `<details class="week-block" data-week="wk${weekNumber}"${isOpen ? ' open' : ''}><summary class="week-heading"><span>${label} ${datesHtml}</span><span class="week-right">${countHtml}<svg class="chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span></summary><div class="day-list">${sorted.map(dayRowHtml).join('')}</div></details>`;
 }
 
 async function loadAndRenderSessions(){
@@ -338,7 +347,7 @@ function refreshBetaPlan(){
 }
 
 function attachDayCardHandlers(){
-  document.querySelectorAll('.day-card').forEach(card => {
+  document.querySelectorAll('.day-card[data-key]').forEach(card => {
     card.addEventListener('click', () => openDetail(card.dataset.key));
   });
 }
@@ -391,7 +400,7 @@ function reRenderWeekDayList(phase, weekNumber){
     .sort((a, b) => (a.session_date || '').localeCompare(b.session_date || ''));
 
   container.innerHTML = sessions.map(dayRowHtml).join('');
-  container.querySelectorAll('.day-card').forEach(card => {
+  container.querySelectorAll('.day-card[data-key]').forEach(card => {
     card.addEventListener('click', () => openDetail(card.dataset.key));
   });
 }
@@ -474,7 +483,7 @@ function betaProgressCardHtml(){
 function refreshProgress(){
   const now = new Date();
   const includeRenfo = progressIncludesRenfo();
-  const counted = Array.from(sessionsByKey.values()).filter(s => includeRenfo || s.discipline !== 'strength');
+  const counted = Array.from(sessionsByKey.values()).filter(s => s.discipline !== 'rest' && (includeRenfo || s.discipline !== 'strength'));
 
   const weeks = new Map();
   for (const s of counted) {
@@ -1092,7 +1101,7 @@ function prefsFieldsHtml(preferences){
     <div class="goal-field">
       <label>Renforcement</label>
       <div class="strength-slider-row">${strengthSliderHtml(preferences.strength_sessions_per_week || 0)}</div>
-      <p class="field-hint">Le renfo ne compte pas dans tes jours d'entraînement : il s'ajoute à la séance d'un de ces jours.</p>
+      <p class="field-hint">Le renfo ne compte pas dans tes jours d'entraînement sélectionnés : il s'ajoute à l'un de ces jours.</p>
     </div>`;
 }
 
@@ -2582,6 +2591,31 @@ function buildGeneratedPlan(){
     }
   }
 
+  // Full-rest contraintes: each training day they cover gets a "Repos
+  // complet" row, so the plan still shows those days (and a whole rest week)
+  // instead of leaving a gap. Not a session: not counted, not checkable.
+  for (const [weekNumber, days] of weekDays) {
+    const week = season[weekNumber - 1];
+    days.forEach(day => {
+      const constraint = constraintForDate(day.dateStr);
+      if (!constraint || constraint.allowed_disciplines.length !== 0) return;
+      sessionCounter++;
+      rows.push({
+        session_key: `gen-${sessionCounter}`,
+        week_number: weekNumber,
+        phase: week.phase,
+        order_index: 2000,
+        discipline: 'rest',
+        icon: '🛌',
+        title: 'Repos complet',
+        tag: constraint.title || null,
+        duration_min: null,
+        segments: [],
+        session_date: day.dateStr,
+      });
+    });
+  }
+
   return rows;
 }
 
@@ -3201,7 +3235,7 @@ function raceInfoFieldsHtml(goals){
       <input type="hidden" id="race-info-date" value="${goals.race_date || ''}">
       <button type="button" class="calendar-trigger-btn" id="race-date-btn">📅 ${goals.race_date ? formatDateShort(goals.race_date) : 'Choisir la date'}</button>
       <div class="calendar-panel" id="race-date-calendar-panel" hidden></div>
-      <p class="field-hint">Il faut au moins ${MIN_PLAN_WEEKS} semaines pour préparer une course : les dates plus proches du début du plan ne sont pas proposées.</p>
+      <p class="field-hint">Durée minimum d'un plan : ${MIN_PLAN_WEEKS} semaines</p>
     </div>
     <div class="goal-field">
       <label>Format</label>
