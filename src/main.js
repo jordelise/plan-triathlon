@@ -101,7 +101,7 @@ function sessionDetailHtml(s){
     legendRows.push(`<div class="zone-legend-row">${keyPaceChip}<span>${KEY_PACE.feel}</span></div>`);
   }
   const zoneLegendHtml = legendRows.length ? `<div class="zone-legend">${legendRows.join('')}</div>` : '';
-  const stravaHtml = s.session_date
+  const stravaHtml = s.session_date && hasFullAccess()
     ? `<p class="detail-card-title">Résultat de la séance</p><div class="detail-card detail-strava"><div id="detail-strava"><p class="detail-strava-status">Chargement Strava…</p></div></div>`
     : '';
   // Test: only s2-3 has a hand-built .fit file for now, to validate the
@@ -262,7 +262,7 @@ async function isStravaVisible(){
 }
 
 async function refreshStravaRowVisibility(){
-  document.getElementById('strava-settings-row').hidden = !(await isStravaVisible());
+  document.getElementById('strava-settings-row').hidden = !hasFullAccess() || !(await isStravaVisible());
 }
 
 function weekBlockHtml(weekNumber, sessions, isOpen){
@@ -319,8 +319,22 @@ async function loadAndRenderSessions(){
       .join('');
   });
 
+  refreshBetaPlan();
   attachDayCardHandlers();
   refreshProgress();
+}
+
+// The Beta tab shows the same sessions: redraw its progress card and plan
+// whenever they're reloaded (a recalculation, the onboarding generating the
+// plan), so changes show without reloading the page.
+function refreshBetaPlan(){
+  const progress = document.getElementById('beta-progress');
+  const plan = document.getElementById('beta-plan-section');
+  if (progress) {
+    progress.innerHTML = sessionsByKey.size > 0 ? betaProgressCardHtml() : '';
+    wireProgressRenfoToggle(document.getElementById('beta-progress-renfo-toggle'));
+  }
+  if (plan) plan.innerHTML = betaPlanSectionHtml();
 }
 
 function attachDayCardHandlers(){
@@ -335,7 +349,7 @@ function openDetail(sessionKey){
 
   const content = document.getElementById('detail-content');
   content.innerHTML = sessionDetailHtml(s);
-  if (s.session_date) loadStravaForSession(s);
+  if (s.session_date && hasFullAccess()) loadStravaForSession(s);
 
   const checkbox = document.getElementById('detail-done-checkbox');
   checkbox.addEventListener('change', () => {
@@ -549,7 +563,7 @@ async function initApp(){
 
   if (new URLSearchParams(location.search).has('strava')) {
     history.replaceState(null, '', location.pathname);
-    openStravaSettings();
+    if (hasFullAccess()) openStravaSettings();
   }
 }
 
@@ -652,6 +666,12 @@ document.getElementById('sign-out-btn').addEventListener('click', () => {
 });
 
 const FULL_ACCESS_EMAIL = 'elisejord@gmail.com';
+// Strava (and the hand-written Plan tab) only exist for this account: other
+// accounts see no trace of them.
+let currentUserEmail = null;
+function hasFullAccess(){
+  return currentUserEmail === FULL_ACCESS_EMAIL;
+}
 
 function updatePlanTabVisibility(email){
   const hasFullAccess = email === FULL_ACCESS_EMAIL;
@@ -678,6 +698,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     // else) - not on every token refresh for the same user. The gate
     // stays up until the fetch resolves, so the previous account's (or
     // the static placeholder's) data is never revealed even briefly.
+    currentUserEmail = session.user.email;
     if (session.user.id !== initializedUserId) {
       initializedUserId = session.user.id;
       await initApp();
@@ -687,6 +708,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
   } else {
     authGate.hidden = false;
     initializedUserId = null;
+    currentUserEmail = null;
   }
 });
 
@@ -1003,16 +1025,20 @@ function constraintRowHtml(constraint){
   </div>`;
 }
 
-const WIZARD_STEP_LABELS = ['Course', 'Habitudes', 'Contraintes', 'Strava'];
+// The Strava step only shows for the account that has Strava.
+const wizardStepLabels = () => (hasFullAccess()
+  ? ['Course', 'Habitudes', 'Contraintes', 'Strava']
+  : ['Course', 'Habitudes', 'Contraintes']);
 
 function wizardStepsHtml(step){
-  return `<div class="wizard-steps">${WIZARD_STEP_LABELS.map((label, i) => {
+  const labels = wizardStepLabels();
+  return `<div class="wizard-steps">${labels.map((label, i) => {
     const n = i + 1;
     const stepHtml = `<div class="wizard-step${step >= n ? ' active' : ''}${step > n ? ' done' : ''}">
       <span class="wizard-step-num">${step > n ? '✓' : n}</span>
       <span class="wizard-step-label">${label}</span>
     </div>`;
-    const lineHtml = n < WIZARD_STEP_LABELS.length ? `<div class="wizard-step-line${step > n ? ' done' : ''}"></div>` : '';
+    const lineHtml = n < labels.length ? `<div class="wizard-step-line${step > n ? ' done' : ''}"></div>` : '';
     return stepHtml + lineHtml;
   }).join('')}</div>`;
 }
@@ -1191,7 +1217,7 @@ function trainingPrefsStep2Html(preferences, constraints){
     ${wizardStepsHtml(3)}
     ${contraintesSectionHtml(preferences, constraints, true)}
     <p class="wizard-error" id="contraintes-step-error" hidden></p>
-    <button type="button" class="goal-save-btn wizard-next-btn" id="prefs-step2-next-btn" style="margin-top:24px;">Suivant →</button>
+    <button type="button" class="goal-save-btn wizard-next-btn" id="prefs-step2-next-btn" style="margin-top:24px;">${hasFullAccess() ? 'Suivant →' : 'Terminer ✓'}</button>
   </div>`;
 }
 
@@ -1288,8 +1314,8 @@ function trainingPrefsFullFormHtml(preferences, constraints){
     + panel('course', '<div id="course-view"></div>')
     + panel('habits', '<div id="habits-view"></div>')
     + panel('constraints', contraintesSectionHtml(preferences, constraints))
-    + (sessionsByKey.size > 0 ? betaProgressCardHtml() : '')
-    + betaPlanSectionHtml()
+    + `<div id="beta-progress">${sessionsByKey.size > 0 ? betaProgressCardHtml() : ''}</div>`
+    + `<div id="beta-plan-section">${betaPlanSectionHtml()}</div>`
     + resetPlanSectionHtml();
 }
 
@@ -2872,7 +2898,7 @@ function renderTrainingPrefsPanel(){
           return;
         }
         errorEl.hidden = true;
-        if (await isStravaVisible()) {
+        if (hasFullAccess() && await isStravaVisible()) {
           trainingPrefsStep = 4;
           renderTrainingPrefsPanel();
         } else {
